@@ -1,15 +1,21 @@
 {
   "name": "bc-order-search",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "BigCommerce Order Search with PostgreSQL Database",
   "main": "server.js",
-  "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "sync": "node sync.js",
+    "sync:full": "node sync.js --full"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "pg": "^8.11.5",
-    "node-fetch": "^2.7.0"
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

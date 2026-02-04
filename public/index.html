@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Search</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .header {
+      background: #333;
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 20px; }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .user-info { color: #aaa; }
+    .logout-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .search-box {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .search-row {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .search-row select,
+    .search-row input {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    .search-row select { width: 150px; }
+    .search-row input { flex: 1; min-width: 200px; }
+    .search-row button {
+      padding: 12px 30px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .search-row button:hover { background: #0056b3; }
+    .search-row button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .db-stats {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+      font-size: 13px;
+      color: #666;
+    }
+    .results {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .results-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      font-weight: 600;
+    }
+    .no-results {
+      padding: 40px;
+      text-align: center;
+      color: #666;
+    }
+    .order-row {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .order-row:hover { background: #f8f9fa; }
+    .order-row:last-child { border-bottom: none; }
+    .order-info { flex: 1; }
+    .order-id { font-weight: 600; color: #007bff; }
+    .order-customer { color: #333; margin-top: 3px; }
+    .order-email { color: #666; font-size: 14px; }
+    .order-meta { text-align: right; }
+    .order-total { font-weight: 600; font-size: 18px; }
+    .order-status { 
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    .status-completed { background: #d4edda; color: #155724; }
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-shipped { background: #cce5ff; color: #004085; }
+    .status-refunded { background: #f8d7da; color: #721c24; }
+    
+    /* Order Detail Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    .modal.active { display: block; }
+    .modal-content {
+      background: white;
+      margin: 30px auto;
+      max-width: 900px;
+      border-radius: 8px;
+      max-height: calc(100vh - 60px);
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: white;
+    }
+    .modal-header h2 { margin: 0; }
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: #666;
+    }
+    .modal-body { padding: 20px; }
+    .detail-section {
+      margin-bottom: 25px;
+    }
+    .detail-section h3 {
+      margin-bottom: 10px;
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .detail-item label {
+      display: block;
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+    .detail-item span {
+      font-weight: 500;
+    }
+    .product-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .product-table th,
+    .product-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .product-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+    }
+    .tracking-link {
+      color: #007bff;
+      text-decoration: none;
+    }
+    .tracking-link:hover { text-decoration: underline; }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Order Search</h1>
+    <div class="header-right">
+      <span class="user-info">Logged in as: <strong id="username"></strong></span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="search-box">
+      <div class="search-row">
+        <select id="store">
+          <option value="1ink">1ink.com</option>
+          <option value="needink">needink.com</option>
+        </select>
+        <select id="searchType">
+          <option value="order">Order Number</option>
+          <option value="email">Email</option>
+          <option value="name">Name</option>
+          <option value="phone">Phone</option>
+        </select>
+        <input type="text" id="searchQuery" placeholder="Enter search term..." onkeypress="if(event.key==='Enter')search()">
+        <button onclick="search()" id="searchBtn">Search</button>
+      </div>
+      <div class="db-stats" id="dbStats"></div>
+    </div>
+    
+    <div class="results" id="results">
+      <div class="no-results">Enter a search term above to find orders</div>
+    </div>
+  </div>
+  
+  <!-- Order Detail Modal -->
+  <div class="modal" id="orderModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Order #<span id="modalOrderId"></span></h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div class="loading">Loading order details...</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let currentStore = '1ink';
+    
+    // Check authentication on page load
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth-check');
+        const data = await response.json();
+        
+        if (!data.authenticated) {
+          window.location.href = '/login';
+          return;
+        }
+        
+        document.getElementById('username').textContent = data.user;
+        loadDbStats();
+      } catch (err) {
+        window.location.href = '/login';
+      }
+    }
+    
+    // Load database stats
+    async function loadDbStats() {
+      try {
+        const response = await fetch('/api/db-stats');
+        const stats = await response.json();
+        
+        const store = document.getElementById('store').value;
+        const storeStats = stats[store];
+        
+        if (storeStats && storeStats.count > 0) {
+          const oldest = new Date(storeStats.oldest).toLocaleDateString();
+          const newest = new Date(storeStats.newest).toLocaleDateString();
+          document.getElementById('dbStats').innerHTML = 
+            `<strong>${store}:</strong> ${storeStats.count.toLocaleString()} orders indexed (${oldest} to ${newest})`;
+        } else {
+          document.getElementById('dbStats').innerHTML = 
+            `<strong>${store}:</strong> No orders indexed yet. Run sync to populate.`;
+        }
+      } catch (err) {
+        document.getElementById('dbStats').textContent = '';
+      }
+    }
+    
+    // Update stats when store changes
+    document.getElementById('store').addEventListener('change', loadDbStats);
+    
+    // Search orders (POST)
+    async function search() {
+      const store = document.getElementById('store').value;
+      const searchType = document.getElementById('searchType').value;
+      const query = document.getElementById('searchQuery').value.trim();
+      
+      if (!query) {
+        alert('Please enter a search term');
+        return;
+      }
+      
+      const btn = document.getElementById('searchBtn');
+      const resultsDiv = document.getElementById('results');
+      
+      btn.disabled = true;
+      btn.textContent = 'Searching...';
+      resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+      
+      try {
+        const response = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store, searchType, query })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Search failed');
+        }
+        
+        currentStore = store;
+        displayResults(data.orders);
+        
+      } catch (err) {
+        resultsDiv.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Search';
+      }
+    }
+    
+    // Display search results
+    function displayResults(orders) {
+      const resultsDiv = document.getElementById('results');
+      
+      if (!orders || orders.length === 0) {
+        resultsDiv.innerHTML = '<div class="no-results">No orders found</div>';
+        return;
+      }
+      
+      let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found</div>`;
+      
+      for (const order of orders) {
+        const date = new Date(order.date_created).toLocaleDateString();
+        const statusClass = getStatusClass(order.status);
+        const customerName = order.billing_address 
+          ? `${order.billing_address.first_name || ''} ${order.billing_address.last_name || ''}`.trim()
+          : 'Guest';
+        const customerEmail = order.billing_address?.email || '';
+        
+        html += `
+          <div class="order-row" onclick="viewOrder(${order.id})">
+            <div class="order-info">
+              <div class="order-id">#${order.id}</div>
+              <div class="order-customer">${customerName}</div>
+              <div class="order-email">${customerEmail}</div>
+            </div>
+            <div class="order-meta">
+              <div class="order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
+              <div class="order-status ${statusClass}">${order.status}</div>
+              <div style="color: #666; font-size: 13px; margin-top: 5px;">${date}</div>
+            </div>
+          </div>
+        `;
+      }
+      
+      resultsDiv.innerHTML = html;
+    }
+    
+    // Get status class
+    function getStatusClass(status) {
+      status = (status || '').toLowerCase();
+      if (status.includes('complete')) return 'status-completed';
+      if (status.includes('ship')) return 'status-shipped';
+      if (status.includes('refund')) return 'status-refunded';
+      return 'status-pending';
+    }
+    
+    // View order details
+    async function viewOrder(orderId) {
+      const modal = document.getElementById('orderModal');
+      const modalBody = document.getElementById('modalBody');
+      
+      document.getElementById('modalOrderId').textContent = orderId;
+      modalBody.innerHTML = '<div class="loading">Loading order details...</div>';
+      modal.classList.add('active');
+      
+      try {
+        const response = await fetch(`/api/order/${currentStore}/${orderId}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load order');
+        }
+        
+        displayOrderDetail(data);
+        
+      } catch (err) {
+        modalBody.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
+      }
+    }
+    
+    // Display order detail
+    function displayOrderDetail(data) {
+      const order = data.order;
+      const products = data.products || [];
+      const shippingAddresses = data.shippingAddresses || [];
+      const shipments = data.shipments || [];
+      
+      const billing = order.billing_address || {};
+      const shipping = shippingAddresses[0] || billing;
+      
+      let html = `
+        <div class="detail-section">
+          <h3>Order Information</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>Order Date</label>
+              <span>${new Date(order.date_created).toLocaleString()}</span>
+            </div>
+            <div class="detail-item">
+              <label>Status</label>
+              <span>${order.status}</span>
+            </div>
+            <div class="detail-item">
+              <label>Payment Status</label>
+              <span>${order.payment_status || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+              <label>Payment Method</label>
+              <span>${order.payment_method || 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h3>Customer - Billing</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>Name</label>
+              <span>${billing.first_name || ''} ${billing.last_name || ''}</span>
+            </div>
+            <div class="detail-item">
+              <label>Email</label>
+              <span>${billing.email || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+              <label>Phone</label>
+              <span>${billing.phone || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+              <label>Address</label>
+              <span>${billing.street_1 || ''} ${billing.street_2 || ''}<br>
+              ${billing.city || ''}, ${billing.state || ''} ${billing.zip || ''}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h3>Shipping Address</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>Name</label>
+              <span>${shipping.first_name || ''} ${shipping.last_name || ''}</span>
+            </div>
+            <div class="detail-item">
+              <label>Address</label>
+              <span>${shipping.street_1 || ''} ${shipping.street_2 || ''}<br>
+              ${shipping.city || ''}, ${shipping.state || ''} ${shipping.zip || ''}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h3>Products</h3>
+          <table class="product-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>SKU</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
+      for (const product of products) {
+        html += `
+          <tr>
+            <td>${product.name}</td>
+            <td>${product.sku || 'N/A'}</td>
+            <td>${product.quantity}</td>
+            <td>$${parseFloat(product.price_inc_tax || 0).toFixed(2)}</td>
+            <td>$${parseFloat(product.total_inc_tax || 0).toFixed(2)}</td>
+          </tr>
+        `;
+      }
+      
+      html += `
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="detail-section">
+          <h3>Order Totals</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>Subtotal</label>
+              <span>$${parseFloat(order.subtotal_inc_tax || 0).toFixed(2)}</span>
+            </div>
+            <div class="detail-item">
+              <label>Shipping</label>
+              <span>$${parseFloat(order.shipping_cost_inc_tax || 0).toFixed(2)}</span>
+            </div>
+            <div class="detail-item">
+              <label>Discount</label>
+              <span>-$${parseFloat(order.discount_amount || 0).toFixed(2)}</span>
+            </div>
+            <div class="detail-item">
+              <label>Tax</label>
+              <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span>
+            </div>
+            <div class="detail-item">
+              <label><strong>Total</strong></label>
+              <span><strong>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</strong></span>
+            </div>
+            ${parseFloat(order.refunded_amount || 0) > 0 ? `
+            <div class="detail-item">
+              <label style="color: #dc3545;">Refunded</label>
+              <span style="color: #dc3545;">-$${parseFloat(order.refunded_amount).toFixed(2)}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+      
+      // Tracking info
+      if (shipments && shipments.length > 0) {
+        html += `<div class="detail-section"><h3>Tracking</h3>`;
+        for (const shipment of shipments) {
+          const trackingUrl = getTrackingUrl(shipment.tracking_carrier, shipment.tracking_number);
+          html += `
+            <div style="margin-bottom: 10px;">
+              <strong>${shipment.shipping_method || 'Shipment'}</strong><br>
+              ${trackingUrl 
+                ? `<a href="${trackingUrl}" target="_blank" class="tracking-link">${shipment.tracking_number}</a>`
+                : shipment.tracking_number || 'No tracking'
+              }
+              <span style="color: #666; margin-left: 10px;">(${shipment.tracking_carrier || 'Unknown carrier'})</span>
+            </div>
+          `;
+        }
+        html += `</div>`;
+      }
+      
+      // Notes
+      if (order.customer_message || order.staff_notes) {
+        html += `<div class="detail-section"><h3>Notes</h3>`;
+        if (order.customer_message) {
+          html += `<p><strong>Customer:</strong> ${order.customer_message}</p>`;
+        }
+        if (order.staff_notes) {
+          html += `<p><strong>Staff:</strong> ${order.staff_notes}</p>`;
+        }
+        html += `</div>`;
+      }
+      
+      document.getElementById('modalBody').innerHTML = html;
+    }
+    
+    // Get tracking URL
+    function getTrackingUrl(carrier, number) {
+      if (!number) return null;
+      carrier = (carrier || '').toLowerCase();
+      
+      if (carrier.includes('usps')) {
+        return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${number}`;
+      } else if (carrier.includes('ups')) {
+        return `https://www.ups.com/track?tracknum=${number}`;
+      } else if (carrier.includes('fedex')) {
+        return `https://www.fedex.com/fedextrack/?trknbr=${number}`;
+      } else if (carrier.includes('dhl')) {
+        return `https://www.dhl.com/en/express/tracking.html?AWB=${number}`;
+      }
+      return null;
+    }
+    
+    // Close modal
+    function closeModal() {
+      document.getElementById('orderModal').classList.remove('active');
+    }
+    
+    // Close modal on outside click
+    document.getElementById('orderModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+    
+    // Logout
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+    
+    // Initialize
+    checkAuth();
+  </script>
+</body>
+</html>
