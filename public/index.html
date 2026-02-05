@@ -102,16 +102,50 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      cursor: pointer;
       transition: background 0.2s;
     }
     .order-row:hover { background: #f8f9fa; }
-    .order-row:last-child { border-bottom: none; }
-    .order-info { flex: 1; }
+    
+    /* Expand button - NEW */
+    .expand-btn {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #ddd;
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: #666;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      margin-right: 15px;
+    }
+    .expand-btn:hover {
+      background: #007bff;
+      border-color: #007bff;
+      color: #fff;
+    }
+    .expand-btn.expanded {
+      background: #007bff;
+      border-color: #007bff;
+      color: #fff;
+    }
+    
+    .order-info { 
+      flex: 1; 
+      cursor: pointer;
+    }
     .order-id { font-weight: 600; color: #007bff; }
     .order-customer { color: #333; margin-top: 3px; }
     .order-email { color: #666; font-size: 14px; }
-    .order-meta { text-align: right; }
+    .order-meta { 
+      text-align: right; 
+      cursor: pointer;
+    }
     .order-total { font-weight: 600; font-size: 18px; }
     .order-status { 
       display: inline-block;
@@ -124,6 +158,77 @@
     .status-pending { background: #fff3cd; color: #856404; }
     .status-shipped { background: #cce5ff; color: #004085; }
     .status-refunded { background: #f8d7da; color: #721c24; }
+    
+    /* Preview Panel - NEW */
+    .preview-panel {
+      display: none;
+      background: #f8fafc;
+      border-bottom: 1px solid #eee;
+    }
+    .preview-panel.show {
+      display: block;
+    }
+    .preview-content {
+      padding: 15px 20px 15px 60px;
+      border-left: 3px solid #007bff;
+      margin-left: 20px;
+    }
+    .preview-loading {
+      padding: 15px;
+      color: #666;
+      font-style: italic;
+    }
+    .preview-items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .preview-items-table th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #e9ecef;
+      font-weight: 600;
+      color: #555;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .preview-items-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .preview-items-table .sku {
+      font-family: monospace;
+      font-size: 13px;
+      color: #666;
+    }
+    .preview-items-table .qty {
+      text-align: center;
+    }
+    .preview-items-table .price {
+      text-align: right;
+    }
+    .preview-total {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+      text-align: right;
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .view-full-btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 6px 14px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .view-full-btn:hover {
+      background: #218838;
+    }
     
     /* Order Detail Modal */
     .modal {
@@ -352,6 +457,8 @@
   
   <script>
     let currentStore = '1ink';
+    let expandedOrders = {};    // Track which orders are expanded
+    let orderDetailsCache = {}; // Cache loaded order details
     
     // Check authentication on page load
     async function checkAuth() {
@@ -395,7 +502,12 @@
     }
     
     // Update stats when store changes
-    document.getElementById('store').addEventListener('change', loadDbStats);
+    document.getElementById('store').addEventListener('change', function() {
+      loadDbStats();
+      // Clear cache when switching stores
+      expandedOrders = {};
+      orderDetailsCache = {};
+    });
     
     // Search orders (POST)
     async function search() {
@@ -414,6 +526,10 @@
       btn.disabled = true;
       btn.textContent = 'Searching...';
       resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+      
+      // Clear expanded state on new search
+      expandedOrders = {};
+      orderDetailsCache = {};
       
       try {
         const response = await fetch('/api/search', {
@@ -439,7 +555,7 @@
       }
     }
     
-    // Display search results
+    // Display search results with expand buttons
     function displayResults(orders) {
       const resultsDiv = document.getElementById('results');
       
@@ -459,22 +575,119 @@
         const customerEmail = order.billing_address?.email || '';
         
         html += `
-          <div class="order-row" onclick="viewOrder(${order.id})">
-            <div class="order-info">
+          <div class="order-row" id="order-row-${order.id}">
+            <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
+            <div class="order-info" onclick="viewOrder(${order.id})">
               <div class="order-id">#${order.id}</div>
               <div class="order-customer">${customerName}</div>
               <div class="order-email">${customerEmail}</div>
             </div>
-            <div class="order-meta">
+            <div class="order-meta" onclick="viewOrder(${order.id})">
               <div class="order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
               <div class="order-status ${statusClass}">${order.status}</div>
               <div style="color: #666; font-size: 13px; margin-top: 5px;">${date}</div>
+            </div>
+          </div>
+          <div class="preview-panel" id="preview-${order.id}">
+            <div class="preview-content" id="preview-content-${order.id}">
+              <div class="preview-loading">Loading items...</div>
             </div>
           </div>
         `;
       }
       
       resultsDiv.innerHTML = html;
+    }
+    
+    // Toggle preview panel
+    async function togglePreview(event, orderId) {
+      event.stopPropagation();
+      
+      const previewPanel = document.getElementById(`preview-${orderId}`);
+      const expandBtn = document.querySelector(`#order-row-${orderId} .expand-btn`);
+      const previewContent = document.getElementById(`preview-content-${orderId}`);
+      
+      if (expandedOrders[orderId]) {
+        // Collapse
+        previewPanel.classList.remove('show');
+        expandBtn.classList.remove('expanded');
+        expandBtn.textContent = '+';
+        delete expandedOrders[orderId];
+      } else {
+        // Expand
+        previewPanel.classList.add('show');
+        expandBtn.classList.add('expanded');
+        expandBtn.textContent = '−';
+        expandedOrders[orderId] = true;
+        
+        // Load items if not cached
+        if (!orderDetailsCache[orderId]) {
+          previewContent.innerHTML = '<div class="preview-loading">Loading items...</div>';
+          
+          try {
+            const response = await fetch(`/api/order/${currentStore}/${orderId}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+              throw new Error(data.error || 'Failed to load');
+            }
+            
+            orderDetailsCache[orderId] = data;
+            renderPreviewItems(orderId, data);
+          } catch (err) {
+            previewContent.innerHTML = `<div class="preview-loading" style="color: #dc3545;">Failed to load items</div>`;
+          }
+        } else {
+          renderPreviewItems(orderId, orderDetailsCache[orderId]);
+        }
+      }
+    }
+    
+    // Render preview items
+    function renderPreviewItems(orderId, data) {
+      const previewContent = document.getElementById(`preview-content-${orderId}`);
+      const products = data.products || [];
+      const order = data.order || {};
+      
+      if (products.length === 0) {
+        previewContent.innerHTML = '<div class="preview-loading">No items in this order</div>';
+        return;
+      }
+      
+      let html = `
+        <table class="preview-items-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Product</th>
+              <th class="qty">Qty</th>
+              <th class="price">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      for (const p of products) {
+        html += `
+          <tr>
+            <td class="sku">${p.sku || '-'}</td>
+            <td>${p.name}</td>
+            <td class="qty">${p.quantity}</td>
+            <td class="price">$${parseFloat(p.total_inc_tax || 0).toFixed(2)}</td>
+          </tr>
+        `;
+      }
+      
+      html += `
+          </tbody>
+        </table>
+        <div class="preview-total">
+          Order Total: $${parseFloat(order.total_inc_tax || 0).toFixed(2)}
+        </div>
+        <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
+      `;
+      
+      previewContent.innerHTML = html;
     }
     
     // Get status class
@@ -492,8 +705,15 @@
       const modalBody = document.getElementById('modalBody');
       
       document.getElementById('modalOrderId').textContent = orderId;
-      modalBody.innerHTML = '<div class="loading">Loading order details...</div>';
       modal.classList.add('active');
+      
+      // Use cache if available
+      if (orderDetailsCache[orderId]) {
+        displayOrderDetail(orderDetailsCache[orderId]);
+        return;
+      }
+      
+      modalBody.innerHTML = '<div class="loading">Loading order details...</div>';
       
       try {
         const response = await fetch(`/api/order/${currentStore}/${orderId}`);
@@ -503,6 +723,7 @@
           throw new Error(data.error || 'Failed to load order');
         }
         
+        orderDetailsCache[orderId] = data;
         displayOrderDetail(data);
         
       } catch (err) {
