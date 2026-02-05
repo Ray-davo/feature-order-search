@@ -469,13 +469,7 @@
           <option value="1ink">1ink.com</option>
           <option value="needink">needink.com</option>
         </select>
-        <select id="searchType">
-          <option value="order">Order Number</option>
-          <option value="email">Email</option>
-          <option value="name">Name</option>
-          <option value="phone">Phone</option>
-        </select>
-        <input type="text" id="searchQuery" placeholder="Enter search term..." onkeypress="if(event.key==='Enter')search()">
+        <input type="text" id="searchQuery" placeholder="Order #, email, phone, or name..." onkeypress="if(event.key==='Enter')search()">
         <button onclick="search()" id="searchBtn">Search</button>
       </div>
       <div class="db-stats" id="dbStats"></div>
@@ -553,10 +547,40 @@
       orderDetailsCache = {};
     });
     
+    // Detect search type based on input
+    function detectSearchType(query, store) {
+      const trimmed = query.trim();
+      
+      // Email: contains @
+      if (trimmed.includes('@')) {
+        return { type: 'email', label: 'Email' };
+      }
+      
+      // Order number: check patterns
+      const digitsOnly = trimmed.replace(/\D/g, '');
+      
+      // 1ink: 7 digits starting with 7
+      if (store === '1ink' && /^7\d{6}$/.test(digitsOnly)) {
+        return { type: 'order', label: 'Order #' };
+      }
+      
+      // needink: 6 digits starting with 89 or 90
+      if (store === 'needink' && /^(89|90)\d{4}$/.test(digitsOnly)) {
+        return { type: 'order', label: 'Order #' };
+      }
+      
+      // Phone: 10-11 digits (after removing formatting)
+      if (/^\d{10,11}$/.test(digitsOnly)) {
+        return { type: 'phone', label: 'Phone' };
+      }
+      
+      // Default: name search
+      return { type: 'name', label: 'Name' };
+    }
+    
     // Search orders (POST)
     async function search() {
       const store = document.getElementById('store').value;
-      const searchType = document.getElementById('searchType').value;
       const query = document.getElementById('searchQuery').value.trim();
       
       if (!query) {
@@ -564,12 +588,16 @@
         return;
       }
       
+      // Auto-detect search type
+      const detected = detectSearchType(query, store);
+      const searchType = detected.type;
+      
       const btn = document.getElementById('searchBtn');
       const resultsDiv = document.getElementById('results');
       
       btn.disabled = true;
       btn.textContent = 'Searching...';
-      resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+      resultsDiv.innerHTML = `<div class="loading">Searching by ${detected.label}...</div>`;
       
       // Clear expanded state on new search
       expandedOrders = {};
@@ -589,7 +617,7 @@
         }
         
         currentStore = store;
-        displayResults(data.orders);
+        displayResults(data.orders, detected.label);
         
       } catch (err) {
         resultsDiv.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
@@ -600,7 +628,7 @@
     }
     
     // Display search results with expand buttons
-    function displayResults(orders) {
+    function displayResults(orders, searchedBy) {
       const resultsDiv = document.getElementById('results');
       
       if (!orders || orders.length === 0) {
@@ -608,7 +636,7 @@
         return;
       }
       
-      let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found</div>`;
+      let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span></div>`;
       
       for (const order of orders) {
         const date = new Date(order.date_created).toLocaleDateString();
