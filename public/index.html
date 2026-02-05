@@ -19,6 +19,15 @@
       justify-content: space-between;
       align-items: center;
     }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .logo {
+      height: 36px;
+      width: auto;
+    }
     .header h1 { font-size: 20px; }
     .header-right {
       display: flex;
@@ -455,7 +464,10 @@
 </head>
 <body>
   <div class="header">
-    <h1>Order Search</h1>
+    <div class="header-left">
+      <img src="https://cdn11.bigcommerce.com/s-9u5u1ss/content/banners/1ink-logo-trademark-invoice.png" alt="1ink" class="logo">
+      <h1>Order Search</h1>
+    </div>
     <div class="header-right">
       <span class="user-info">Logged in as: <strong id="username"></strong></span>
       <button class="logout-btn" onclick="logout()">Logout</button>
