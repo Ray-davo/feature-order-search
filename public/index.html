@@ -141,7 +141,7 @@
     .modal-content {
       background: white;
       margin: 30px auto;
-      max-width: 900px;
+      max-width: 800px;
       border-radius: 8px;
       max-height: calc(100vh - 60px);
       overflow-y: auto;
@@ -155,6 +155,7 @@
       position: sticky;
       top: 0;
       background: white;
+      z-index: 10;
     }
     .modal-header h2 { margin: 0; }
     .close-btn {
@@ -165,48 +166,137 @@
       color: #666;
     }
     .modal-body { padding: 20px; }
-    .detail-section {
-      margin-bottom: 25px;
-    }
-    .detail-section h3 {
-      margin-bottom: 10px;
-      color: #333;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 5px;
-    }
-    .detail-grid {
+    
+    /* Clean Order Detail Styles */
+    .order-detail-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
     }
-    .detail-item label {
-      display: block;
+    .order-detail-box {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 6px;
+    }
+    .order-detail-box h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
       color: #666;
-      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .order-detail-box p {
+      margin: 0;
+      line-height: 1.5;
+    }
+    .order-status-bar {
+      display: flex;
+      gap: 20px;
+      padding: 15px;
+      background: #e9ecef;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    .status-item {
+      flex: 1;
+    }
+    .status-item label {
+      display: block;
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
       margin-bottom: 3px;
     }
-    .detail-item span {
-      font-weight: 500;
+    .status-item span {
+      font-weight: 600;
+      font-size: 14px;
     }
+    
+    /* Products Table */
     .product-table {
       width: 100%;
       border-collapse: collapse;
-    }
-    .product-table th,
-    .product-table td {
-      padding: 10px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
+      margin-bottom: 20px;
     }
     .product-table th {
       background: #f8f9fa;
-      font-weight: 600;
+      padding: 10px;
+      text-align: left;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #666;
+      border-bottom: 2px solid #dee2e6;
+    }
+    .product-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+    }
+    .product-table .product-name {
+      max-width: 300px;
+    }
+    .product-table .text-right {
+      text-align: right;
+    }
+    
+    /* Order Totals */
+    .order-totals {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 6px;
+      max-width: 300px;
+      margin-left: auto;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+    }
+    .total-row.discount {
+      color: #28a745;
+    }
+    .total-row.grand-total {
+      border-top: 2px solid #dee2e6;
+      margin-top: 10px;
+      padding-top: 10px;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .total-row.refund {
+      color: #dc3545;
+    }
+    
+    /* Tracking Section */
+    .tracking-box {
+      background: #e7f3ff;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+    }
+    .tracking-box h4 {
+      margin: 0 0 10px 0;
+      color: #004085;
     }
     .tracking-link {
       color: #007bff;
       text-decoration: none;
+      font-weight: 600;
     }
     .tracking-link:hover { text-decoration: underline; }
+    
+    /* Notes Section */
+    .notes-box {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+    }
+    .notes-box h4 {
+      margin: 0 0 10px 0;
+      color: #856404;
+    }
+    
     .loading {
       text-align: center;
       padding: 40px;
@@ -420,7 +510,7 @@
       }
     }
     
-    // Display order detail
+    // Display order detail - Clean Layout
     function displayOrderDetail(data) {
       const order = data.order;
       const products = data.products || [];
@@ -430,146 +520,160 @@
       const billing = order.billing_address || {};
       const shipping = shippingAddresses[0] || billing;
       
+      // Format date
+      const orderDate = new Date(order.date_created).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+      
       let html = `
-        <div class="detail-section">
-          <h3>Order Information</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <label>Order Date</label>
-              <span>${new Date(order.date_created).toLocaleString()}</span>
-            </div>
-            <div class="detail-item">
-              <label>Status</label>
-              <span>${order.status}</span>
-            </div>
-            <div class="detail-item">
-              <label>Payment Status</label>
-              <span>${order.payment_status || 'N/A'}</span>
-            </div>
-            <div class="detail-item">
-              <label>Payment Method</label>
-              <span>${order.payment_method || 'N/A'}</span>
-            </div>
+        <!-- Status Bar -->
+        <div class="order-status-bar">
+          <div class="status-item">
+            <label>Order Date</label>
+            <span>${orderDate}</span>
+          </div>
+          <div class="status-item">
+            <label>Status</label>
+            <span>${order.status}</span>
+          </div>
+          <div class="status-item">
+            <label>Payment</label>
+            <span>${order.payment_status || 'N/A'}</span>
+          </div>
+          <div class="status-item">
+            <label>Method</label>
+            <span>${order.payment_method || 'N/A'}</span>
           </div>
         </div>
         
-        <div class="detail-section">
-          <h3>Customer - Billing</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <label>Name</label>
-              <span>${billing.first_name || ''} ${billing.last_name || ''}</span>
-            </div>
-            <div class="detail-item">
-              <label>Email</label>
-              <span>${billing.email || 'N/A'}</span>
-            </div>
-            <div class="detail-item">
-              <label>Phone</label>
-              <span>${billing.phone || 'N/A'}</span>
-            </div>
-            <div class="detail-item">
-              <label>Address</label>
-              <span>${billing.street_1 || ''} ${billing.street_2 || ''}<br>
-              ${billing.city || ''}, ${billing.state || ''} ${billing.zip || ''}</span>
-            </div>
+        <!-- Billing & Shipping -->
+        <div class="order-detail-grid">
+          <div class="order-detail-box">
+            <h4>Billing Details</h4>
+            <p>
+              <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
+              ${billing.street_1 || ''}${billing.street_2 ? ' ' + billing.street_2 : ''}<br>
+              ${billing.city || ''}, ${billing.state || ''} ${billing.zip || ''}<br>
+              ${billing.country || ''}
+            </p>
+            <p style="margin-top: 10px;">
+              <strong>Email:</strong> ${billing.email || 'N/A'}<br>
+              <strong>Phone:</strong> ${billing.phone || 'N/A'}
+            </p>
+          </div>
+          <div class="order-detail-box">
+            <h4>Shipping Details</h4>
+            <p>
+              <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
+              ${shipping.street_1 || ''}${shipping.street_2 ? ' ' + shipping.street_2 : ''}<br>
+              ${shipping.city || ''}, ${shipping.state || ''} ${shipping.zip || ''}<br>
+              ${shipping.country || ''}
+            </p>
           </div>
         </div>
         
-        <div class="detail-section">
-          <h3>Shipping Address</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <label>Name</label>
-              <span>${shipping.first_name || ''} ${shipping.last_name || ''}</span>
-            </div>
-            <div class="detail-item">
-              <label>Address</label>
-              <span>${shipping.street_1 || ''} ${shipping.street_2 || ''}<br>
-              ${shipping.city || ''}, ${shipping.state || ''} ${shipping.zip || ''}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="detail-section">
-          <h3>Products</h3>
-          <table class="product-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>SKU</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
+        <!-- Products -->
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th class="product-name">Product</th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Price</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
       `;
       
       for (const product of products) {
         html += `
           <tr>
-            <td>${product.name}</td>
             <td>${product.sku || 'N/A'}</td>
-            <td>${product.quantity}</td>
-            <td>$${parseFloat(product.price_inc_tax || 0).toFixed(2)}</td>
-            <td>$${parseFloat(product.total_inc_tax || 0).toFixed(2)}</td>
+            <td class="product-name">${product.name}</td>
+            <td class="text-right">${product.quantity}</td>
+            <td class="text-right">$${parseFloat(product.base_price || product.price_inc_tax || 0).toFixed(2)}</td>
+            <td class="text-right">$${parseFloat(product.total_inc_tax || 0).toFixed(2)}</td>
           </tr>
         `;
       }
       
       html += `
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </table>
         
-        <div class="detail-section">
-          <h3>Order Totals</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <label>Subtotal</label>
-              <span>$${parseFloat(order.subtotal_inc_tax || 0).toFixed(2)}</span>
-            </div>
-            <div class="detail-item">
-              <label>Shipping</label>
-              <span>$${parseFloat(order.shipping_cost_inc_tax || 0).toFixed(2)}</span>
-            </div>
-            <div class="detail-item">
-              <label>Discount</label>
-              <span>-$${parseFloat(order.discount_amount || 0).toFixed(2)}</span>
-            </div>
-            <div class="detail-item">
-              <label>Tax</label>
-              <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span>
-            </div>
-            <div class="detail-item">
-              <label><strong>Total</strong></label>
-              <span><strong>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</strong></span>
-            </div>
-            ${parseFloat(order.refunded_amount || 0) > 0 ? `
-            <div class="detail-item">
-              <label style="color: #dc3545;">Refunded</label>
-              <span style="color: #dc3545;">-$${parseFloat(order.refunded_amount).toFixed(2)}</span>
-            </div>
-            ` : ''}
+        <!-- Order Totals -->
+        <div class="order-totals">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>$${parseFloat(order.subtotal_ex_tax || order.subtotal_inc_tax || 0).toFixed(2)}</span>
           </div>
-        </div>
       `;
+      
+      // Show coupon discount if exists
+      const couponDiscount = parseFloat(order.coupon_discount || 0);
+      if (couponDiscount > 0) {
+        html += `
+          <div class="total-row discount">
+            <span>Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span>
+            <span>-$${couponDiscount.toFixed(2)}</span>
+          </div>
+        `;
+      }
+      
+      // Show other discount if exists
+      const discountAmount = parseFloat(order.discount_amount || 0);
+      if (discountAmount > 0 && discountAmount !== couponDiscount) {
+        html += `
+          <div class="total-row discount">
+            <span>Discount:</span>
+            <span>-$${discountAmount.toFixed(2)}</span>
+          </div>
+        `;
+      }
+      
+      html += `
+          <div class="total-row">
+            <span>Shipping:</span>
+            <span>$${parseFloat(order.shipping_cost_inc_tax || 0).toFixed(2)}</span>
+          </div>
+          <div class="total-row">
+            <span>Tax:</span>
+            <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>Total:</span>
+            <span>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</span>
+          </div>
+      `;
+      
+      // Show refund if exists
+      const refundedAmount = parseFloat(order.refunded_amount || 0);
+      if (refundedAmount > 0) {
+        html += `
+          <div class="total-row refund">
+            <span>Refunded:</span>
+            <span>-$${refundedAmount.toFixed(2)}</span>
+          </div>
+        `;
+      }
+      
+      html += `</div>`;
       
       // Tracking info
       if (shipments && shipments.length > 0) {
-        html += `<div class="detail-section"><h3>Tracking</h3>`;
+        html += `<div class="tracking-box"><h4>Tracking Information</h4>`;
         for (const shipment of shipments) {
           const trackingUrl = getTrackingUrl(shipment.tracking_carrier, shipment.tracking_number);
           html += `
-            <div style="margin-bottom: 10px;">
+            <p>
               <strong>${shipment.shipping_method || 'Shipment'}</strong><br>
               ${trackingUrl 
                 ? `<a href="${trackingUrl}" target="_blank" class="tracking-link">${shipment.tracking_number}</a>`
-                : shipment.tracking_number || 'No tracking'
+                : shipment.tracking_number || 'No tracking number'
               }
-              <span style="color: #666; margin-left: 10px;">(${shipment.tracking_carrier || 'Unknown carrier'})</span>
-            </div>
+              ${shipment.tracking_carrier ? `<span style="color: #666;"> (${shipment.tracking_carrier})</span>` : ''}
+            </p>
           `;
         }
         html += `</div>`;
@@ -577,7 +681,7 @@
       
       // Notes
       if (order.customer_message || order.staff_notes) {
-        html += `<div class="detail-section"><h3>Notes</h3>`;
+        html += `<div class="notes-box"><h4>Notes</h4>`;
         if (order.customer_message) {
           html += `<p><strong>Customer:</strong> ${order.customer_message}</p>`;
         }
