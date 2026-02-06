@@ -32,6 +32,17 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_email ON order_lookup (store, email);
     CREATE INDEX IF NOT EXISTS idx_name  ON order_lookup (store, first_name, last_name);
     CREATE INDEX IF NOT EXISTS idx_phone ON order_lookup (store, phone);
+
+    CREATE TABLE IF NOT EXISTS order_notes (
+      id SERIAL PRIMARY KEY,
+      order_id BIGINT NOT NULL,
+      store TEXT NOT NULL,
+      username TEXT NOT NULL,
+      note_text TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_order_notes ON order_notes (store, order_id);
   `);
 
   console.log('Postgres initialized');
@@ -516,6 +527,12 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
       // No shipments
     }
 
+    // Get internal notes from our database
+    const notesResult = await pool.query(
+      'SELECT id, username, note_text, created_at FROM order_notes WHERE store = $1 AND order_id = $2 ORDER BY created_at DESC',
+      [store, orderId]
+    );
+
     res.json({
       success: true,
       order,
@@ -530,11 +547,48 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
             date_created: s.date_created,
             items: s.items
           }))
-        : []
+        : [],
+      notes: notesResult.rows
     });
   } catch (error) {
     console.error(`Order fetch error: ${error.message}`);
     res.status(500).json({ error: 'Failed to fetch order details.' });
+  }
+});
+
+// Add note to order
+app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
+  const { store, orderId } = req.params;
+  const { note } = req.body;
+  const username = req.session.user;
+
+  if (!stores[store]) {
+    return res.status(400).json({ error: 'Invalid store' });
+  }
+
+  if (!note || note.trim().length === 0) {
+    return res.status(400).json({ error: 'Note cannot be empty' });
+  }
+
+  if (note.length > 500) {
+    return res.status(400).json({ error: 'Note cannot exceed 500 characters' });
+  }
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO order_notes (order_id, store, username, note_text) VALUES ($1, $2, $3, $4) RETURNING id, username, note_text, created_at',
+      [orderId, store, username, note.trim()]
+    );
+
+    console.log(`[${new Date().toISOString()}] Note added by ${username} for order ${orderId} (${store})`);
+
+    res.json({
+      success: true,
+      note: result.rows[0]
+    });
+  } catch (error) {
+    console.error(`Add note error: ${error.message}`);
+    res.status(500).json({ error: 'Failed to add note.' });
   }
 });
 

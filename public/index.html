@@ -299,6 +299,118 @@
       background: #218838;
     }
     
+    /* Notes Section */
+    .notes-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+    }
+    .notes-section h5 {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .notes-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+    .note-item {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .note-item:last-child {
+      margin-bottom: 0;
+    }
+    .note-meta {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+    .note-meta strong {
+      color: #555;
+    }
+    .note-text {
+      color: #333;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+    .note-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .note-textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+    .note-textarea:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+    .note-form-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .char-counter {
+      font-size: 11px;
+      color: #888;
+    }
+    .char-counter.warning {
+      color: #dc3545;
+    }
+    .add-note-btn {
+      padding: 6px 14px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .add-note-btn:hover {
+      background: #0056b3;
+    }
+    .add-note-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .no-notes {
+      color: #888;
+      font-size: 13px;
+      font-style: italic;
+    }
+    
+    /* Modal notes section */
+    .modal-notes-section {
+      background: #f0f7ff;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+    }
+    .modal-notes-section h4 {
+      margin: 0 0 12px 0;
+      color: #004085;
+    }
+    .modal-notes-list {
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+    
     /* Order Detail Modal */
     .modal {
       display: none;
@@ -822,10 +934,119 @@
             </div>
           </div>
         </div>
+        
+        <div class="notes-section">
+          <h5>Support Notes</h5>
+          <div class="notes-list" id="preview-notes-${orderId}">
+            ${renderNotesList(data.notes || [])}
+          </div>
+          <div class="note-form">
+            <textarea class="note-textarea" id="preview-note-input-${orderId}" 
+              placeholder="Add a note about this order..." 
+              maxlength="500"
+              oninput="updateCharCounter(this, 'preview-char-counter-${orderId}')"></textarea>
+            <div class="note-form-footer">
+              <span class="char-counter" id="preview-char-counter-${orderId}">0 / 500</span>
+              <button class="add-note-btn" onclick="addNote(${orderId}, 'preview')">Add Note</button>
+            </div>
+          </div>
+        </div>
+        
         <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
       `;
       
       previewContent.innerHTML = html;
+    }
+    
+    // Render notes list HTML
+    function renderNotesList(notes) {
+      if (!notes || notes.length === 0) {
+        return '<div class="no-notes">No notes yet</div>';
+      }
+      
+      return notes.map(note => {
+        const date = new Date(note.created_at).toLocaleString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+          hour: 'numeric', minute: '2-digit'
+        });
+        return `
+          <div class="note-item">
+            <div class="note-meta"><strong>${note.username}</strong> · ${date}</div>
+            <div class="note-text">${escapeHtml(note.note_text)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Update character counter
+    function updateCharCounter(textarea, counterId) {
+      const counter = document.getElementById(counterId);
+      const length = textarea.value.length;
+      counter.textContent = `${length} / 500`;
+      counter.classList.toggle('warning', length > 450);
+    }
+    
+    // Add note to order
+    async function addNote(orderId, context) {
+      const inputId = context === 'preview' ? `preview-note-input-${orderId}` : `modal-note-input-${orderId}`;
+      const textarea = document.getElementById(inputId);
+      const note = textarea.value.trim();
+      
+      if (!note) {
+        alert('Please enter a note');
+        return;
+      }
+      
+      const btn = textarea.parentElement.querySelector('.add-note-btn');
+      btn.disabled = true;
+      btn.textContent = 'Adding...';
+      
+      try {
+        const response = await fetch(`/api/order/${currentStore}/${orderId}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to add note');
+        }
+        
+        // Update cache
+        if (orderDetailsCache[orderId]) {
+          if (!orderDetailsCache[orderId].notes) {
+            orderDetailsCache[orderId].notes = [];
+          }
+          orderDetailsCache[orderId].notes.unshift(data.note);
+        }
+        
+        // Update both preview and modal notes lists
+        const previewNotesList = document.getElementById(`preview-notes-${orderId}`);
+        const modalNotesList = document.getElementById(`modal-notes-${orderId}`);
+        const notesHtml = renderNotesList(orderDetailsCache[orderId]?.notes || [data.note]);
+        
+        if (previewNotesList) previewNotesList.innerHTML = notesHtml;
+        if (modalNotesList) modalNotesList.innerHTML = notesHtml;
+        
+        // Clear textarea and reset counter
+        textarea.value = '';
+        updateCharCounter(textarea, context === 'preview' ? `preview-char-counter-${orderId}` : `modal-char-counter-${orderId}`);
+        
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add Note';
+      }
     }
     
     // Get status class
@@ -1049,6 +1270,27 @@
         }
         html += `</div>`;
       }
+      
+      // Support Notes Section (from our database)
+      const orderId = order.id;
+      html += `
+        <div class="modal-notes-section">
+          <h4>Support Notes</h4>
+          <div class="modal-notes-list" id="modal-notes-${orderId}">
+            ${renderNotesList(data.notes || [])}
+          </div>
+          <div class="note-form">
+            <textarea class="note-textarea" id="modal-note-input-${orderId}" 
+              placeholder="Add a note about this order..." 
+              maxlength="500"
+              oninput="updateCharCounter(this, 'modal-char-counter-${orderId}')"></textarea>
+            <div class="note-form-footer">
+              <span class="char-counter" id="modal-char-counter-${orderId}">0 / 500</span>
+              <button class="add-note-btn" onclick="addNote(${orderId}, 'modal')">Add Note</button>
+            </div>
+          </div>
+        </div>
+      `;
       
       document.getElementById('modalBody').innerHTML = html;
     }
