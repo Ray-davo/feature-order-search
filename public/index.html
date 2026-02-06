@@ -935,7 +935,12 @@
               </tbody>
             </table>
             <div class="preview-total">
-              Order Total: $${parseFloat(order.total_inc_tax || 0).toFixed(2)}
+              <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>$${parseFloat(order.subtotal_inc_tax || 0).toFixed(2)}</span></div>
+              ${parseFloat(order.coupon_discount || 0) > 0 ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span> <span>-$${parseFloat(order.coupon_discount).toFixed(2)}</span></div>` : ''}
+              ${parseFloat(order.discount_amount || 0) > 0 && parseFloat(order.discount_amount) !== parseFloat(order.coupon_discount || 0) ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Discount:</span> <span>-$${parseFloat(order.discount_amount).toFixed(2)}</span></div>` : ''}
+              <div style="display: flex; justify-content: space-between;"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_inc_tax || 0).toFixed(2)}</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Tax:</span> <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span></div>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px;"><span>Total:</span> <span>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</span></div>
             </div>
           </div>
         </div>
