@@ -12,7 +12,7 @@
       min-height: 100vh;
     }
 .header {
-  background: #333;
+  background: ##2c2c2c;
   color: #fff;
   padding: 8px 20px;
   position: relative;
@@ -643,6 +643,11 @@
     let expandedOrders = {};    // Track which orders are expanded
     let orderDetailsCache = {}; // Cache loaded order details
     
+    // Capitalize first letter
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+    
     // Check authentication on page load
     async function checkAuth() {
       try {
@@ -654,7 +659,7 @@
           return;
         }
         
-        document.getElementById('username').textContent = data.user;
+        document.getElementById('username').textContent = capitalize(data.user);
         loadDbStats();
       } catch (err) {
         window.location.href = '/login';
@@ -971,7 +976,7 @@
         });
         return `
           <div class="note-item">
-            <div class="note-meta"><strong>${note.username}</strong> · ${date}</div>
+            <div class="note-meta"><strong>${capitalize(note.username)}</strong> · ${date}</div>
             <div class="note-text">${escapeHtml(note.note_text)}</div>
           </div>
         `;
