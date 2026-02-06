@@ -13,16 +13,17 @@
     }
 .header {
   background: #333;
-  color: white;
-  padding: 10px 20px 0 20px;   /* remove bottom padding */
-  display: grid;
-  grid-template-columns: 210px 1fr auto;
-  align-items: start;          /* THIS is the fix */
+  color: #fff;
+  padding: 8px 20px;
+  position: relative;
+
+  display: flex;
+  align-items: flex-start;
+  min-height: 84px;
 }
 
 .header-left {
-  display: flex;
-  align-items: center;
+  width: 210px; /* reserves space so center title stays centered */
 }
 
 .logo {
@@ -32,10 +33,22 @@
   display: block;
 }
 
-.header h1 {
-  text-align: center;
-  font-size: 24px;
+.header-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
   margin: 0;
+  font-size: 24px;
+  white-space: nowrap;
+}
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-top: 10px;
 }
     .user-info { color: #aaa; }
     .logout-btn {
@@ -467,16 +480,21 @@
 </head>
 <body>
   <div class="header">
-   <div class="header-left">
-  <img src="https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg" alt="1ink" class="logo">
-</div>
-<h1>Order Search</h1>
-    </div>
-    <div class="header-right">
-      <span class="user-info">Logged in as: <strong id="username"></strong></span>
-      <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
+  <div class="header-left">
+    <img
+      src="https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg"
+      alt="1ink"
+      class="logo"
+    >
   </div>
+
+  <h1 class="header-title">Order Search</h1>
+
+  <div class="header-right">
+    <span class="user-info">Logged in as: <strong id="username"></strong></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</div>
   
   <div class="container">
     <div class="search-box">
