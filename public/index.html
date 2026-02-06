@@ -398,13 +398,41 @@
     .tracking-link:hover { text-decoration: underline; }
 
     @media print {
-      body { background:#fff !important; }
-      .header, .container { display:none !important; }
+      @page { 
+        margin: 0.75in 0.5in; 
+        size: letter;
+      }
+      body { 
+        background: #fff !important; 
+        font-size: 14px !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .header, .container { display: none !important; }
       .modal { position: static !important; background: transparent !important; }
-      .modal-content { box-shadow:none !important; max-width:100% !important; width:100% !important; margin: 0 !important; border-radius: 0 !important; max-height: none !important; overflow: visible !important; }
+      .modal-content { 
+        box-shadow: none !important; 
+        max-width: 100% !important; 
+        width: 100% !important; 
+        margin: 0 !important; 
+        border-radius: 0 !important; 
+        max-height: none !important; 
+        overflow: visible !important; 
+      }
       .modal-header { position: static !important; }
-      .close-btn, .print-btn { display:none !important; }
+      .close-btn, .print-btn { display: none !important; }
       .invoice-wrap { padding: 0 !important; }
+      .invoice-brand img { height: 70px !important; }
+      .invoice-brand .addr { font-size: 13px !important; }
+      .invoice-meta { font-size: 13px !important; }
+      .invoice-meta .inv-title { font-size: 18px !important; }
+      .invoice-box h4 { font-size: 13px !important; }
+      .invoice-box p { font-size: 14px !important; }
+      .invoice-table { font-size: 14px !important; }
+      .invoice-table th { font-size: 13px !important; }
+      .invoice-totals .row { font-size: 14px !important; }
+      .invoice-totals .row strong { font-size: 15px !important; }
+      .tracking-link { color: #007bff !important; }
     }
   </style>
 </head>
@@ -907,7 +935,7 @@
       const billing = order.billing_address || {};
       const shipping = shippingAddresses[0] || billing;
 
-      const logoUrl = "https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg";
+      const logoUrl = "https://cdn11.bigcommerce.com/s-9u5u1ss/content/banners/1ink-logo-trademark-invoice.png";
 
       const safe = (v) => (v == null ? '' : String(v));
       const fullName = (a) => `${safe(a.first_name)} ${safe(a.last_name)}`.trim();
@@ -947,21 +975,21 @@
         `;
       }
 
-      const trackingBlock = (shipments && shipments.length)
-        ? `<div style="margin-top:18px;" class="invoice-box">
-            <h4>Tracking</h4>
-            ${shipments.map(sh => {
-              const num = sh.tracking_number ? String(sh.tracking_number).trim() : '';
-              if (!num) return `<p>No tracking</p>`;
-              const url = getTrackingUrl(sh.tracking_carrier, num) || '';
-              return `<p style="margin-bottom:10px;">
-                <strong>${safe(sh.shipping_method) || 'Shipment'}</strong><br>
-                ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="tracking-link">${safe(num)}</a>` : safe(num)}
-                ${sh.tracking_carrier ? `<span style="color:#666;"> (${safe(sh.tracking_carrier)})</span>` : ''}
-              </p>`;
-            }).join('')}
-          </div>`
-        : '';
+      // Build tracking HTML for shipping box
+      let trackingHtml = '';
+      if (shipments && shipments.length) {
+        trackingHtml = `<div style="margin-top:12px; padding-top:12px; border-top:1px solid #e6e6e6;">
+          <strong>📦 Tracking:</strong><br>
+          ${shipments.map(sh => {
+            const num = sh.tracking_number ? String(sh.tracking_number).trim() : '';
+            if (!num) return 'No tracking';
+            const url = getTrackingUrl(sh.tracking_carrier, num) || '';
+            return url 
+              ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="tracking-link">${num}</a>`
+              : num;
+          }).join('<br>')}
+        </div>`;
+      }
 
       const html = `
         <div class="invoice-wrap">
@@ -1006,6 +1034,7 @@
                 ${safe(shipping.city)}, ${safe(shipping.state)} ${safe(shipping.zip)}<br>
                 ${safe(shipping.country)}
               </p>
+              ${trackingHtml}
             </div>
           </div>
 
@@ -1030,8 +1059,6 @@
             <div class="row"><span>Tax:</span><span>${money(tax)}</span></div>
             <div class="row grand"><span><strong>Grand total:</strong></span><span><strong>${money(grandTotal)}</strong></span></div>
           </div>
-
-          ${trackingBlock}
         </div>
       `;
 
