@@ -881,6 +881,43 @@
       }
     }
     
+    // Build tracking HTML with clickable links
+    function buildTrackingHtml(shipments) {
+      if (!shipments || shipments.length === 0) return '';
+      
+      let html = '<div class="tracking-inline"><strong>📦 Tracking:</strong><br>';
+      
+      shipments.forEach((s, index) => {
+        if (index > 0) html += '<br>';
+        
+        const carrier = (s.tracking_carrier || '').toLowerCase();
+        const num = s.tracking_number;
+        
+        if (num) {
+          let url = null;
+          if (carrier.includes('usps') || num.startsWith('94') || num.startsWith('92')) {
+            url = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + num;
+          } else if (carrier.includes('ups') || num.startsWith('1Z')) {
+            url = 'https://www.ups.com/track?tracknum=' + num;
+          } else if (carrier.includes('fedex')) {
+            url = 'https://www.fedex.com/fedextrack/?trknbr=' + num;
+          } else if (carrier.includes('dhl')) {
+            url = 'https://www.dhl.com/en/express/tracking.html?AWB=' + num;
+          } else {
+            // Default to USPS for numbers starting with 9
+            url = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + num;
+          }
+          
+          html += '<a href="' + url + '" target="_blank" class="tracking-link">' + num + '</a>';
+        } else {
+          html += 'No tracking';
+        }
+      });
+      
+      html += '</div>';
+      return html;
+    }
+    
     // Render preview items
     function renderPreviewItems(orderId, data) {
       const previewContent = document.getElementById(`preview-content-${orderId}`);
@@ -891,6 +928,9 @@
       
       const billing = order.billing_address || {};
       const shipping = shippingAddresses[0] || billing;
+      
+      // Build tracking HTML
+      const trackingHtml = buildTrackingHtml(shipments);
       
       if (products.length === 0) {
         previewContent.innerHTML = '<div class="preview-loading">No items in this order</div>';
@@ -921,29 +961,7 @@
               ${shipping.city || ''}, ${shipping.state || ''} ${shipping.zip || ''}<br>
               ${shipping.country || ''}
             </p>
-            ${shipments.length > 0 ? `
-            <div class="tracking-inline">
-              <strong>📦 Tracking:</strong><br>
-              ${shipments.map(s => {
-                const carrier = (s.tracking_carrier || '').toLowerCase();
-                let url = null;
-                if (s.tracking_number) {
-                  if (carrier.includes('usps')) {
-                    url = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + s.tracking_number;
-                  } else if (carrier.includes('ups')) {
-                    url = 'https://www.ups.com/track?tracknum=' + s.tracking_number;
-                  } else if (carrier.includes('fedex')) {
-                    url = 'https://www.fedex.com/fedextrack/?trknbr=' + s.tracking_number;
-                  } else if (carrier.includes('dhl')) {
-                    url = 'https://www.dhl.com/en/express/tracking.html?AWB=' + s.tracking_number;
-                  }
-                }
-                return url 
-                  ? '<a href="' + url + '" target="_blank" class="tracking-link">' + s.tracking_number + '</a>'
-                  : (s.tracking_number || 'No tracking');
-              }).join('<br>')}
-            </div>
-            ` : ''}
+            ${trackingHtml}
           </div>
           
           <div class="preview-items-box">
@@ -966,7 +984,7 @@
                   <td class="sku">${p.sku || '-'}</td>
                   <td>${p.name}</td>
                   <td class="qty">${p.quantity}</td>
-                  <td class="price">$${parseFloat(p.total_inc_tax || 0).toFixed(2)}</td>
+                  <td class="price">$${parseFloat(p.total_ex_tax || 0).toFixed(2)}</td>
                 </tr>
         `;
       }
@@ -975,10 +993,10 @@
               </tbody>
             </table>
             <div class="preview-total">
-              <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>$${parseFloat(order.subtotal_inc_tax || 0).toFixed(2)}</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>$${parseFloat(order.subtotal_ex_tax || 0).toFixed(2)}</span></div>
               ${parseFloat(order.coupon_discount || 0) > 0 ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span> <span>-$${parseFloat(order.coupon_discount).toFixed(2)}</span></div>` : ''}
               ${parseFloat(order.discount_amount || 0) > 0 && parseFloat(order.discount_amount) !== parseFloat(order.coupon_discount || 0) ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Discount:</span> <span>-$${parseFloat(order.discount_amount).toFixed(2)}</span></div>` : ''}
-              <div style="display: flex; justify-content: space-between;"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_inc_tax || 0).toFixed(2)}</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_ex_tax || 0).toFixed(2)}</span></div>
               <div style="display: flex; justify-content: space-between;"><span>Tax:</span> <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span></div>
               <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px;"><span>Total:</span> <span>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</span></div>
             </div>
