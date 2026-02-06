@@ -398,60 +398,11 @@
     .tracking-link:hover { text-decoration: underline; }
 
     @media print {
-  @page { size: Letter; margin: 0.5in; }
-
-  /* Hide app UI */
-  .header, .container { display: none !important; }
-  .close-btn, .print-btn { display: none !important; }
-
-  /* Make modal print like a normal page */
-  .modal { position: static !important; background: transparent !important; }
-  .modal-content {
-    box-shadow: none !important;
-    max-width: none !important;
-    width: 100% !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-  .modal-header { position: static !important; }
-
-  /* Use print units so “Save to PDF” is consistent */
-  html, body {
-    background: #fff !important;
-    font-size: 12pt !important;
-    line-height: 1.35 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .invoice-wrap { padding: 0 !important; font-size: 12pt !important; }
-
-  .invoice-meta .inv-title { font-size: 16pt !important; font-weight: 700 !important; }
-  .invoice-brand .addr,
-  .invoice-meta { font-size: 11.5pt !important; }
-
-  .invoice-box h4 { font-size: 11pt !important; }
-  .invoice-box p { font-size: 11.5pt !important; }
-
-  .invoice-table { font-size: 11.5pt !important; }
-  .invoice-table th { font-size: 11pt !important; padding: 10pt 8pt !important; }
-  .invoice-table td { font-size: 11.5pt !important; padding: 10pt 8pt !important; }
-
-  .invoice-totals .row { font-size: 11.5pt !important; }
-  .invoice-totals .grand { font-size: 12.5pt !important; }
-
-  /* If you still want it slightly bigger, uncomment and set 1.08–1.15 */
-  /* body { zoom: 1.10; } */
-
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-}
-
-html {
+      @page { 
+        margin: 0.5in; 
+        size: letter;
+      }
+      html {
         font-size: 18px !important;
       }
       body { 
