@@ -234,6 +234,22 @@
       font-size: 12px;
       color: #555;
     }
+    .tracking-inline {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #555;
+    }
+    .tracking-inline .tracking-link {
+      color: #007bff;
+      text-decoration: none;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .tracking-inline .tracking-link:hover {
+      text-decoration: underline;
+    }
     .preview-items-box {
       background: #fff;
       padding: 12px;
@@ -297,39 +313,6 @@
     }
     .view-full-btn:hover {
       background: #218838;
-    }
-    
-    /* Preview Tracking */
-    .preview-tracking {
-      margin-top: 15px;
-      padding: 12px;
-      background: #e7f3ff;
-      border-radius: 6px;
-    }
-    .preview-tracking h5 {
-      margin: 0 0 8px 0;
-      font-size: 12px;
-      color: #004085;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .tracking-item {
-      font-size: 13px;
-      margin-bottom: 5px;
-    }
-    .tracking-item:last-child {
-      margin-bottom: 0;
-    }
-    .tracking-carrier {
-      color: #555;
-    }
-    .tracking-link {
-      color: #007bff;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .tracking-link:hover {
-      text-decoration: underline;
     }
     
     /* Notes Section */
@@ -938,6 +921,29 @@
               ${shipping.city || ''}, ${shipping.state || ''} ${shipping.zip || ''}<br>
               ${shipping.country || ''}
             </p>
+            ${shipments.length > 0 ? `
+            <div class="tracking-inline">
+              <strong>📦 Tracking:</strong><br>
+              ${shipments.map(s => {
+                const carrier = (s.tracking_carrier || '').toLowerCase();
+                let url = null;
+                if (s.tracking_number) {
+                  if (carrier.includes('usps')) {
+                    url = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + s.tracking_number;
+                  } else if (carrier.includes('ups')) {
+                    url = 'https://www.ups.com/track?tracknum=' + s.tracking_number;
+                  } else if (carrier.includes('fedex')) {
+                    url = 'https://www.fedex.com/fedextrack/?trknbr=' + s.tracking_number;
+                  } else if (carrier.includes('dhl')) {
+                    url = 'https://www.dhl.com/en/express/tracking.html?AWB=' + s.tracking_number;
+                  }
+                }
+                return url 
+                  ? '<a href="' + url + '" target="_blank" class="tracking-link">' + s.tracking_number + '</a>'
+                  : (s.tracking_number || 'No tracking');
+              }).join('<br>')}
+            </div>
+            ` : ''}
           </div>
           
           <div class="preview-items-box">
@@ -978,24 +984,6 @@
             </div>
           </div>
         </div>
-        
-        ${shipments.length > 0 ? `
-        <div class="preview-tracking">
-          <h5>📦 Tracking</h5>
-          ${shipments.map(s => {
-            const trackingUrl = getTrackingUrl(s.tracking_carrier, s.tracking_number);
-            return `
-              <div class="tracking-item">
-                <span class="tracking-carrier">${s.tracking_carrier || s.shipping_method || 'Shipment'}:</span>
-                ${trackingUrl 
-                  ? `<a href="${trackingUrl}" target="_blank" class="tracking-link">${s.tracking_number}</a>`
-                  : `<span>${s.tracking_number || 'No tracking'}</span>`
-                }
-              </div>
-            `;
-          }).join('')}
-        </div>
-        ` : ''}
         
         <div class="notes-section">
           <h5>Support Notes</h5>
