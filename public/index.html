@@ -881,42 +881,33 @@
       }
     }
     
-    // Build tracking HTML with clickable links
-    function buildTrackingHtml(shipments) {
-      if (!shipments || shipments.length === 0) return '';
-      
-      let html = '<div class="tracking-inline"><strong>📦 Tracking:</strong><br>';
-      
-      shipments.forEach((s, index) => {
-        if (index > 0) html += '<br>';
-        
-        const carrier = (s.tracking_carrier || '').toLowerCase();
-        const num = s.tracking_number;
-        
-        if (num) {
-          let url = null;
-          if (carrier.includes('usps') || num.startsWith('94') || num.startsWith('92')) {
-            url = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + num;
-          } else if (carrier.includes('ups') || num.startsWith('1Z')) {
-            url = 'https://www.ups.com/track?tracknum=' + num;
-          } else if (carrier.includes('fedex')) {
-            url = 'https://www.fedex.com/fedextrack/?trknbr=' + num;
-          } else if (carrier.includes('dhl')) {
-            url = 'https://www.dhl.com/en/express/tracking.html?AWB=' + num;
-          } else {
-            // Default to USPS for numbers starting with 9
-            url = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + num;
-          }
-          
-          html += '<a href="' + url + '" target="_blank" class="tracking-link">' + num + '</a>';
-        } else {
-          html += 'No tracking';
-        }
-      });
-      
-      html += '</div>';
-      return html;
+  // Build tracking HTML with clickable links (USPS/UPS/FedEx/DHL)
+// Detects FedEx even if carrier is blank by using number patterns (12/15 digits etc.)
+function buildTrackingHtml(shipments) {
+  if (!shipments || shipments.length === 0) return '';
+
+  let html = '<div class="tracking-inline"><strong>📦 Tracking:</strong><br>';
+
+  shipments.forEach((s, index) => {
+    if (index > 0) html += '<br>';
+
+    const carrierHint = String(s.tracking_carrier || '').toLowerCase();
+    const rawNum = s.tracking_number;
+    const num = rawNum ? String(rawNum).trim().replace(/\s+/g, '') : '';
+
+    if (!num) {
+      html += 'No tracking';
+      return;
     }
+
+    const url = getTrackingUrl(carrierHint, num) || ('https://www.fedex.com/fedextrack/?trknbr=' + encodeURIComponent(num));
+
+    html += '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tracking-link">' + num + '</a>';
+  });
+
+  html += '</div>';
+  return html;
+}
     
     // Render preview items
     function renderPreviewItems(orderId, data) {
@@ -1363,22 +1354,40 @@
       document.getElementById('modalBody').innerHTML = html;
     }
     
-    // Get tracking URL
-    function getTrackingUrl(carrier, number) {
-      if (!number) return null;
-      carrier = (carrier || '').toLowerCase();
-      
-      if (carrier.includes('usps')) {
-        return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${number}`;
-      } else if (carrier.includes('ups')) {
-        return `https://www.ups.com/track?tracknum=${number}`;
-      } else if (carrier.includes('fedex')) {
-        return `https://www.fedex.com/fedextrack/?trknbr=${number}`;
-      } else if (carrier.includes('dhl')) {
-        return `https://www.dhl.com/en/express/tracking.html?AWB=${number}`;
-      }
-      return null;
-    }
+ // Get tracking URL (USPS/UPS/FedEx/DHL) with pattern detection fallback
+function getTrackingUrl(carrier, number) {
+  if (!number) return null;
+
+  const carrierHint = String(carrier || '').toLowerCase();
+  const n = String(number).trim().replace(/\s+/g, '');
+  const digitsOnly = /^\d+$/.test(n);
+
+  // UPS
+  const looksUps = carrierHint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n);
+
+  // USPS: common 20–22 digit patterns, often starting with 92/93/94/95; also "420" prefix
+  const looksUsps =
+    carrierHint.includes('usps') ||
+    /^(94|93|92|95)\d{18,20}$/.test(n) ||
+    /^420\d{5,}\d+$/.test(n);
+
+  // FedEx: very common are 12 or 15 digits (your examples are 12 digits)
+  // For 20/22 digits, avoid misclassifying USPS 92/93/94/95...
+  const looksFedex =
+    carrierHint.includes('fedex') ||
+    (digitsOnly && (n.length === 12 || n.length === 15)) ||
+    (digitsOnly && (n.length === 20 || n.length === 22) && !/^(94|93|92|95)/.test(n));
+
+  // DHL (basic)
+  const looksDhl = carrierHint.includes('dhl') || /^JD\d+/i.test(n);
+
+  if (looksUps) return 'https://www.ups.com/track?tracknum=' + encodeURIComponent(n);
+  if (looksUsps) return 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + encodeURIComponent(n);
+  if (looksFedex) return 'https://www.fedex.com/fedextrack/?trknbr=' + encodeURIComponent(n);
+  if (looksDhl) return 'https://www.dhl.com/en/express/tracking.html?AWB=' + encodeURIComponent(n);
+
+  return null;
+}
     
     // Close modal
     function closeModal() {
