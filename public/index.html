@@ -11,13 +11,13 @@
       background: #f5f5f5;
       min-height: 100vh;
     }
- .header {
+.header {
   background: #333;
   color: white;
-  padding: 10px 20px;
+  padding: 10px 20px 0 20px;   /* remove bottom padding */
   display: grid;
   grid-template-columns: 210px 1fr auto;
-  align-items: center;
+  align-items: start;          /* THIS is the fix */
 }
 
 .header-left {
@@ -29,6 +29,7 @@
   width: 210px;
   height: 84px;
   object-fit: contain;
+  display: block;
 }
 
 .header h1 {
