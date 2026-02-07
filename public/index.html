@@ -398,66 +398,77 @@
     .tracking-link:hover { text-decoration: underline; }
 
     @media print {
-      @page { 
-        margin: 0.5in; 
-        size: letter;
-      }
+  @page {
+    margin: 0.5in;
+    size: letter;
+  }
 
-      /* Force consistent 14px output in Chrome/Edge PDF */
-      html { font-size: 14px !important; }
-      body { 
-        background: #fff !important; 
-        font-size: 14px !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
+  /* IMPORTANT:
+     Use PT units for print so Chrome/Edge PDF matches "real-world" text sizing.
+     14pt prints much closer to what people expect as "14" than 14px (which is ~10.5pt). */
+  html, body {
+    font-size: 14pt !important;
+    line-height: 1.4 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 
-      .header, .container { display: none !important; }
-      .modal { position: static !important; background: transparent !important; }
-      .modal-content { 
-        box-shadow: none !important; 
-        max-width: 100% !important; 
-        width: 100% !important; 
-        margin: 0 !important; 
-        border-radius: 0 !important; 
-        max-height: none !important; 
-        overflow: visible !important; 
-      }
-      .modal-header { position: static !important; }
-      .modal-header h2 { font-size: 14px !important; font-weight: bold !important; }
-      .close-btn, .print-btn { display: none !important; }
-      .invoice-wrap { padding: 10px !important; font-size: 14px !important; }
+  .header, .container { display: none !important; }
 
-      /* Print-specific font sizes */
-      .invoice-brand img { height: 55px !important; }
-      .invoice-brand .addr,
-      .invoice-brand .addr div { font-size: 14px !important; line-height: 1.5 !important; }
-      .invoice-meta,
-      .invoice-meta div { font-size: 14px !important; line-height: 1.7 !important; }
-      .invoice-meta .inv-title { font-size: 14px !important; }
-      .invoice-box { font-size: 14px !important; }
-      .invoice-box h4 { font-size: 14px !important; }
-      .invoice-box p,
-      .invoice-box p strong,
-      .invoice-box div { font-size: 14px !important; line-height: 1.5 !important; }
-      .invoice-table,
-      .invoice-table tbody,
-      .invoice-table tr { font-size: 14px !important; }
-      .invoice-table th { font-size: 14px !important; padding: 12px 8px !important; }
-      .invoice-table td { font-size: 14px !important; padding: 12px 8px !important; }
-      .invoice-totals { font-size: 14px !important; }
-      .invoice-totals .row,
-      .invoice-totals .row span { font-size: 14px !important; }
-      .invoice-totals .grand,
-      .invoice-totals .grand span,
-      .invoice-totals .grand strong { font-size: 14px !important; }
-      .tracking-link { color: #007bff !important; font-size: 14px !important; }
+  .modal { position: static !important; background: transparent !important; }
+  .modal-content {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
 
-      * { 
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-    }
+  .modal-header { position: static !important; }
+  .modal-header h2 { font-size: 18pt !important; font-weight: 700 !important; }
+  .close-btn, .print-btn { display: none !important; }
+
+  /* Force invoice area to inherit the 14pt baseline instead of smaller px rules */
+  .invoice-wrap,
+  .invoice-brand .addr,
+  .invoice-brand .addr div,
+  .invoice-meta,
+  .invoice-meta div,
+  .invoice-box,
+  .invoice-box p,
+  .invoice-box p strong,
+  .invoice-box div,
+  .invoice-table,
+  .invoice-table tbody,
+  .invoice-table tr,
+  .invoice-table td,
+  .invoice-totals,
+  .invoice-totals .row,
+  .invoice-totals .row span,
+  .tracking-link {
+    font-size: inherit !important;
+    line-height: inherit !important;
+  }
+
+  /* Keep hierarchy without making body text small */
+  .invoice-meta .inv-title { font-size: 20pt !important; }
+  .invoice-box h4 { font-size: 13pt !important; }
+
+  /* Table spacing so bigger text still fits cleanly */
+  .invoice-table th { font-size: 13pt !important; padding: 10px 8px !important; }
+  .invoice-table td { padding: 10px 8px !important; }
+
+  /* Logo sizing to match larger text */
+  .invoice-brand img { height: 52px !important; }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
   </style>
 </head>
 <body>
