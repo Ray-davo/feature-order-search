@@ -398,100 +398,20 @@
     .tracking-link:hover { text-decoration: underline; }
 
     @media print {
-  @page {
-    margin: 0.5in;
-    size: letter;
-  }
-
-  /* Force true 14px-equivalent output in Chrome/Edge PDF */
-  html { font-size: 14px !important; }
-  body {
-    background: #fff !important;
-    font-size: 14px !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .header, .container { display: none !important; }
-
-  .modal {
-    position: static !important;
-    background: transparent !important;
-  }
-
-  .modal-content {
-    box-shadow: none !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  .modal-header { position: static !important; }
-  .modal-header h2 { font-size: 18px !important; font-weight: 700 !important; }
-
-  .close-btn, .print-btn { display: none !important; }
-
-  /* Invoice */
-  .invoice-wrap { padding: 10px !important; font-size: 14px !important; }
-  .invoice-brand img { height: 48px !important; }
-
-  .invoice-brand .addr,
-  .invoice-brand .addr div,
-  .invoice-meta,
-  .invoice-meta div,
-  .invoice-box,
-  .invoice-box p,
-  .invoice-box div,
-  .invoice-table,
-  .invoice-table td {
-    font-size: 14px !important;
-    line-height: 1.45 !important;
-  }
-
-  .invoice-meta .inv-title { font-size: 20px !important; }
-
-  .invoice-box h4 { font-size: 13px !important; }
-
-  .invoice-table th {
-    font-size: 13px !important;
-    padding: 10px 8px !important;
-  }
-
-  .invoice-table td {
-    padding: 10px 8px !important;
-  }
-
-  .invoice-totals,
-  .invoice-totals .row,
-  .invoice-totals .row span {
-    font-size: 14px !important;
-  }
-
-  .invoice-totals .grand,
-  .invoice-totals .grand span,
-  .invoice-totals .grand strong {
-    font-size: 16px !important;
-  }
-
-  .tracking-link { font-size: 14px !important; }
-
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-}
-      html {
-        font-size: 18px !important;
+      @page { 
+        margin: 0.5in; 
+        size: letter;
       }
+
+      /* Force consistent 14px output in Chrome/Edge PDF */
+      html { font-size: 14px !important; }
       body { 
         background: #fff !important; 
-        font-size: 18px !important;
+        font-size: 14px !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
+
       .header, .container { display: none !important; }
       .modal { position: static !important; background: transparent !important; }
       .modal-content { 
@@ -504,35 +424,35 @@
         overflow: visible !important; 
       }
       .modal-header { position: static !important; }
-      .modal-header h2 { font-size: 26px !important; font-weight: bold !important; }
+      .modal-header h2 { font-size: 14px !important; font-weight: bold !important; }
       .close-btn, .print-btn { display: none !important; }
-      .invoice-wrap { padding: 10px !important; font-size: 18px !important; }
-      
+      .invoice-wrap { padding: 10px !important; font-size: 14px !important; }
+
       /* Print-specific font sizes */
       .invoice-brand img { height: 55px !important; }
       .invoice-brand .addr,
-      .invoice-brand .addr div { font-size: 16px !important; line-height: 1.5 !important; }
+      .invoice-brand .addr div { font-size: 14px !important; line-height: 1.5 !important; }
       .invoice-meta,
-      .invoice-meta div { font-size: 16px !important; line-height: 1.7 !important; }
-      .invoice-meta .inv-title { font-size: 24px !important; }
-      .invoice-box { font-size: 16px !important; }
-      .invoice-box h4 { font-size: 15px !important; }
+      .invoice-meta div { font-size: 14px !important; line-height: 1.7 !important; }
+      .invoice-meta .inv-title { font-size: 14px !important; }
+      .invoice-box { font-size: 14px !important; }
+      .invoice-box h4 { font-size: 14px !important; }
       .invoice-box p,
       .invoice-box p strong,
-      .invoice-box div { font-size: 16px !important; line-height: 1.5 !important; }
+      .invoice-box div { font-size: 14px !important; line-height: 1.5 !important; }
       .invoice-table,
       .invoice-table tbody,
-      .invoice-table tr { font-size: 16px !important; }
-      .invoice-table th { font-size: 15px !important; padding: 12px 8px !important; }
-      .invoice-table td { font-size: 16px !important; padding: 12px 8px !important; }
-      .invoice-totals { font-size: 16px !important; }
+      .invoice-table tr { font-size: 14px !important; }
+      .invoice-table th { font-size: 14px !important; padding: 12px 8px !important; }
+      .invoice-table td { font-size: 14px !important; padding: 12px 8px !important; }
+      .invoice-totals { font-size: 14px !important; }
       .invoice-totals .row,
-      .invoice-totals .row span { font-size: 16px !important; }
+      .invoice-totals .row span { font-size: 14px !important; }
       .invoice-totals .grand,
       .invoice-totals .grand span,
-      .invoice-totals .grand strong { font-size: 18px !important; }
-      .tracking-link { color: #007bff !important; font-size: 15px !important; }
-      
+      .invoice-totals .grand strong { font-size: 14px !important; }
+      .tracking-link { color: #007bff !important; font-size: 14px !important; }
+
       * { 
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
