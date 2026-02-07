@@ -407,8 +407,8 @@
      Use PT units for print so Chrome/Edge PDF matches "real-world" text sizing.
      14pt prints much closer to what people expect as "14" than 14px (which is ~10.5pt). */
   html, body {
-    font-size: 14pt !important;
-    line-height: 1.4 !important;
+    font-size: 16pt !important;
+    line-height: 1.5 !important;
     background: #fff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -418,7 +418,7 @@
 .invoice-totals .grand strong {
   font-size: 20pt !important;
   font-weight: 600 !important;
-  line-height: 1.4 !important;
+  line-height: 1.5 !important;
 }
 
   .header, .container { display: none !important; }
@@ -468,8 +468,13 @@
   .invoice-table th { font-size: 13pt !important; padding: 10px 8px !important; }
   .invoice-table td { padding: 10px 8px !important; }
 
-  /* Logo sizing to match larger text */
-  .invoice-brand img { height: 52px !important; }
+  /* Logo sizing for print */
+.invoice-brand img {
+  height: 44px !important;
+  width: 250px !important;
+  object-fit: contain;
+}
+  
 
   * {
     -webkit-print-color-adjust: exact !important;
