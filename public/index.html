@@ -120,52 +120,30 @@
     }
     .order-row:hover { background: #f8f9fa; }
 
-        /* Expand button */
+    /* Expand button */
     .expand-btn {
-      width: 22px;
-      height: 22px;
+      width: 60px;
+      height: 60px;
       border: 1px solid #ddd;
       background: #fff;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 50px;
+      font-weight: normal;
       color: #666;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s;
       flex-shrink: 0;
-      margin-right: 12px;
-      line-height: 1;
+      margin-right: 15px;
     }
     .expand-btn:hover { background: #007bff; border-color: #007bff; color: #fff; }
     .expand-btn.expanded { background: #007bff; border-color: #007bff; color: #fff; }
-.order-info { flex: 1; cursor: pointer; min-width: 0; }
 
-    /* Collapsed row: keep everything on one line for fast scanning */
-    .order-line {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      white-space: nowrap;
-      overflow: hidden;
-      min-width: 0;
-    }
-    .order-id { font-weight: 600; color: #007bff; flex-shrink: 0; }
-    .order-customer { color: #333; }
-    .order-email { color: #666; font-size: 14px; }
-    .meta-line {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-      white-space: nowrap;
-    }
-    .order-date { color: #666; font-size: 13px; }
-
+    .order-info { flex: 1; cursor: pointer; }
     .order-id { font-weight: 600; color: #007bff; }
-    .order-customer { color: #333; }
+    .order-customer { color: #333; margin-top: 3px; }
     .order-email { color: #666; font-size: 14px; }
 
     .order-meta { text-align: right; cursor: pointer; }
@@ -276,8 +254,6 @@
       font-weight: 600;
       font-size: 14px;
     }
-
-    .view-full-btn-wrap { width: 100%; text-align: center; margin-top: 12px; }
 
     .preview-address-box .view-full-btn {
      width: 100%;
@@ -512,6 +488,61 @@
     print-color-adjust: exact !important;
   }
 }
+      /* ===== Collapsed row (before + preview) ===== */
+    .order-row{
+      display: grid !important;
+      grid-template-columns: 26px 110px minmax(160px, 1.2fr) minmax(200px, 1.6fr) 92px 92px 92px;
+      gap: 12px;
+      align-items: center;
+      justify-content: initial !important;
+      padding: 10px 16px !important;
+    }
+    .order-row > * { min-width: 0; } /* allow ellipsis */
+    .order-col{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+    .order-col.order-id{
+      font-weight: 600;
+      color: #007bff;
+      cursor: pointer;
+    }
+    .order-col.order-customer{ color:#333; }
+    .order-col.order-email{ color:#666; font-size: 14px; }
+    .order-col.order-date{ color:#666; font-size: 13px; text-align:right; }
+    .order-col.order-total{
+      text-align: right;
+      font-weight: 700;
+      font-size: 18px;
+      color:#111;
+    }
+    /* Make the status pill align nicely in the grid */
+    .order-row .order-status{
+      justify-self: end;
+      margin-top: 0 !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    /* Smaller + / - button (collapsed row) */
+    .expand-btn{
+      width: 22px !important;
+      height: 22px !important;
+      font-size: 16px !important;
+      border-radius: 4px;
+      margin-right: 0 !important;
+    }
+
+    /* Responsive: keep one line, but shrink columns a bit */
+    @media (max-width: 900px){
+      .order-row{
+        grid-template-columns: 26px 100px minmax(120px, 1.2fr) minmax(160px, 1.6fr) 84px 84px 84px;
+        gap: 10px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -572,25 +603,7 @@
       return str ? (str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()) : '';
     }
 
-    
-
-    function countryAbbrev(country) {
-      const c = (country || '').trim();
-      if (!c) return '';
-      if (/^united states$/i.test(c) || /^usa$/i.test(c) || /^u\.s\.?a?\.?$/i.test(c)) return 'US';
-      return c;
-    }
-
-    function formatCityStateZipCountry(a) {
-      const city = (a.city || '').trim();
-      const state = (a.state || '').trim();
-      const zip = (a.zip || '').trim();
-      const country = countryAbbrev(a.country || '');
-      const left = [city, state].filter(Boolean).join(', ');
-      const mid = [left, zip].filter(Boolean).join(' ');
-      return [mid, country].filter(Boolean).join(', ');
-    }
-async function checkAuth() {
+    async function checkAuth() {
       try {
         const response = await fetch('/api/auth-check');
         const data = await response.json();
@@ -712,19 +725,21 @@ async function checkAuth() {
           : 'Guest';
         const customerEmail = order.billing_address?.email || '';
 
-        html += `
-          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
+        html += `          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
-            <div class="order-info">
-              <div class="order-id">#${order.id}</div>
-              <div class="order-customer">${customerName}</div>
-              <div class="order-email">${customerEmail}</div>
-            </div>
-            <div class="order-meta">
-              <div class="order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
-              <div class="order-status ${statusClass}">${order.status}</div>
-              <div style="color: #666; font-size: 13px; margin-top: 5px;">${date}</div>
-            </div>
+
+            <div class="order-col order-id">#${order.id}</div>
+
+            <div class="order-col order-customer" title="${customerName}">${customerName}</div>
+
+            <div class="order-col order-email" title="${customerEmail}">${customerEmail}</div>
+
+            <div class="order-col order-date">${date}</div>
+
+            <div class="order-col order-status ${statusClass}">${order.status}</div>
+
+            <div class="order-col order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
+          </div>
           </div>
           <div class="preview-panel" id="preview-${order.id}">
             <div class="preview-content" id="preview-content-${order.id}">
@@ -833,7 +848,8 @@ async function checkAuth() {
               📧 ${billing.email || 'N/A'}<br>
               📞 ${billing.phone || 'N/A'}
             </div>
-</div>
+            <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
+          </div>
 
           <div class="preview-address-box">
             <h5>Shipping</h5>
