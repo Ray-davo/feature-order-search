@@ -255,6 +255,16 @@
       user-select: text;
     }
 
+    .meta-line{
+      margin-top: 4px;
+      font-size: 16px;
+      color: #555;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
     /* Carrier badge in tracking line */
     .carrier-badge{
       display: inline-flex;
@@ -938,6 +948,52 @@
       '</div>';
     }
 
+
+    // Format Order Date with time + timezone (America/Los_Angeles)
+    function formatOrderDateTime(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleString('en-US', {
+          month: 'short',
+          day: '2-digit',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'America/Los_Angeles',
+          timeZoneName: 'short'
+        }).replace(',', '');
+      } catch (e) {
+        return '—';
+      }
+    }
+
+    // Format Shipped date as date-only (America/Los_Angeles)
+    function formatShippedDateOnly(shipments, order) {
+      const pick = (v) => v ? new Date(v) : null;
+      let dt = null;
+
+      // Prefer an explicit shipped date if present (varies by API shape)
+      if (shipments && shipments.length) {
+        const s0 = shipments[0] || {};
+        dt = pick(s0.date_shipped) || pick(s0.shipped_at) || pick(s0.date_created) || pick(s0.created_at) || null;
+      }
+      if (!dt && order) {
+        dt = pick(order.date_shipped) || pick(order.shipped_at) || null;
+      }
+      if (!dt) return '—';
+
+      try {
+        return dt.toLocaleDateString('en-US', {
+          month: 'short',
+          day: '2-digit',
+          year: 'numeric',
+          timeZone: 'America/Los_Angeles'
+        }).replace(',', '');
+      } catch (e) {
+        return '—';
+      }
+    }
+
     function renderPreviewItems(orderId, data) {
       const previewContent = document.getElementById(`preview-content-${orderId}`);
       const products = data.products || [];
@@ -967,6 +1023,9 @@
         return [mid, c].filter(Boolean).join(', ');
       };
 
+      const orderDateTime = formatOrderDateTime(order.date_created);
+      const shippedDateOnly = formatShippedDateOnly(shipments, order);
+
       if (products.length === 0) {
         previewContent.innerHTML = '<div class="preview-loading">No items in this order</div>';
         return;
@@ -985,6 +1044,7 @@
               <span class="contact-phone"><span class="field-label">Phone:</span> <span class="copyable">${billing.phone || 'N/A'}</span></span>
               <span class="contact-email"><span class="field-label">Email:</span> <span class="copyable">${billing.email || 'N/A'}</span></span>
             </div>
+            <div class="meta-line"><span class="field-label">Order Date:</span> <span class="copyable">${orderDateTime}</span></div>
           </div>
 
           <div class="preview-address-box">
@@ -998,6 +1058,7 @@
               ${formatCityLine(shipping)}
             </p>
             ${trackingHtml}
+            <div class="meta-line"><span class="field-label">Shipped:</span> <span class="copyable">${shippedDateOnly}</span></div>
           </div>
 
           <div class="preview-items-box">
