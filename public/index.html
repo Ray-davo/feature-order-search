@@ -155,10 +155,10 @@
       font-size: 12px;
       margin-top: 5px;
     }
-    .status-completed { background: #d4edda; color: #155724; }
-    .status-pending { background: #fff3cd; color: #856404; }
-    .status-shipped { background: #cce5ff; color: #004085; }
-    .status-refunded { background: #f8d7da; color: #721c24; }
+    .status-completed { background: #d4edda; color: #155724; font-size: 16px; }
+    .status-pending { background: #fff3cd; color: #856404; font-size: 16px;}
+    .status-shipped { background: #cce5ff; color: #004085; font-size: 16px;}
+    .status-refunded { background: #f8d7da; color: #721c24; font-size: 16px;}
 
     /* Preview Panel */
     .preview-panel { display: none; background: #f8fafc; border-bottom: 1px solid #eee; }
@@ -198,18 +198,49 @@
       font-size: 14px;
       color: #555;
     }
+
+    .preview-address-box .contact.contact-inline{
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .preview-address-box .contact.contact-inline span{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
     .tracking-inline {
       margin-top: 6px;
       padding-top: 6px;
       border-top: 1px solid #eee;
       font-size: 14px;
       color: #555;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .tracking-inline .tracking-label{
+      font-weight: 600;
+      color: #555;
+      white-space: nowrap;
+    }
+    .tracking-inline .tracking-numbers{
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .tracking-inline .tracking-sep{
+      color: #999;
+      font-weight: 400;
     }
     .tracking-inline .tracking-link {
       color: #007bff;
       text-decoration: none;
       font-weight: 600;
-      word-break: break-all;
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
     .tracking-inline .tracking-link:hover { text-decoration: underline; }
 
@@ -230,7 +261,7 @@
     .preview-items-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
+      font-size: 16px;
     }
     .preview-items-table th {
       text-align: left;
@@ -242,7 +273,7 @@
       text-transform: uppercase;
     }
     .preview-items-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }
-    .preview-items-table .sku { font-family: monospace; font-size: 14px; color: #666; }
+    .preview-items-table .sku { font-family: monospace; font-size: 16px; color: #666; }
     .preview-items-table .qty { text-align: center; }
     .preview-items-table .price { text-align: right; }
 
@@ -252,7 +283,7 @@
       border-top: 1px solid #ddd;
       text-align: right;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 16px;
     }
 
     
@@ -534,8 +565,8 @@
       cursor: pointer;
     }
     .order-col.order-customer{ color:#333; }
-    .order-col.order-email{ color:#666; font-size: 14px; }
-    .order-col.order-date{ color:#666; font-size: 13px; text-align:right; }
+    .order-col.order-email{ color:#333; font-size: 16px; }
+    .order-col.order-date{ color:#333; font-size: 16px; text-align:right; }
     .order-col.order-total{
       text-align: right;
       font-weight: 700;
@@ -818,27 +849,28 @@
     function buildTrackingHtml(shipments) {
       if (!shipments || shipments.length === 0) return '';
 
-      let html = '<div class="tracking-inline"><strong>📦 Tracking:</strong><br>';
-
-      shipments.forEach((s, index) => {
-        if (index > 0) html += '<br>';
-
+      // Inline format (saves a line): tracking number first, then label.
+      // If multiple tracking numbers exist, show them comma-separated.
+      const links = shipments.map((s) => {
         const carrierHint = String(s.tracking_carrier || '').toLowerCase();
         const rawNum = s.tracking_number;
         const num = rawNum ? String(rawNum).trim().replace(/\s+/g, '') : '';
 
-        if (!num) {
-          html += 'No tracking';
-          return;
-        }
+        if (!num) return '';
 
-        const url = getTrackingUrl(carrierHint, num) || ('https://www.fedex.com/fedextrack/?trknbr=' + encodeURIComponent(num));
+        const url =
+          getTrackingUrl(carrierHint, num) ||
+          ('https://www.fedex.com/fedextrack/?trknbr=' + encodeURIComponent(num));
 
-        html += '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tracking-link">' + num + '</a>';
-      });
+        return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tracking-link">' + num + '</a>';
+      }).filter(Boolean);
 
-      html += '</div>';
-      return html;
+      if (links.length === 0) return '';
+
+      return '<div class="tracking-inline">' +
+        '<span class="tracking-numbers">' + links.join('<span class="tracking-sep">, </span>') + '</span>' +
+        '<strong class="tracking-label">📦 Tracking:</strong>' +
+      '</div>';
     }
 
     function renderPreviewItems(orderId, data) {
@@ -884,10 +916,7 @@
               ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
               ${formatCityLine(billing)}
             </p>
-            <div class="contact">
-              📧 ${billing.email || 'N/A'}<br>
-              📞 ${billing.phone || 'N/A'}
-            </div>
+            <div class="contact contact-inline"><span class="contact-phone">📞 ${billing.phone || 'N/A'}</span><span class="contact-email">📧 ${billing.email || 'N/A'}</span></div>
 </div>
 
           <div class="preview-address-box">
