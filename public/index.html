@@ -251,7 +251,7 @@
       border-top: 1px solid #ddd;
       text-align: right;
       font-weight: 600;
-      font-size: 15px;
+      font-size: 14px;
     }
 
     .view-full-btn {
@@ -290,9 +290,9 @@
       font-size: 13px;
     }
     .note-item:last-child { margin-bottom: 0; }
-    .note-meta { font-size: 14px; color: #888; margin-bottom: 5px; font-size: 14px;}
+    .note-meta { font-size: 16px; color: #888; margin-bottom: 5px;}
     .note-meta strong { color: #555; }
-    .note-text { color: #333; line-height: 1.4; white-space: pre-wrap; font-size: 14px; }
+    .note-text { color: #333; line-height: 1.4; white-space: pre-wrap; font-size: 16px; }
     .note-form { display: flex; flex-direction: column; gap: 8px; }
     .note-textarea {
       width: 100%;
@@ -510,9 +510,7 @@
         </select>
         <input type="text" id="searchQuery" placeholder="Order #, email, phone, or name..." onkeypress="if(event.key==='Enter')search()">
         <button onclick="search()" id="searchBtn">Search</button>
-      </div>
-
-      <div class="db-stats" id="dbStats"></div>
+      </div>     
     </div>
 
     <div class="results" id="results">
