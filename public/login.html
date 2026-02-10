@@ -22,10 +22,16 @@
       width: 100%;
       max-width: 400px;
     }
+    .logo {
+      display: block;
+      margin: 0 auto 20px;
+      height: 60px;
+    }
     h1 {
       text-align: center;
       margin-bottom: 30px;
       color: #333;
+      font-size: 22px;
     }
     .form-group {
       margin-bottom: 20px;
@@ -47,6 +53,10 @@
       outline: none;
       border-color: #007bff;
     }
+    input:disabled {
+      background: #f5f5f5;
+      cursor: not-allowed;
+    }
     button {
       width: 100%;
       padding: 12px;
@@ -56,44 +66,150 @@
       border-radius: 4px;
       font-size: 16px;
       cursor: pointer;
+      transition: background 0.2s;
     }
-    button:hover {
+    button:hover:not(:disabled) {
       background: #0056b3;
     }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    /* Error messages */
     .error {
       background: #f8d7da;
       color: #721c24;
-      padding: 10px;
+      padding: 12px;
       border-radius: 4px;
       margin-bottom: 20px;
       display: none;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .error.warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .error.locked {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .error.rate-limited {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+    
+    /* Lockout timer */
+    .lockout-timer {
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+      margin-top: 15px;
+      display: none;
+    }
+    .lockout-timer .time {
+      font-weight: 600;
+      color: #dc3545;
     }
   </style>
 </head>
 <body>
   <div class="login-container">
-    <h1>Order Search</h1>
+    <img src="https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg" alt="1ink.com" class="logo">
+    <h1>Order Search Login</h1>
     <div class="error" id="error"></div>
     <form id="loginForm">
       <div class="form-group">
         <label for="username">Username</label>
-        <input type="text" id="username" name="username" required autofocus>
+        <input type="text" id="username" name="username" required autofocus autocomplete="username">
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
+        <input type="password" id="password" name="password" required autocomplete="current-password">
       </div>
-      <button type="submit">Login</button>
+      <button type="submit" id="submitBtn">Login</button>
     </form>
+    <div class="lockout-timer" id="lockoutTimer">
+      Account locked. Try again in <span class="time" id="lockoutTime">--</span>
+    </div>
   </div>
   
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    const form = document.getElementById('loginForm');
+    const errorDiv = document.getElementById('error');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockoutTimer = document.getElementById('lockoutTimer');
+    const lockoutTime = document.getElementById('lockoutTime');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    
+    let lockoutEndTime = null;
+    let countdownInterval = null;
+    
+    function showError(message, type = 'error') {
+      errorDiv.textContent = message;
+      errorDiv.className = 'error ' + type;
+      errorDiv.style.display = 'block';
+    }
+    
+    function hideError() {
+      errorDiv.style.display = 'none';
+    }
+    
+    function setFormDisabled(disabled) {
+      usernameInput.disabled = disabled;
+      passwordInput.disabled = disabled;
+      submitBtn.disabled = disabled;
+      submitBtn.textContent = disabled ? 'Locked' : 'Login';
+    }
+    
+    function startLockoutCountdown(minutes) {
+      lockoutEndTime = Date.now() + (minutes * 60 * 1000);
+      lockoutTimer.style.display = 'block';
+      setFormDisabled(true);
+      
+      if (countdownInterval) clearInterval(countdownInterval);
+      
+      function updateCountdown() {
+        const remaining = lockoutEndTime - Date.now();
+        
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+          lockoutTimer.style.display = 'none';
+          setFormDisabled(false);
+          hideError();
+          passwordInput.value = '';
+          usernameInput.focus();
+          return;
+        }
+        
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        lockoutTime.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+      
+      updateCountdown();
+      countdownInterval = setInterval(updateCountdown, 1000);
+    }
+    
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const errorDiv = document.getElementById('error');
+      if (submitBtn.disabled) return;
+      
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      
+      if (!username || !password) {
+        showError('Please enter both username and password.');
+        return;
+      }
+      
+      hideError();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Logging in...';
       
       try {
         const response = await fetch('/api/login', {
@@ -105,16 +221,52 @@
         const data = await response.json();
         
         if (response.ok) {
+          submitBtn.textContent = 'Success!';
           window.location.href = '/';
-        } else {
-          errorDiv.textContent = data.error || 'Login failed';
-          errorDiv.style.display = 'block';
+          return;
         }
+        
+        // Handle different error types
+        if (response.status === 423) {
+          // Account locked
+          showError(data.error, 'locked');
+          
+          // Extract minutes from message and start countdown
+          const match = data.error.match(/(\d+) minute/);
+          if (match) {
+            startLockoutCountdown(parseInt(match[1]));
+          } else {
+            startLockoutCountdown(15); // Default 15 minutes
+          }
+        } else if (response.status === 429) {
+          // Rate limited
+          showError(data.error, 'rate-limited');
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Please wait...';
+          
+          // Re-enable after 60 seconds
+          setTimeout(() => {
+            setFormDisabled(false);
+            hideError();
+          }, 60000);
+        } else {
+          // Regular error (invalid credentials)
+          const isWarning = data.error.includes('attempt') && data.error.includes('remaining');
+          showError(data.error, isWarning ? 'warning' : 'error');
+          setFormDisabled(false);
+          passwordInput.value = '';
+          passwordInput.focus();
+        }
+        
       } catch (err) {
-        errorDiv.textContent = 'Connection error. Please try again.';
-        errorDiv.style.display = 'block';
+        showError('Connection error. Please try again.');
+        setFormDisabled(false);
       }
     });
+    
+    // Clear error when user starts typing
+    usernameInput.addEventListener('input', hideError);
+    passwordInput.addEventListener('input', hideError);
   </script>
 </body>
 </html>

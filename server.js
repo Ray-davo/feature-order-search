@@ -43,9 +43,166 @@ async function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_order_notes ON order_notes (store, order_id);
+
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id SERIAL PRIMARY KEY,
+      ip_address TEXT NOT NULL,
+      username TEXT,
+      success BOOLEAN DEFAULT FALSE,
+      attempted_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_login_ip ON login_attempts (ip_address, attempted_at);
+    CREATE INDEX IF NOT EXISTS idx_login_user ON login_attempts (username, attempted_at);
   `);
 
+  // Clean up old login attempts (older than 24 hours)
+  await pool.query(`DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours'`);
+
   console.log('Postgres initialized');
+}
+
+// ==================== LOGIN SECURITY ====================
+
+// Security settings
+const LOCKOUT_THRESHOLD = 5;        // Failed attempts before lockout
+const LOCKOUT_DURATION_MIN = 15;    // Lockout duration in minutes
+const RATE_LIMIT_WINDOW_SEC = 60;   // Rate limit window in seconds
+const RATE_LIMIT_MAX_ATTEMPTS = 10; // Max attempts per IP in window
+
+// In-memory cache for faster checks (persisted to DB for audit)
+const loginAttempts = {
+  byIp: new Map(),      // IP -> { count, firstAttempt, lockedUntil }
+  byUser: new Map()     // username -> { count, firstAttempt, lockedUntil }
+};
+
+// Get client IP address
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+         req.headers['x-real-ip'] || 
+         req.connection?.remoteAddress || 
+         req.ip || 
+         'unknown';
+}
+
+// Check if IP is rate limited
+function isRateLimited(ip) {
+  const now = Date.now();
+  const record = loginAttempts.byIp.get(ip);
+  
+  if (!record) return false;
+  
+  // Reset if window expired
+  if (now - record.firstAttempt > RATE_LIMIT_WINDOW_SEC * 1000) {
+    loginAttempts.byIp.delete(ip);
+    return false;
+  }
+  
+  return record.count >= RATE_LIMIT_MAX_ATTEMPTS;
+}
+
+// Check if account is locked
+function isAccountLocked(username) {
+  const now = Date.now();
+  const record = loginAttempts.byUser.get(username);
+  
+  if (!record) return false;
+  
+  // Check if still locked
+  if (record.lockedUntil && now < record.lockedUntil) {
+    const remainingMin = Math.ceil((record.lockedUntil - now) / 60000);
+    return { locked: true, remainingMin };
+  }
+  
+  // Lock expired, reset
+  if (record.lockedUntil && now >= record.lockedUntil) {
+    loginAttempts.byUser.delete(username);
+    return false;
+  }
+  
+  return false;
+}
+
+// Record failed login attempt
+async function recordFailedAttempt(ip, username) {
+  const now = Date.now();
+  
+  // Update IP tracking
+  let ipRecord = loginAttempts.byIp.get(ip) || { count: 0, firstAttempt: now };
+  
+  // Reset if window expired
+  if (now - ipRecord.firstAttempt > RATE_LIMIT_WINDOW_SEC * 1000) {
+    ipRecord = { count: 0, firstAttempt: now };
+  }
+  
+  ipRecord.count++;
+  loginAttempts.byIp.set(ip, ipRecord);
+  
+  // Update username tracking
+  if (username) {
+    let userRecord = loginAttempts.byUser.get(username) || { count: 0, firstAttempt: now };
+    
+    // Reset if lockout expired
+    if (userRecord.lockedUntil && now >= userRecord.lockedUntil) {
+      userRecord = { count: 0, firstAttempt: now };
+    }
+    
+    userRecord.count++;
+    
+    // Apply lockout if threshold reached
+    if (userRecord.count >= LOCKOUT_THRESHOLD) {
+      userRecord.lockedUntil = now + (LOCKOUT_DURATION_MIN * 60 * 1000);
+      console.log(`[SECURITY] Account locked: ${username} for ${LOCKOUT_DURATION_MIN} minutes`);
+    }
+    
+    loginAttempts.byUser.set(username, userRecord);
+  }
+  
+  // Log to database for audit
+  try {
+    await pool.query(
+      'INSERT INTO login_attempts (ip_address, username, success) VALUES ($1, $2, $3)',
+      [ip, username || 'unknown', false]
+    );
+  } catch (e) {
+    console.error('Failed to log login attempt:', e.message);
+  }
+}
+
+// Record successful login
+async function recordSuccessfulLogin(ip, username) {
+  // Clear failed attempts for this user
+  loginAttempts.byUser.delete(username);
+  
+  // Log to database
+  try {
+    await pool.query(
+      'INSERT INTO login_attempts (ip_address, username, success) VALUES ($1, $2, $3)',
+      [ip, username, true]
+    );
+  } catch (e) {
+    console.error('Failed to log login attempt:', e.message);
+  }
+}
+
+// Get lockout info for user
+function getLockoutInfo(username) {
+  const record = loginAttempts.byUser.get(username);
+  if (!record) return null;
+  
+  const now = Date.now();
+  if (record.lockedUntil && now < record.lockedUntil) {
+    return {
+      locked: true,
+      remainingMin: Math.ceil((record.lockedUntil - now) / 60000),
+      attemptsLeft: 0
+    };
+  }
+  
+  return {
+    locked: false,
+    attemptsLeft: LOCKOUT_THRESHOLD - (record.count || 0)
+  };
 }
 
 // Middleware
@@ -322,18 +479,60 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Login API
-app.post('/api/login', (req, res) => {
+// Login API - with rate limiting and account lockout
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
-  const userLower = (username || '').toLowerCase();
-
+  const userLower = (username || '').toLowerCase().trim();
+  const ip = getClientIp(req);
+  
+  // Check rate limiting first
+  if (isRateLimited(ip)) {
+    console.log(`[SECURITY] Rate limited IP: ${ip}`);
+    return res.status(429).json({ 
+      error: 'Too many login attempts. Please wait a minute and try again.' 
+    });
+  }
+  
+  // Check if account is locked
+  const lockStatus = isAccountLocked(userLower);
+  if (lockStatus && lockStatus.locked) {
+    console.log(`[SECURITY] Blocked login for locked account: ${userLower} from ${ip}`);
+    await recordFailedAttempt(ip, userLower);
+    return res.status(423).json({ 
+      error: `Account temporarily locked. Try again in ${lockStatus.remainingMin} minute${lockStatus.remainingMin > 1 ? 's' : ''}.` 
+    });
+  }
+  
+  // Validate credentials
   if (users[userLower] && users[userLower] === password) {
     req.session.user = userLower;
-    console.log(`[${new Date().toISOString()}] Login success: ${userLower}`);
+    await recordSuccessfulLogin(ip, userLower);
+    console.log(`[${new Date().toISOString()}] Login success: ${userLower} from ${ip}`);
     return res.json({ success: true, user: userLower });
   }
-
-  console.log(`[${new Date().toISOString()}] Login failed: ${username}`);
+  
+  // Failed login
+  await recordFailedAttempt(ip, userLower);
+  
+  // Get lockout info to show warning
+  const lockInfo = getLockoutInfo(userLower);
+  
+  console.log(`[${new Date().toISOString()}] Login failed: ${username} from ${ip} (${lockInfo?.attemptsLeft || 0} attempts left)`);
+  
+  // Check if this attempt triggered a lockout
+  if (lockInfo && lockInfo.locked) {
+    return res.status(423).json({ 
+      error: `Too many failed attempts. Account locked for ${LOCKOUT_DURATION_MIN} minutes.` 
+    });
+  }
+  
+  // Show warning if close to lockout
+  if (lockInfo && lockInfo.attemptsLeft <= 2 && lockInfo.attemptsLeft > 0) {
+    return res.status(401).json({ 
+      error: `Invalid credentials. ${lockInfo.attemptsLeft} attempt${lockInfo.attemptsLeft > 1 ? 's' : ''} remaining before account lockout.` 
+    });
+  }
+  
   res.status(401).json({ error: 'Invalid credentials' });
 });
 
