@@ -281,8 +281,8 @@
     }
     .notes-section h5 {
       margin: 0 0 10px 0;
-      font-size: 12px;
-      color: #666;
+      font-size: 18px;
+      color: #000000;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -305,7 +305,7 @@
       padding: 10px;
       border: 1px solid #ddd;
       border-radius: 4px;
-      font-size: 14px;
+      font-size: 16px;
       font-family: inherit;
       resize: vertical;
       min-height: 60px;
@@ -790,7 +790,7 @@
               📧 ${billing.email || 'N/A'}<br>
               📞 ${billing.phone || 'N/A'}
             </div>
-            <button class="view-full-btn" style="margin-top:10px;" onclick="viewOrder(${orderId})">View Full Order</button>
+            <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
           </div>
 
           <div class="preview-address-box">
