@@ -623,9 +623,14 @@
 
   /* Header section with logo */
   .invoice-brand {
-    display: flex !important;
-    justify-content: space-between !important;
+    display: block !important;
     margin-bottom: 15pt !important;
+  }
+
+  /* Prevent logo/address overlap in print */
+  .invoice-brand img {
+    display: block !important;
+    margin: 0 0 6pt 0 !important;
   }
 
   .invoice-brand .addr {
