@@ -255,36 +255,48 @@
       font-size: 14px;
     }
 
-    .preview-address-box .view-full-btn {
-      display: inline-block;
-      width: auto;
-      margin-top: 8px;
-      padding: 8px 12px;
-      border: none;
-      border-radius: 6px;
-      background: #28a745;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
+    
+    /* Shipping header row inside preview box (keeps button top-right without adding a line) */
+    .preview-box-header{
+      display:flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 6px 0;
+    }
+    .preview-box-header h5{
+      margin: 0;
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .view-full-btn {
-      display: inline-block;
-      width: auto;
-      margin-top: 8px;
-      padding: 8px 12px;
+    /* View Full Order button (compact + secondary) */
+    .view-full-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 6px 12px;
       border: none;
       border-radius: 6px;
-      background: #28a745;
+      background: #2e9e45;
       color: #fff;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
+      line-height: 1;
     }
-    .view-full-btn:hover { background: #218838; }
+    .view-full-btn:hover { background: #278a3c; }
+
+    /* Totals block: keep it right-aligned like an invoice */
+    .preview-total{
+      max-width: 320px;
+      margin-left: auto;
+    }
+    .preview-total .coupon-label{ color:#000; font-weight: 600; }
+    .preview-total .coupon-value{ color:#d32f2f; font-weight: 700; }
 
     /* Notes Section (Preview only) */
     .notes-section {
@@ -879,14 +891,16 @@
 </div>
 
           <div class="preview-address-box">
-            <h5>Shipping</h5>
+            <div class="preview-box-header">
+              <h5>Shipping</h5>
+              <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
+            </div>
             <p>
               <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
               ${shipping.street_1 || ''}${shipping.street_2 ? ', ' + shipping.street_2 : ''}<br>
               ${formatCityLine(shipping)}
             </p>
             ${trackingHtml}
-            <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
           </div>
 
           <div class="preview-items-box">
@@ -919,7 +933,7 @@
             </table>
             <div class="preview-total">
               <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>$${parseFloat(order.subtotal_ex_tax || 0).toFixed(2)}</span></div>
-              ${parseFloat(order.coupon_discount || 0) > 0 ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span> <span>-$${parseFloat(order.coupon_discount).toFixed(2)}</span></div>` : ''}
+              ${parseFloat(order.coupon_discount || 0) > 0 ? `<div style="display:flex; justify-content: space-between;"><span class="coupon-label">Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span> <span class="coupon-value">-$${Math.abs(parseFloat(order.coupon_discount || 0)).toFixed(2)}</span></div>` : ''}
               ${parseFloat(order.discount_amount || 0) > 0 && parseFloat(order.discount_amount) !== parseFloat(order.coupon_discount || 0) ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Discount:</span> <span>-$${parseFloat(order.discount_amount).toFixed(2)}</span></div>` : ''}
               <div style="display: flex; justify-content: space-between;"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_ex_tax || 0).toFixed(2)}</span></div>
               <div style="display: flex; justify-content: space-between;"><span>Tax:</span> <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span></div>
@@ -1171,7 +1185,6 @@
                 ${safe(shipping.country)}
               </p>
               ${trackingHtml}
-            <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
             </div>
           </div>
 
