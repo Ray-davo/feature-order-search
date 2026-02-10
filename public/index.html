@@ -637,6 +637,81 @@
         gap: 10px;
       }
     }
+
+    /* Session timeout warning modal */
+    .session-warning {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .session-warning.show {
+      display: flex;
+    }
+    .session-warning-content {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 400px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .session-warning-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+    .session-warning h3 {
+      margin: 0 0 10px 0;
+      font-size: 20px;
+      color: #333;
+    }
+    .session-warning p {
+      margin: 0 0 20px 0;
+      color: #666;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .session-warning .countdown {
+      font-size: 32px;
+      font-weight: 700;
+      color: #dc3545;
+      margin-bottom: 20px;
+      font-family: monospace;
+    }
+    .session-warning-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .session-warning-buttons button {
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s;
+    }
+    .btn-stay {
+      background: #28a745;
+      color: white;
+    }
+    .btn-stay:hover {
+      background: #218838;
+    }
+    .btn-logout {
+      background: #6c757d;
+      color: white;
+    }
+    .btn-logout:hover {
+      background: #5a6268;
+    }
   </style>
 </head>
 <body>
@@ -688,10 +763,103 @@
     </div>
   </div>
 
+  <!-- Session Timeout Warning Modal -->
+  <div class="session-warning" id="sessionWarning">
+    <div class="session-warning-content">
+      <div class="session-warning-icon">⏰</div>
+      <h3>Session Expiring Soon</h3>
+      <p>Your session will expire due to inactivity.<br>Do you want to stay logged in?</p>
+      <div class="countdown" id="sessionCountdown">2:00</div>
+      <div class="session-warning-buttons">
+        <button class="btn-stay" onclick="extendSession()">Stay Logged In</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentStore = '1ink';
     let expandedOrders = {};
     let orderDetailsCache = {};
+
+    // Session monitoring
+    let sessionCheckInterval = null;
+    let countdownInterval = null;
+    let sessionWarningShown = false;
+
+    function startSessionMonitor() {
+      // Check session status every 30 seconds
+      sessionCheckInterval = setInterval(checkSessionStatus, 30000);
+    }
+
+    async function checkSessionStatus() {
+      try {
+        const response = await fetch('/api/session-check');
+        const data = await response.json();
+
+        if (!data.valid) {
+          // Session expired, redirect to login
+          window.location.href = '/login';
+          return;
+        }
+
+        if (data.showWarning && !sessionWarningShown) {
+          showSessionWarning(data.remainingSec);
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
+      }
+    }
+
+    function showSessionWarning(remainingSec) {
+      sessionWarningShown = true;
+      const modal = document.getElementById('sessionWarning');
+      const countdown = document.getElementById('sessionCountdown');
+      
+      modal.classList.add('show');
+      
+      let seconds = remainingSec;
+      
+      function updateCountdown() {
+        const min = Math.floor(seconds / 60);
+        const sec = seconds % 60;
+        countdown.textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+        
+        if (seconds <= 0) {
+          clearInterval(countdownInterval);
+          window.location.href = '/login';
+          return;
+        }
+        seconds--;
+      }
+      
+      updateCountdown();
+      countdownInterval = setInterval(updateCountdown, 1000);
+    }
+
+    function hideSessionWarning() {
+      sessionWarningShown = false;
+      const modal = document.getElementById('sessionWarning');
+      modal.classList.remove('show');
+      
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+    }
+
+    async function extendSession() {
+      try {
+        const response = await fetch('/api/session-extend', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+          hideSessionWarning();
+        }
+      } catch (err) {
+        console.error('Failed to extend session:', err);
+      }
+    }
 
     function capitalize(str) {
       return str ? (str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()) : '';
@@ -709,6 +877,7 @@
 
         document.getElementById('username').textContent = capitalize(data.user);
         loadDbStats();
+        startSessionMonitor(); // Start monitoring session timeout
       } catch (err) {
         window.location.href = '/login';
       }

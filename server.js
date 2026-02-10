@@ -65,10 +65,10 @@ async function initDb() {
 // ==================== LOGIN SECURITY ====================
 
 // Security settings
-const LOCKOUT_THRESHOLD = 5;        // Failed attempts before lockout
+const LOCKOUT_THRESHOLD = 3;        // Failed attempts before lockout
 const LOCKOUT_DURATION_MIN = 15;    // Lockout duration in minutes
 const RATE_LIMIT_WINDOW_SEC = 60;   // Rate limit window in seconds
-const RATE_LIMIT_MAX_ATTEMPTS = 10; // Max attempts per IP in window
+const RATE_LIMIT_MAX_ATTEMPTS = 5;  // Max attempts per IP in window
 
 // In-memory cache for faster checks (persisted to DB for audit)
 const loginAttempts = {
@@ -211,6 +211,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Session configuration
+const INACTIVITY_TIMEOUT_MIN = 60;    // Logout after 60 min of inactivity
+const ABSOLUTE_MAX_SESSION_HR = 8;     // Force logout after 8 hours regardless
+const WARNING_BEFORE_LOGOUT_MIN = 2;   // Show warning 2 min before logout
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
@@ -218,10 +222,45 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
+      maxAge: ABSOLUTE_MAX_SESSION_HR * 60 * 60 * 1000 // 8 hours absolute max
     }
   })
 );
+
+// Track last activity on every authenticated request
+app.use((req, res, next) => {
+  if (req.session && req.session.user) {
+    const now = Date.now();
+    
+    // Set login time if not set
+    if (!req.session.loginTime) {
+      req.session.loginTime = now;
+    }
+    
+    // Check absolute max session (8 hours)
+    if (now - req.session.loginTime > ABSOLUTE_MAX_SESSION_HR * 60 * 60 * 1000) {
+      console.log(`[SESSION] Absolute timeout for ${req.session.user} (8 hours)`);
+      req.session.destroy();
+      return res.status(401).json({ error: 'Session expired. Please log in again.', reason: 'absolute_timeout' });
+    }
+    
+    // Check inactivity timeout (60 min) - skip for session-check endpoint
+    if (req.session.lastActivity && !req.path.includes('/api/session-check')) {
+      const inactiveTime = now - req.session.lastActivity;
+      if (inactiveTime > INACTIVITY_TIMEOUT_MIN * 60 * 1000) {
+        console.log(`[SESSION] Inactivity timeout for ${req.session.user} (${Math.round(inactiveTime/60000)} min)`);
+        req.session.destroy();
+        return res.status(401).json({ error: 'Session expired due to inactivity.', reason: 'inactivity_timeout' });
+      }
+    }
+    
+    // Update last activity (skip for session-check to not reset timer)
+    if (!req.path.includes('/api/session-check')) {
+      req.session.lastActivity = now;
+    }
+  }
+  next();
+});
 
 // Store configurations
 const stores = {
@@ -548,9 +587,51 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/auth-check', (req, res) => {
   if (req.session && req.session.user) {
     const isAdmin = req.session.user === process.env.USER1_NAME?.toLowerCase();
+    
+    // Set initial activity time on first check
+    if (!req.session.lastActivity) {
+      req.session.lastActivity = Date.now();
+    }
+    if (!req.session.loginTime) {
+      req.session.loginTime = Date.now();
+    }
+    
     return res.json({ authenticated: true, user: req.session.user, isAdmin });
   }
   res.json({ authenticated: false });
+});
+
+// Session status check (doesn't reset activity timer)
+app.get('/api/session-check', (req, res) => {
+  if (!req.session || !req.session.user) {
+    return res.json({ valid: false });
+  }
+  
+  const now = Date.now();
+  const lastActivity = req.session.lastActivity || now;
+  const loginTime = req.session.loginTime || now;
+  
+  // Calculate remaining time (use whichever expires first)
+  const inactivityRemaining = (INACTIVITY_TIMEOUT_MIN * 60 * 1000) - (now - lastActivity);
+  const absoluteRemaining = (ABSOLUTE_MAX_SESSION_HR * 60 * 60 * 1000) - (now - loginTime);
+  const remainingMs = Math.min(inactivityRemaining, absoluteRemaining);
+  
+  const warningThreshold = WARNING_BEFORE_LOGOUT_MIN * 60 * 1000;
+  
+  res.json({
+    valid: remainingMs > 0,
+    remainingMs: Math.max(0, remainingMs),
+    remainingSec: Math.max(0, Math.floor(remainingMs / 1000)),
+    showWarning: remainingMs > 0 && remainingMs <= warningThreshold,
+    reason: absoluteRemaining < inactivityRemaining ? 'absolute' : 'inactivity'
+  });
+});
+
+// Extend session (user clicked "Stay logged in")
+app.post('/api/session-extend', requireAuth, (req, res) => {
+  req.session.lastActivity = Date.now();
+  console.log(`[SESSION] Extended by ${req.session.user}`);
+  res.json({ success: true, message: 'Session extended' });
 });
 
 // Database stats
