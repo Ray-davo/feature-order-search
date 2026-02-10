@@ -664,14 +664,14 @@
         const customerEmail = order.billing_address?.email || '';
 
         html += `
-          <div class="order-row" id="order-row-${order.id}">
+          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
-            <div class="order-info" onclick="viewOrder(${order.id})">
+            <div class="order-info">
               <div class="order-id">#${order.id}</div>
               <div class="order-customer">${customerName}</div>
               <div class="order-email">${customerEmail}</div>
             </div>
-            <div class="order-meta" onclick="viewOrder(${order.id})">
+            <div class="order-meta">
               <div class="order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
               <div class="order-status ${statusClass}">${order.status}</div>
               <div style="color: #666; font-size: 13px; margin-top: 5px;">${date}</div>
@@ -689,7 +689,7 @@
     }
 
     async function togglePreview(event, orderId) {
-      event.stopPropagation();
+      if (event) event.stopPropagation();
 
       const previewPanel = document.getElementById(`preview-${orderId}`);
       const expandBtn = document.querySelector(`#order-row-${orderId} .expand-btn`);
