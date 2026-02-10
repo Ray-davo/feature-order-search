@@ -4,10 +4,12 @@ const session = require('express-session');
 const fetch = require('node-fetch');
 const path = require('path');
 const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+const BCRYPT_ROUNDS = 10;
 
 // Postgres connection (Render)
 const pool = new Pool({
@@ -54,12 +56,56 @@ async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_login_ip ON login_attempts (ip_address, attempted_at);
     CREATE INDEX IF NOT EXISTS idx_login_user ON login_attempts (username, attempted_at);
+
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      is_admin BOOLEAN DEFAULT FALSE,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_login TIMESTAMPTZ,
+      failed_attempts INT DEFAULT 0,
+      locked_until TIMESTAMPTZ
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
   `);
 
   // Clean up old login attempts (older than 24 hours)
   await pool.query(`DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours'`);
 
+  // Migrate users from environment variables to database (one-time)
+  await migrateEnvUsers();
+
   console.log('Postgres initialized');
+}
+
+// Migrate users from env vars to database (runs once)
+async function migrateEnvUsers() {
+  for (let i = 1; i <= 10; i++) {
+    const name = process.env[`USER${i}_NAME`];
+    const pass = process.env[`USER${i}_PASS`];
+    
+    if (name && pass) {
+      const userLower = name.toLowerCase();
+      
+      // Check if user already exists
+      const existing = await pool.query('SELECT id FROM users WHERE username = $1', [userLower]);
+      
+      if (existing.rows.length === 0) {
+        // Hash password and insert
+        const hash = await bcrypt.hash(pass, BCRYPT_ROUNDS);
+        const isAdmin = i === 1; // USER1 is admin
+        
+        await pool.query(
+          'INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3)',
+          [userLower, hash, isAdmin]
+        );
+        console.log(`Migrated user: ${userLower}${isAdmin ? ' (admin)' : ''}`);
+      }
+    }
+  }
 }
 
 // ==================== LOGIN SECURITY ====================
@@ -281,16 +327,6 @@ const stores = {
   }
 };
 
-// Users (from environment variables) - supports USER1 through USER10
-const users = {};
-for (let i = 1; i <= 10; i++) {
-  const name = process.env[`USER${i}_NAME`];
-  const pass = process.env[`USER${i}_PASS`];
-  if (name && pass) {
-    users[name.toLowerCase()] = pass;
-  }
-}
-
 // Auth middleware
 function requireAuth(req, res, next) {
   if (req.session && req.session.user) {
@@ -301,8 +337,7 @@ function requireAuth(req, res, next) {
 
 // Admin check middleware
 function requireAdmin(req, res, next) {
-  const adminUser = process.env.USER1_NAME?.toLowerCase();
-  if (req.session && req.session.user && req.session.user === adminUser) {
+  if (req.session && req.session.user && req.session.isAdmin) {
     return next();
   }
   return res.status(403).json({ error: 'Admin access required' });
@@ -537,7 +572,7 @@ app.post('/api/login', async (req, res) => {
     });
   }
   
-  // Check if account is locked
+  // Check if account is locked (in-memory)
   const lockStatus = isAccountLocked(userLower);
   if (lockStatus && lockStatus.locked) {
     console.log(`[SECURITY] Blocked login for locked account: ${userLower} from ${ip}`);
@@ -547,37 +582,93 @@ app.post('/api/login', async (req, res) => {
     });
   }
   
-  // Validate credentials
-  if (users[userLower] && users[userLower] === password) {
-    req.session.user = userLower;
-    await recordSuccessfulLogin(ip, userLower);
-    console.log(`[${new Date().toISOString()}] Login success: ${userLower} from ${ip}`);
-    return res.json({ success: true, user: userLower });
+  try {
+    // Get user from database
+    const result = await pool.query(
+      'SELECT id, username, password_hash, is_admin, is_active, locked_until FROM users WHERE username = $1',
+      [userLower]
+    );
+    
+    const user = result.rows[0];
+    
+    // Check if user exists and is active
+    if (!user || !user.is_active) {
+      await recordFailedAttempt(ip, userLower);
+      const lockInfo = getLockoutInfo(userLower);
+      
+      if (lockInfo && lockInfo.attemptsLeft <= 2 && lockInfo.attemptsLeft > 0) {
+        return res.status(401).json({ 
+          error: `Invalid credentials. ${lockInfo.attemptsLeft} attempt${lockInfo.attemptsLeft > 1 ? 's' : ''} remaining before account lockout.` 
+        });
+      }
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Check if account is locked in database
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const remainingMin = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      return res.status(423).json({ 
+        error: `Account temporarily locked. Try again in ${remainingMin} minute${remainingMin > 1 ? 's' : ''}.` 
+      });
+    }
+    
+    // Verify password with bcrypt
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    
+    if (validPassword) {
+      // Update last login
+      await pool.query(
+        'UPDATE users SET last_login = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = $1',
+        [user.id]
+      );
+      
+      req.session.user = userLower;
+      req.session.isAdmin = user.is_admin;
+      req.session.userId = user.id;
+      
+      await recordSuccessfulLogin(ip, userLower);
+      console.log(`[${new Date().toISOString()}] Login success: ${userLower} from ${ip}`);
+      return res.json({ success: true, user: userLower, isAdmin: user.is_admin });
+    }
+    
+    // Failed login - update database
+    await pool.query(
+      'UPDATE users SET failed_attempts = failed_attempts + 1 WHERE id = $1',
+      [user.id]
+    );
+    
+    // Check if should lock in database
+    const updatedUser = await pool.query('SELECT failed_attempts FROM users WHERE id = $1', [user.id]);
+    if (updatedUser.rows[0].failed_attempts >= LOCKOUT_THRESHOLD) {
+      await pool.query(
+        'UPDATE users SET locked_until = NOW() + INTERVAL \'15 minutes\' WHERE id = $1',
+        [user.id]
+      );
+    }
+    
+    await recordFailedAttempt(ip, userLower);
+    const lockInfo = getLockoutInfo(userLower);
+    
+    console.log(`[${new Date().toISOString()}] Login failed: ${username} from ${ip} (${lockInfo?.attemptsLeft || 0} attempts left)`);
+    
+    if (lockInfo && lockInfo.locked) {
+      return res.status(423).json({ 
+        error: `Too many failed attempts. Account locked for ${LOCKOUT_DURATION_MIN} minutes.` 
+      });
+    }
+    
+    if (lockInfo && lockInfo.attemptsLeft <= 2 && lockInfo.attemptsLeft > 0) {
+      return res.status(401).json({ 
+        error: `Invalid credentials. ${lockInfo.attemptsLeft} attempt${lockInfo.attemptsLeft > 1 ? 's' : ''} remaining before account lockout.` 
+      });
+    }
+    
+    res.status(401).json({ error: 'Invalid credentials' });
+    
+  } catch (err) {
+    console.error('Login error:', err.message);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
   }
-  
-  // Failed login
-  await recordFailedAttempt(ip, userLower);
-  
-  // Get lockout info to show warning
-  const lockInfo = getLockoutInfo(userLower);
-  
-  console.log(`[${new Date().toISOString()}] Login failed: ${username} from ${ip} (${lockInfo?.attemptsLeft || 0} attempts left)`);
-  
-  // Check if this attempt triggered a lockout
-  if (lockInfo && lockInfo.locked) {
-    return res.status(423).json({ 
-      error: `Too many failed attempts. Account locked for ${LOCKOUT_DURATION_MIN} minutes.` 
-    });
-  }
-  
-  // Show warning if close to lockout
-  if (lockInfo && lockInfo.attemptsLeft <= 2 && lockInfo.attemptsLeft > 0) {
-    return res.status(401).json({ 
-      error: `Invalid credentials. ${lockInfo.attemptsLeft} attempt${lockInfo.attemptsLeft > 1 ? 's' : ''} remaining before account lockout.` 
-    });
-  }
-  
-  res.status(401).json({ error: 'Invalid credentials' });
 });
 
 // Logout
@@ -591,8 +682,6 @@ app.post('/api/logout', (req, res) => {
 // Check auth status
 app.get('/api/auth-check', (req, res) => {
   if (req.session && req.session.user) {
-    const isAdmin = req.session.user === process.env.USER1_NAME?.toLowerCase();
-    
     // Set initial activity time on first check
     if (!req.session.lastActivity) {
       req.session.lastActivity = Date.now();
@@ -601,7 +690,11 @@ app.get('/api/auth-check', (req, res) => {
       req.session.loginTime = Date.now();
     }
     
-    return res.json({ authenticated: true, user: req.session.user, isAdmin });
+    return res.json({ 
+      authenticated: true, 
+      user: req.session.user, 
+      isAdmin: req.session.isAdmin || false 
+    });
   }
   res.json({ authenticated: false });
 });
@@ -637,6 +730,202 @@ app.post('/api/session-extend', requireAuth, (req, res) => {
   req.session.lastActivity = Date.now();
   console.log(`[SESSION] Extended by ${req.session.user}`);
   res.json({ success: true, message: 'Session extended' });
+});
+
+// ==================== ADMIN API ENDPOINTS ====================
+
+// Get all users (admin only)
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, username, is_admin, is_active, created_at, last_login, failed_attempts, locked_until
+      FROM users
+      ORDER BY created_at ASC
+    `);
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    console.error('Get users error:', err.message);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+// Create new user (admin only)
+app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  const { username, password, isAdmin } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  
+  const userLower = username.toLowerCase().trim();
+  
+  try {
+    // Check if username exists
+    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [userLower]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    
+    // Hash password and create user
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const result = await pool.query(
+      'INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3) RETURNING id, username, is_admin, is_active, created_at',
+      [userLower, hash, isAdmin || false]
+    );
+    
+    console.log(`[ADMIN] User created: ${userLower} by ${req.session.user}`);
+    res.json({ success: true, user: result.rows[0] });
+    
+  } catch (err) {
+    console.error('Create user error:', err.message);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Update user (admin only)
+app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { username, password, isAdmin, isActive } = req.body;
+  
+  try {
+    // Get current user
+    const current = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+    
+    if (username !== undefined) {
+      const userLower = username.toLowerCase().trim();
+      // Check if new username exists (for another user)
+      const existing = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [userLower, id]);
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+      updates.push(`username = $${paramCount++}`);
+      values.push(userLower);
+    }
+    
+    if (password !== undefined && password.length > 0) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+      updates.push(`password_hash = $${paramCount++}`);
+      values.push(hash);
+    }
+    
+    if (isAdmin !== undefined) {
+      updates.push(`is_admin = $${paramCount++}`);
+      values.push(isAdmin);
+    }
+    
+    if (isActive !== undefined) {
+      updates.push(`is_active = $${paramCount++}`);
+      values.push(isActive);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+    
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} 
+       RETURNING id, username, is_admin, is_active, created_at, last_login, failed_attempts, locked_until`,
+      values
+    );
+    
+    console.log(`[ADMIN] User updated: ${result.rows[0].username} by ${req.session.user}`);
+    res.json({ success: true, user: result.rows[0] });
+    
+  } catch (err) {
+    console.error('Update user error:', err.message);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Delete user (admin only)
+app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Prevent deleting yourself
+    if (req.session.userId === parseInt(id)) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+    
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING username', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log(`[ADMIN] User deleted: ${result.rows[0].username} by ${req.session.user}`);
+    res.json({ success: true, message: 'User deleted' });
+    
+  } catch (err) {
+    console.error('Delete user error:', err.message);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Unlock user account (admin only)
+app.post('/api/admin/users/:id/unlock', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await pool.query(
+      'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1 RETURNING username',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Also clear in-memory lockout
+    loginAttempts.byUser.delete(result.rows[0].username);
+    
+    console.log(`[ADMIN] User unlocked: ${result.rows[0].username} by ${req.session.user}`);
+    res.json({ success: true, message: 'User unlocked' });
+    
+  } catch (err) {
+    console.error('Unlock user error:', err.message);
+    res.status(500).json({ error: 'Failed to unlock user' });
+  }
+});
+
+// Get login attempts (admin only)
+app.get('/api/admin/login-attempts', requireAuth, requireAdmin, async (req, res) => {
+  const { limit = 100 } = req.query;
+  
+  try {
+    const result = await pool.query(`
+      SELECT id, ip_address, username, success, attempted_at
+      FROM login_attempts
+      ORDER BY attempted_at DESC
+      LIMIT $1
+    `, [Math.min(parseInt(limit), 500)]);
+    
+    res.json({ success: true, attempts: result.rows });
+    
+  } catch (err) {
+    console.error('Get login attempts error:', err.message);
+    res.status(500).json({ error: 'Failed to get login attempts' });
+  }
+});
+
+// Admin page route
+app.get('/admin', requireAuth, requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // Database stats
