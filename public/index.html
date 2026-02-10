@@ -254,6 +254,11 @@
       font-size: 14px;
     }
 
+    .preview-address-box .view-full-btn {
+     width: 100%;
+     text-align: center;
+     }
+
     .view-full-btn {
       display: inline-block;
       margin-top: 12px;
@@ -785,6 +790,9 @@
               📞 ${billing.phone || 'N/A'}
             </div>
           </div>
+	<button class="view-full-btn" style="margin-top:10px;" onclick="viewOrder(${orderId})">
+  	View Full Order
+	</button>
 
           <div class="preview-address-box">
             <h5>Shipping</h5>
@@ -853,7 +861,6 @@
           </div>
         </div>
 
-        <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
       `;
 
       previewContent.innerHTML = html;
