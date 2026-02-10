@@ -95,16 +95,6 @@
       color: #666;
     }
 
-	.copyable {
- 	 user-select: text;
-	}
-
-	.contact-inline {
- 	 display: flex;
- 	 gap: 16px;
- 	 flex-wrap: wrap;
-	}
-
     .results {
       background: white;
       border-radius: 8px;
@@ -236,20 +226,6 @@
       color: #555;
       white-space: nowrap;
     }
-
-    .tracking-inline .ship-method{
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border: 1px solid #e0e0e0;
-      border-radius: 999px;
-      background: #f1f3f5;
-      color: #555;
-      font-weight: 700;
-      font-size: 12px;
-      line-height: 1.2;
-      white-space: nowrap;
-    }
     .tracking-inline .tracking-numbers{
       display: inline-flex;
       align-items: center;
@@ -267,6 +243,33 @@
       overflow-wrap: anywhere;
     }
     .tracking-inline .tracking-link:hover { text-decoration: underline; }
+
+    /* Plain labels + easy copy (no emoji/icons) */
+    .field-label{
+      font-weight: 600;
+      color: #555;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .copyable{
+      user-select: text;
+    }
+
+    /* Carrier badge in tracking line */
+    .carrier-badge{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #d9d9d9;
+      background: #f1f3f5;
+      color: #333;
+      white-space: nowrap;
+      line-height: 1.2;
+    }
 
     .preview-items-box {
       grid-column: 1 / -1;
@@ -869,46 +872,53 @@
       }
     }
 
-    // Build tracking HTML with clickable links (USPS/UPS/FedEx/DHL) + carrier badge
+    // Detect carrier label from a tracking number (fallback if BigCommerce doesn't provide tracking_carrier)
+    function detectCarrierLabel(number, carrierHint) {
+      const hint = String(carrierHint || '').toLowerCase();
+      const n = String(number || '').trim().replace(/\s+/g, '');
+
+      if (!n) return '';
+
+      const isUps = hint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n);
+      const isUsps =
+        hint.includes('usps') ||
+        /^(94|93|92|95)\d{18,20}$/.test(n) ||
+        /^420\d{5,}\d+$/.test(n);
+      const isFedex =
+        hint.includes('fedex') ||
+        (/^\d+$/.test(n) && (n.length === 12 || n.length === 15)) ||
+        (/^\d+$/.test(n) && (n.length === 20 || n.length === 22) && !/^(94|93|92|95)/.test(n));
+      const isDhl = hint.includes('dhl') || /^JD\d+/i.test(n);
+
+      if (isUps) return 'UPS';
+      if (isUsps) return 'USPS';
+      if (isFedex) return 'FedEx';
+      if (isDhl) return 'DHL';
+      return '';
+    }
+
+    // Build tracking HTML with clickable links + carrier badge (UPS/USPS/FedEx/DHL)
     function buildTrackingHtml(shipments) {
       if (!shipments || shipments.length === 0) return '';
 
-      // Detect carrier name based on provided carrier hint + tracking number patterns
-      const detectCarrierName = (carrier, number) => {
-        const carrierHint = String(carrier || '').toLowerCase();
-        const n = String(number || '').trim().replace(/\s+/g, '');
-        const digitsOnly = /^\d+$/.test(n);
+      const nums = shipments
+        .map(s => (s && s.tracking_number != null) ? String(s.tracking_number).trim() : '')
+        .map(n => n.replace(/\s+/g, ''))
+        .filter(Boolean);
 
-        const looksUps = carrierHint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n);
+      if (nums.length === 0) return '';
 
-        const looksUsps =
-          carrierHint.includes('usps') ||
-          /^(94|93|92|95)\d{18,20}$/.test(n) ||
-          /^420\d{5,}\d+$/.test(n);
+      // Determine carrier(s)
+      const carriers = shipments.map((s, idx) => detectCarrierLabel(nums[idx], s && s.tracking_carrier)).filter(Boolean);
+      const unique = Array.from(new Set(carriers));
+      const carrierLabel = unique.length === 0 ? '' : (unique.length === 1 ? unique[0] : 'Mixed');
 
-        const looksFedex =
-          carrierHint.includes('fedex') ||
-          (digitsOnly && (n.length === 12 || n.length === 15)) ||
-          (digitsOnly && (n.length === 20 || n.length === 22) && !/^(94|93|92|95)/.test(n));
-
-        const looksDhl = carrierHint.includes('dhl') || /^JD\d+/i.test(n);
-
-        if (looksUps) return 'UPS';
-        if (looksUsps) return 'USPS';
-        if (looksFedex) return 'FedEx';
-        if (looksDhl) return 'DHL';
-        return (carrierHint || '').toUpperCase() || 'Carrier';
-      };
-
-      const carriers = new Set();
+      // Build links
       const links = shipments.map((s) => {
-        const carrierHint = s.tracking_carrier || '';
+        const carrierHint = String(s.tracking_carrier || '').toLowerCase();
         const rawNum = s.tracking_number;
         const num = rawNum ? String(rawNum).trim().replace(/\s+/g, '') : '';
-
         if (!num) return '';
-
-        carriers.add(detectCarrierName(carrierHint, num));
 
         const url =
           getTrackingUrl(carrierHint, num) ||
@@ -919,16 +929,14 @@
 
       if (links.length === 0) return '';
 
-      const carrierLabel = (carriers.size === 1) ? Array.from(carriers)[0] : 'Mixed';
+      const badge = carrierLabel ? ('<span class="carrier-badge">' + carrierLabel + '</span>') : '';
 
-      // Correct order: "Tracking:" then tracking numbers (and show carrier badge)
       return '<div class="tracking-inline">' +
         '<strong class="tracking-label">Tracking:</strong>' +
-        '<span class="ship-method" title="Detected carrier">' + carrierLabel + '</span>' +
+        badge +
         '<span class="tracking-numbers">' + links.join('<span class="tracking-sep">, </span>') + '</span>' +
       '</div>';
     }
-
 
     function renderPreviewItems(orderId, data) {
       const previewContent = document.getElementById(`preview-content-${orderId}`);
@@ -973,14 +981,11 @@
               ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
               ${formatCityLine(billing)}
             </p>
-         <div class="contact contact-inline">
-  <span class="contact-phone">
-    <strong>Phone:</strong> <span class="copyable">${billing.phone || 'N/A'}</span>
-  </span>
-  <span class="contact-email">
-    <strong>Email:</strong> <span class="copyable">${billing.email || 'N/A'}</span>
-  </span>
-</div>
+            <div class="contact contact-inline">
+              <span class="contact-phone"><span class="field-label">Phone:</span> <span class="copyable">${billing.phone || 'N/A'}</span></span>
+              <span class="contact-email"><span class="field-label">Email:</span> <span class="copyable">${billing.email || 'N/A'}</span></span>
+            </div>
+          </div>
 
           <div class="preview-address-box">
             <div class="preview-box-header">
@@ -1167,35 +1172,7 @@
       }
     }
 
-    
-    // Detect carrier name from carrier hint + tracking number patterns
-    function detectCarrierName(carrier, number) {
-      const carrierHint = String(carrier || '').toLowerCase();
-      const n = String(number || '').trim().replace(/\s+/g, '');
-      const digitsOnly = /^\d+$/.test(n);
-
-      const looksUps = carrierHint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n);
-
-      const looksUsps =
-        carrierHint.includes('usps') ||
-        /^(94|93|92|95)\d{18,20}$/.test(n) ||
-        /^420\d{5,}\d+$/.test(n);
-
-      const looksFedex =
-        carrierHint.includes('fedex') ||
-        (digitsOnly && (n.length === 12 || n.length === 15)) ||
-        (digitsOnly && (n.length === 20 || n.length === 22) && !/^(94|93|92|95)/.test(n));
-
-      const looksDhl = carrierHint.includes('dhl') || /^JD\d+/i.test(n);
-
-      if (looksUps) return 'UPS';
-      if (looksUsps) return 'USPS';
-      if (looksFedex) return 'FedEx';
-      if (looksDhl) return 'DHL';
-      return (carrierHint || '').toUpperCase() || 'Carrier';
-    }
-
-// View Full Order (Invoice-style, correct EX-TAX math, no notes)
+    // View Full Order (Invoice-style, correct EX-TAX math, no notes)
     function displayOrderDetail(data) {
       const order = data.order || {};
       const products = data.products || [];
@@ -1222,15 +1199,10 @@
       const grandTotal = parseFloat(order.total_inc_tax || 0);
 
       // Best-effort shipping method label
-      const shippingMethod = (() => {
-        const sh0 = shipments[0] || {};
-        const tn = sh0.tracking_number ? String(sh0.tracking_number).trim() : '';
-        if (tn) {
-          const carrier = detectCarrierName(sh0.tracking_carrier, tn);
-          if (carrier && carrier !== 'Carrier') return carrier;
-        }
-        return (sh0.shipping_method || sh0.tracking_carrier || order.shipping_method || 'Shipping');
-      })();
+      const shippingMethod =
+        (shipments[0] && (shipments[0].shipping_method || shipments[0].tracking_carrier)) ||
+        order.shipping_method ||
+        'Shipping';
 
       let rows = '';
       for (const p of products) {
