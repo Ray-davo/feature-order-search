@@ -229,6 +229,11 @@ app.use(
 
 // Track last activity on every authenticated request
 app.use((req, res, next) => {
+  // Skip session check for auth-related routes
+  if (req.path === '/api/logout' || req.path === '/api/login' || req.path === '/login') {
+    return next();
+  }
+  
   if (req.session && req.session.user) {
     const now = Date.now();
     
