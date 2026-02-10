@@ -515,42 +515,91 @@
     size: letter;
   }
 
+  /* FORCE CONSISTENT SIZING - Override any browser zoom/scale settings */
+  html {
+    zoom: 1 !important;
+    -webkit-transform: scale(1) !important;
+    transform: scale(1) !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+  }
+
   /* IMPORTANT:
      Use PT units for print so Chrome/Edge PDF matches "real-world" text sizing.
      14pt prints much closer to what people expect as "14" than 14px (which is ~10.5pt). */
   html, body {
-    font-size: 16pt !important;
-    line-height: 1.5 !important;
+    font-size: 12pt !important;
+    line-height: 1.4 !important;
     background: #fff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-.invoice-totals .grand,
-.invoice-totals .grand span,
-.invoice-totals .grand strong {
-  font-size: 20pt !important;
-  font-weight: 600 !important;
-  line-height: 1.5 !important;
-}
+
+  /* Reset any transforms that might affect sizing */
+  *, *::before, *::after {
+    -webkit-transform: none !important;
+    transform: none !important;
+    zoom: 1 !important;
+  }
+
+  .invoice-totals .grand,
+  .invoice-totals .grand span,
+  .invoice-totals .grand strong {
+    font-size: 14pt !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+  }
 
   .header, .container { display: none !important; }
 
-  .modal { position: static !important; background: transparent !important; }
+  .modal { 
+    position: static !important; 
+    background: transparent !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
   .modal-content {
     box-shadow: none !important;
-    max-width: 100% !important;
+    max-width: 7.5in !important;
     width: 100% !important;
     margin: 0 !important;
+    padding: 0 !important;
     border-radius: 0 !important;
     max-height: none !important;
     overflow: visible !important;
+    position: static !important;
   }
 
-  .modal-header { position: static !important; }
-  .modal-header h2 { font-size: 18pt !important; font-weight: 700 !important; }
+  .modal-body {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .modal-header { 
+    position: static !important; 
+    padding: 0 0 10pt 0 !important;
+    border-bottom: 1px solid #ccc !important;
+    margin-bottom: 10pt !important;
+  }
+  .modal-header h2 { font-size: 14pt !important; font-weight: 700 !important; }
   .close-btn, .print-btn { display: none !important; }
 
-  /* Force invoice area to inherit the 14pt baseline instead of smaller px rules */
+  /* Invoice wrapper - constrain width */
+  .invoice-wrap {
+    max-width: 7.5in !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force invoice area to inherit the baseline */
   .invoice-wrap,
   .invoice-brand .addr,
   .invoice-brand .addr div,
@@ -568,30 +617,94 @@
   .invoice-totals .row,
   .invoice-totals .row span,
   .tracking-link {
-    font-size: inherit !important;
-    line-height: inherit !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Header section with logo */
+  .invoice-brand {
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 15pt !important;
+  }
+
+  .invoice-brand .addr {
+    font-size: 10pt !important;
+    line-height: 1.3 !important;
   }
 
   /* Keep hierarchy without making body text small */
-  .invoice-meta .inv-title { font-size: 20pt !important; }
-  .invoice-box h4 { font-size: 13pt !important; }
+  .invoice-meta .inv-title { font-size: 14pt !important; font-weight: 700 !important; }
+  .invoice-box h4 { font-size: 10pt !important; font-weight: 600 !important; margin-bottom: 5pt !important; }
 
-  /* Table spacing so bigger text still fits cleanly */
-  .invoice-table th { font-size: 13pt !important; padding: 10px 8px !important; }
-  .invoice-table td { padding: 10px 8px !important; }
+  /* Address boxes */
+  .invoice-addresses {
+    display: flex !important;
+    gap: 20pt !important;
+    margin-bottom: 15pt !important;
+  }
+  .invoice-box {
+    flex: 1 !important;
+    padding: 10pt !important;
+    border: 1px solid #ddd !important;
+  }
+  .invoice-box p {
+    margin: 2pt 0 !important;
+    font-size: 10pt !important;
+  }
+
+  /* Table styling */
+  .invoice-table { 
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 15pt !important;
+  }
+  .invoice-table th { 
+    font-size: 9pt !important; 
+    padding: 6pt 5pt !important; 
+    background: #f5f5f5 !important;
+    border-bottom: 1px solid #ccc !important;
+    text-align: left !important;
+  }
+  .invoice-table td { 
+    padding: 6pt 5pt !important;
+    font-size: 10pt !important;
+    border-bottom: 1px solid #eee !important;
+    vertical-align: top !important;
+  }
+
+  /* Totals section */
+  .invoice-totals {
+    max-width: 250pt !important;
+    margin-left: auto !important;
+  }
+  .invoice-totals .row {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 3pt 0 !important;
+    font-size: 10pt !important;
+  }
+  .invoice-totals .grand {
+    border-top: 1px solid #333 !important;
+    margin-top: 5pt !important;
+    padding-top: 5pt !important;
+  }
 
   /* Logo sizing for print */
-.invoice-brand img {
-  height: 44px !important;
-  width: 250px !important;
-  object-fit: contain;
-}
-  
+  .invoice-brand img {
+    height: 35pt !important;
+    width: auto !important;
+    max-width: 150pt !important;
+    object-fit: contain !important;
+  }
 
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* Hide session warning if visible */
+  .session-warning { display: none !important; }
 }
       /* ===== Collapsed row (before + preview) ===== */
     .order-row{
