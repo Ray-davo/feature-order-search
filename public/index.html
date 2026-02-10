@@ -155,10 +155,10 @@
       font-size: 12px;
       margin-top: 5px;
     }
-    .status-completed { background: #d4edda; color: #155724; font-size: 16px; }
-    .status-pending { background: #fff3cd; color: #856404; font-size: 16px;}
-    .status-shipped { background: #cce5ff; color: #004085; font-size: 16px;}
-    .status-refunded { background: #f8d7da; color: #721c24; font-size: 16px;}
+    .status-completed { background: #d4edda; color: #155724; font-size: 13px; }
+    .status-pending { background: #fff3cd; color: #856404; font-size: 13px;}
+    .status-shipped { background: #cce5ff; color: #004085; font-size: 13px;}
+    .status-refunded { background: #f8d7da; color: #721c24; font-size: 13px;}
 
     /* Preview Panel */
     .preview-panel { display: none; background: #f8fafc; border-bottom: 1px solid #eee; }
@@ -585,8 +585,8 @@
       /* ===== Collapsed row (before + preview) ===== */
     .order-row{
       display: grid !important;
-      grid-template-columns: 26px 110px minmax(160px, 1.2fr) minmax(200px, 1.6fr) 92px 92px 92px;
-      gap: 12px;
+      grid-template-columns: 26px 90px minmax(100px, 1fr) minmax(140px, 1.3fr) 65px minmax(130px, 160px) 70px;
+      gap: 10px;
       align-items: center;
       justify-content: initial !important;
       padding: 10px 16px !important;
@@ -620,6 +620,9 @@
       align-items: center;
       justify-content: center;
       white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     /* Smaller + / - button (collapsed row) */
     .expand-btn{
@@ -633,8 +636,8 @@
     /* Responsive: keep one line, but shrink columns a bit */
     @media (max-width: 900px){
       .order-row{
-        grid-template-columns: 26px 100px minmax(120px, 1.2fr) minmax(160px, 1.6fr) 84px 84px 84px;
-        gap: 10px;
+        grid-template-columns: 26px 80px minmax(90px, 1fr) minmax(120px, 1.3fr) 60px minmax(110px, 140px) 65px;
+        gap: 8px;
       }
     }
 
@@ -981,7 +984,7 @@
       let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span></div>`;
 
       for (const order of orders) {
-        const date = new Date(order.date_created).toLocaleDateString();
+        const date = new Date(order.date_created).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
         const statusClass = getStatusClass(order.status);
         const customerName = order.billing_address
           ? `${order.billing_address.first_name || ''} ${order.billing_address.last_name || ''}`.trim()
