@@ -1175,7 +1175,10 @@ app.get('/', (req, res) => {
 app.listen(PORT, async () => {
   await initDb();
   console.log(`BC Order Search app running on port ${PORT}`);
-  console.log(`Users configured: ${Object.keys(users).length}`);
+  
+  // Get user count from database
+  const userCountRes = await pool.query('SELECT COUNT(*)::int as count FROM users');
+  console.log(`Users configured: ${userCountRes.rows[0]?.count || 0}`);
   console.log(`Stores configured: ${Object.keys(stores).filter(s => stores[s].hash).join(', ') || 'None'}`);
 
   // Check database counts
