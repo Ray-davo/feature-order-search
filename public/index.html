@@ -1071,19 +1071,25 @@
                   <th>SKU</th>
                   <th>Product</th>
                   <th class="qty">Qty</th>
-                  <th class="price">Price</th>
+                  <th class="price">Unit Price</th>
+                  <th class="price">Total</th>
                 </tr>
               </thead>
               <tbody>
       `;
 
       for (const p of products) {
+        const qty = parseFloat(p.quantity || 0);
+        const unit = parseFloat((p.price_ex_tax ?? p.base_price ?? 0) || 0);
+        const lineTotal = parseFloat((p.total_ex_tax ?? (unit * qty)) || 0);
+
         html += `
                 <tr>
                   <td class="sku">${p.sku || '-'}</td>
                   <td>${p.name}</td>
-                  <td class="qty">${p.quantity}</td>
-                  <td class="price">$${parseFloat(p.total_ex_tax || 0).toFixed(2)}</td>
+                  <td class="qty">${qty}</td>
+                  <td class="price">$${unit.toFixed(2)}</td>
+                  <td class="price">$${lineTotal.toFixed(2)}</td>
                 </tr>
         `;
       }
