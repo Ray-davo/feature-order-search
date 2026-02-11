@@ -714,7 +714,7 @@
       gap: 10px;
       align-items: center;
       justify-content: initial !important;
-      padding: 10px 16px !important;
+      padding: 15px 16px !important;
     }
     .order-row > * { min-width: 0; } /* allow ellipsis */
     .order-col{
@@ -883,7 +883,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Order #<span id="modalOrderId"></span></h2>
-        <button class="print-btn" onclick="window.print()">Print</button>
+        <button class="print-btn" onclick="printInvoice()">Print</button>
         <button class="close-btn" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body" id="modalBody">
@@ -1714,7 +1714,68 @@
       return null;
     }
 
-    function closeModal() {
+    
+    // Print invoice like BigCommerce: open invoice-only page, then user prints to PDF or printer from browser dialog.
+    function printInvoice() {
+      const invoiceEl = document.querySelector('#modalBody .invoice-wrap');
+      if (!invoiceEl) {
+        window.print();
+        return;
+      }
+
+      // Grab the current <style> contents (keeps invoice styling identical) and add a small print-only adjustment.
+      const styleTag = document.querySelector('head style');
+      const baseCss = styleTag ? styleTag.textContent : '';
+
+      const w = window.open('', '_blank');
+      if (!w) {
+        // Popup blocked, fallback to normal print
+        window.print();
+        return;
+      }
+
+      w.document.open();
+      w.document.write(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice</title>
+<style>
+${baseCss}
+
+/* Print window should only show the invoice */
+body { background:#fff !important; }
+.header, .container, .modal-header, .session-warning { display:none !important; }
+.modal { position: static !important; display:block !important; background:transparent !important; overflow:visible !important; height:auto !important; }
+.modal-content { box-shadow:none !important; max-width: 7.5in !important; width:100% !important; margin: 0 auto !important; border-radius:0 !important; overflow:visible !important; }
+.modal-body { padding:0 !important; overflow:visible !important; max-height:none !important; }
+
+/* Critical: stack logo above address in print */
+@media print {
+  .invoice-brand { display: block !important; }
+  .invoice-brand img { display: block !important; margin: 0 0 6pt 0 !important; }
+}
+</style>
+</head>
+<body>
+<div class="modal active">
+  <div class="modal-content">
+    <div class="modal-body">
+      ${invoiceEl.outerHTML}
+    </div>
+  </div>
+</div>
+<script>
+  window.onload = function () { window.print(); };
+<\/script>
+</body>
+</html>`);
+      w.document.close();
+      w.focus();
+    }
+
+function closeModal() {
       document.getElementById('orderModal').classList.remove('active');
     }
 
