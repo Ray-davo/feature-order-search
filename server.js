@@ -1130,6 +1130,42 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
   }
 });
 
+// Get note counts for multiple orders (used for badge indicators)
+app.post('/api/note-counts', requireAuth, async (req, res) => {
+  const { store, orderIds } = req.body;
+
+  if (!stores[store]) {
+    return res.status(400).json({ error: 'Invalid store' });
+  }
+
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return res.json({ counts: {} });
+  }
+
+  try {
+    // Limit to 200 order IDs per request
+    const ids = orderIds.slice(0, 200).map(id => parseInt(id)).filter(n => !isNaN(n));
+
+    const result = await pool.query(
+      `SELECT order_id, COUNT(*)::int as count
+       FROM order_notes
+       WHERE store = $1 AND order_id = ANY($2::bigint[])
+       GROUP BY order_id`,
+      [store, ids]
+    );
+
+    const counts = {};
+    for (const row of result.rows) {
+      counts[row.order_id] = row.count;
+    }
+
+    res.json({ counts });
+  } catch (error) {
+    console.error(`Note counts error: ${error.message}`);
+    res.status(500).json({ error: 'Failed to get note counts' });
+  }
+});
+
 // Add note to order
 app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
   const { store, orderId } = req.params;

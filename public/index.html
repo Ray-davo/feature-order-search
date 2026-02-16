@@ -729,6 +729,26 @@
       font-weight: 600;
       color: #007bff;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .note-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 5px;
+      border-radius: 8px;
+      background: #fff3cd;
+      color: #856404;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .note-badge .note-icon{
+      font-size: 10px;
     }
     .order-col.order-customer{ color:#333; }
     .order-col.order-email{ color:#333; font-size: 16px; }
@@ -1098,6 +1118,7 @@
 
         currentStore = store;
         displayResults(data.orders, detected.label);
+        fetchNoteCounts(store, data.orders);
 
       } catch (err) {
         resultsDiv.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
@@ -1128,7 +1149,7 @@
         html += `          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
 
-            <div class="order-col order-id">#${order.id}</div>
+            <div class="order-col order-id">#${order.id}<span id="note-badge-${order.id}"></span></div>
 
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
 
@@ -1150,6 +1171,51 @@
       }
 
       resultsDiv.innerHTML = html;
+    }
+
+    // Fetch note counts and show badges on order rows
+    async function fetchNoteCounts(store, orders) {
+      if (!orders || orders.length === 0) return;
+
+      try {
+        const orderIds = orders.map(o => o.id);
+        const response = await fetch('/api/note-counts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store, orderIds })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.counts) return;
+
+        for (const [orderId, count] of Object.entries(data.counts)) {
+          if (count > 0) {
+            const badge = document.getElementById(`note-badge-${orderId}`);
+            if (badge) {
+              badge.innerHTML = `<span class="note-badge"><span class="note-icon">&#128221;</span>${count}</span>`;
+            }
+          }
+        }
+      } catch (err) {
+        // Silent fail — badge is just a nice-to-have
+        console.error('Note counts fetch failed:', err);
+      }
+    }
+
+    // Update note badge after adding a note
+    function updateNoteBadge(orderId) {
+      const badge = document.getElementById(`note-badge-${orderId}`);
+      if (!badge) return;
+
+      const existing = badge.querySelector('.note-badge');
+      if (existing) {
+        // Increment the count
+        const countText = existing.textContent.replace(/\D/g, '');
+        const newCount = (parseInt(countText) || 0) + 1;
+        existing.innerHTML = `<span class="note-icon">&#128221;</span>${newCount}`;
+      } else {
+        badge.innerHTML = `<span class="note-badge"><span class="note-icon">&#128221;</span>1</span>`;
+      }
     }
 
     async function togglePreview(event, orderId) {
@@ -1502,6 +1568,7 @@
 
         textarea.value = '';
         updateCharCounter(textarea, `preview-char-counter-${orderId}`);
+        updateNoteBadge(orderId);
 
       } catch (err) {
         alert(err.message);
