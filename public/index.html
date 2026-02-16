@@ -381,7 +381,7 @@
 
     /* Notes Section (Preview only) */
     .notes-section {
-      margin-bottom: 15px;
+      margin-top: 15px;
       padding: 16px;
       border-left: 4px solid #007bff;
       background: #eaf4ff;
@@ -1159,11 +1159,6 @@
         displayResults(data.orders, detected.label);
         fetchNoteCounts(store, data.orders);
 
-        // Auto-expand the first order
-        if (data.orders && data.orders.length > 0) {
-          togglePreview(null, data.orders[0].id);
-        }
-
       } catch (err) {
         resultsDiv.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
       } finally {
@@ -1470,26 +1465,6 @@
       }
 
       let html = `
-        <div class="notes-section">
-          <div class="notes-section-header">
-            <h5>&#128221; Support Notes</h5>
-            <span class="notes-count-pill" id="preview-notes-count-${orderId}">${(data.notes || []).length}</span>
-          </div>
-          <div class="notes-list" id="preview-notes-${orderId}">
-            ${renderNotesList(data.notes || [])}
-          </div>
-          <div class="note-form">
-            <textarea class="note-textarea" id="preview-note-input-${orderId}"
-              placeholder="Add a note about this order..."
-              maxlength="500"
-              oninput="updateCharCounter(this, 'preview-char-counter-${orderId}')"></textarea>
-            <div class="note-form-footer">
-              <span class="char-counter" id="preview-char-counter-${orderId}">0 / 500</span>
-              <button class="add-note-btn" onclick="addNote(${orderId}, 'preview')">Add Note</button>
-            </div>
-          </div>
-        </div>
-
         <div class="preview-grid">
           <div class="preview-address-box">
             <h5>Billing</h5>
@@ -1560,6 +1535,26 @@
               <div style="display: flex; justify-content: space-between;"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_ex_tax || 0).toFixed(2)}</span></div>
               <div style="display: flex; justify-content: space-between;"><span>Tax:</span> <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span></div>
               <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px;"><span>Total:</span> <span>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="notes-section">
+          <div class="notes-section-header">
+            <h5>&#128221; Support Notes</h5>
+            <span class="notes-count-pill" id="preview-notes-count-${orderId}">${(data.notes || []).length}</span>
+          </div>
+          <div class="notes-list" id="preview-notes-${orderId}">
+            ${renderNotesList(data.notes || [])}
+          </div>
+          <div class="note-form">
+            <textarea class="note-textarea" id="preview-note-input-${orderId}"
+              placeholder="Add a note about this order..."
+              maxlength="500"
+              oninput="updateCharCounter(this, 'preview-char-counter-${orderId}')"></textarea>
+            <div class="note-form-footer">
+              <span class="char-counter" id="preview-char-counter-${orderId}">0 / 500</span>
+              <button class="add-note-btn" onclick="addNote(${orderId}, 'preview')">Add Note</button>
             </div>
           </div>
         </div>
