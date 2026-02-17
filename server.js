@@ -1003,7 +1003,7 @@ app.post('/api/search', requireAuth, async (req, res) => {
 
       case 'email':
         // Search by email - direct to BigCommerce
-        orders = await bcApiRequest(store, `orders?email=${encodeURIComponent(query)}&limit=50`);
+        orders = await bcApiRequest(store, `orders?email=${encodeURIComponent(query)}&limit=50&sort=date_created:desc`);
         break;
 
       case 'name': {
@@ -1015,7 +1015,7 @@ app.post('/api/search', requireAuth, async (req, res) => {
           try {
             const emailOrders = await bcApiRequest(
               store,
-              `orders?email=${encodeURIComponent(email)}&limit=50`
+              `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
             );
             if (Array.isArray(emailOrders)) {
               orders = orders.concat(emailOrders);
@@ -1039,7 +1039,7 @@ app.post('/api/search', requireAuth, async (req, res) => {
           try {
             const emailOrders = await bcApiRequest(
               store,
-              `orders?email=${encodeURIComponent(email)}&limit=50`
+              `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
             );
             if (Array.isArray(emailOrders)) {
               orders = orders.concat(emailOrders);
