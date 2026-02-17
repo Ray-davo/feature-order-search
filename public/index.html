@@ -466,6 +466,75 @@
     .add-note-btn:disabled { background: #ccc; cursor: not-allowed; }
     .no-notes { color: #888; font-size: 13px; font-style: italic; }
 
+    /* Duplicate detection banner */
+    .duplicate-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fffbea;
+      border: 1px solid #f0c040;
+      border-left: 4px solid #f0a000;
+      padding: 12px 16px;
+      border-radius: 6px 6px 0 0;
+      flex-wrap: wrap;
+    }
+    .dup-icon { font-size: 18px; flex-shrink: 0; }
+    .dup-text { flex: 1; font-size: 14px; color: #555; min-width: 200px; }
+    .dup-email {
+      display: inline-block;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 13px;
+      color: #333;
+      margin: 0 2px;
+    }
+    .dup-view-btn {
+      background: #f0a000;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .dup-view-btn:hover { background: #d08800; }
+
+    /* Combined view header */
+    .combined-header {
+      padding: 12px 16px;
+      background: #f0f7ff;
+      border-bottom: 1px solid #cce0ff;
+      font-size: 13px;
+      color: #444;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .account-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .account-tag {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Account dot on order rows in combined view */
+    .account-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
     /* Order Detail Modal */
     .modal {
       display: none;
@@ -1165,7 +1234,7 @@
         if (!response.ok) throw new Error(data.error || 'Search failed');
 
         currentStore = store;
-        displayResults(data.orders, detected.label);
+        displayResults(data.orders, detected.label, data.duplicates || [], data.primaryEmail || '');
         fetchNoteCounts(store, data.orders);
 
       } catch (err) {
@@ -1176,7 +1245,7 @@
       }
     }
 
-    function displayResults(orders, searchedBy) {
+    function displayResults(orders, searchedBy, duplicates, primaryEmail, isCombined) {
       const resultsDiv = document.getElementById('results');
 
       if (!orders || orders.length === 0) {
@@ -1184,7 +1253,46 @@
         return;
       }
 
-      let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span></div>`;
+      // Build account color map for combined view (different email = different color tag)
+      const accountColors = ['#007bff', '#e67e22', '#27ae60', '#8e44ad', '#e74c3c', '#16a085'];
+      const allEmails = primaryEmail ? [primaryEmail.toLowerCase(), ...(duplicates || []).map(e => e.toLowerCase())] : [];
+      const emailColorMap = {};
+      allEmails.forEach((em, i) => { emailColorMap[em] = accountColors[i % accountColors.length]; });
+
+      // Duplicate banner (shown when duplicates exist and not already in combined view)
+      let bannerHtml = '';
+      if (!isCombined && duplicates && duplicates.length > 0) {
+        const allEmailsList = [primaryEmail, ...duplicates].filter(Boolean);
+        const emailsJson = JSON.stringify(allEmailsList).replace(/"/g, '&quot;');
+        bannerHtml = `
+          <div class="duplicate-banner" id="duplicateBanner">
+            <span class="dup-icon">⚠️</span>
+            <span class="dup-text">
+              <strong>Possible duplicate accounts found</strong> — this customer may have
+              ${duplicates.length} other email${duplicates.length > 1 ? 's' : ''}:
+              ${duplicates.map(e => `<span class="dup-email">${e}</span>`).join(', ')}
+            </span>
+            <button class="dup-view-btn" onclick="viewCombinedOrders(${emailsJson})">
+              View All Orders Together →
+            </button>
+          </div>`;
+      }
+
+      // Combined view header
+      let headerHtml = '';
+      if (isCombined) {
+        const emailTags = allEmails.map(em =>
+          `<span class="account-tag" style="background:${emailColorMap[em]}20; color:${emailColorMap[em]}; border:1px solid ${emailColorMap[em]}40;">${em}</span>`
+        ).join('');
+        headerHtml = `<div class="combined-header">
+          <span>📋 Combined view — ${orders.length} orders across ${allEmails.length} accounts:</span>
+          <div class="account-tags">${emailTags}</div>
+        </div>`;
+      } else {
+        headerHtml = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span></div>`;
+      }
+
+      let html = bannerHtml + headerHtml;
 
       for (const order of orders) {
         const date = new Date(order.date_created).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
@@ -1194,10 +1302,17 @@
           : 'Guest';
         const customerEmail = order.billing_address?.email || '';
 
+        // Account dot for combined view
+        const accountEmail = (order._accountEmail || customerEmail).toLowerCase();
+        const dotColor = emailColorMap[accountEmail] || '#999';
+        const accountDot = isCombined
+          ? `<span class="account-dot" style="background:${dotColor}" title="Account: ${accountEmail}"></span>`
+          : '';
+
         html += `          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
 
-            <div class="order-col order-id">#${order.id}</div>
+            <div class="order-col order-id">${accountDot}#${order.id}</div>
 
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
 
@@ -1219,6 +1334,34 @@
       }
 
       resultsDiv.innerHTML = html;
+    }
+
+    async function viewCombinedOrders(emails) {
+      const store = document.getElementById('store').value;
+      const resultsDiv = document.getElementById('results');
+
+      expandedOrders = {};
+      orderDetailsCache = {};
+
+      resultsDiv.innerHTML = '<div class="loading">Loading all orders...</div>';
+
+      try {
+        const response = await fetch('/api/search/combined', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store, emails })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed');
+
+        currentStore = store;
+        const primaryEmail = emails[0];
+        const duplicates = emails.slice(1);
+        displayResults(data.orders, '', duplicates, primaryEmail, true);
+        fetchNoteCounts(store, data.orders);
+      } catch (err) {
+        resultsDiv.innerHTML = `<div class="no-results" style="color:#dc3545;">${err.message}</div>`;
+      }
     }
 
     // Fetch note counts and show badges on order rows

@@ -548,6 +548,43 @@ async function searchByPhone(store, query) {
   return rows.map(r => r.email);
 }
 
+
+// Find potential duplicate accounts for a customer
+// Matches by phone OR by first+last name, returns other emails found
+async function findDuplicateAccounts(store, primaryEmail, phone, firstName, lastName) {
+  const otherEmails = new Set();
+
+  // Match by phone (strong signal)
+  if (phone && phone.length >= 7) {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT email FROM order_lookup
+       WHERE store = $1
+       AND phone = $2
+       AND email IS NOT NULL AND email <> ''
+       AND LOWER(email) <> LOWER($3)
+       LIMIT 20`,
+      [store, phone, primaryEmail]
+    );
+    rows.forEach(r => otherEmails.add(r.email.toLowerCase()));
+  }
+
+  // Match by first + last name (weaker signal, only use full name)
+  if (firstName && lastName && firstName.length > 1 && lastName.length > 1) {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT email FROM order_lookup
+       WHERE store = $1
+       AND LOWER(first_name) = LOWER($2)
+       AND LOWER(last_name) = LOWER($3)
+       AND email IS NOT NULL AND email <> ''
+       AND LOWER(email) <> LOWER($4)
+       LIMIT 20`,
+      [store, firstName, lastName, primaryEmail]
+    );
+    rows.forEach(r => otherEmails.add(r.email.toLowerCase()));
+  }
+
+  return Array.from(otherEmails);
+}
 // Routes
 
 // Login page
@@ -1003,7 +1040,7 @@ app.post('/api/search', requireAuth, async (req, res) => {
 
       case 'email':
         // Search by email - direct to BigCommerce
-        orders = await bcApiRequest(store, `orders?email=${encodeURIComponent(query)}&limit=50&sort=date_created:desc`);
+        orders = await bcApiRequest(store, `orders?email=${encodeURIComponent(query)}&limit=50`);
         break;
 
       case 'name': {
@@ -1015,7 +1052,7 @@ app.post('/api/search', requireAuth, async (req, res) => {
           try {
             const emailOrders = await bcApiRequest(
               store,
-              `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
+              `orders?email=${encodeURIComponent(email)}&limit=50`
             );
             if (Array.isArray(emailOrders)) {
               orders = orders.concat(emailOrders);
@@ -1039,7 +1076,7 @@ app.post('/api/search', requireAuth, async (req, res) => {
           try {
             const emailOrders = await bcApiRequest(
               store,
-              `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
+              `orders?email=${encodeURIComponent(email)}&limit=50`
             );
             if (Array.isArray(emailOrders)) {
               orders = orders.concat(emailOrders);
@@ -1063,10 +1100,73 @@ app.post('/api/search', requireAuth, async (req, res) => {
       orders.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
     }
 
-    res.json({ success: true, orders: orders || [] });
+    // Run duplicate detection (only when we have results and a customer to check)
+    let duplicateEmails = [];
+    let primaryEmail = null;
+    if (orders.length > 0) {
+      const firstOrder = orders[0];
+      const billing = firstOrder.billing_address || {};
+      primaryEmail = (billing.email || '').toLowerCase();
+      const phone = normalizePhone(billing.phone);
+      const firstName = (billing.first_name || '').toLowerCase();
+      const lastName = (billing.last_name || '').toLowerCase();
+
+      if (primaryEmail) {
+        try {
+          duplicateEmails = await findDuplicateAccounts(store, primaryEmail, phone, firstName, lastName);
+        } catch (e) {
+          console.error('Duplicate detection error:', e.message);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      orders: orders || [],
+      duplicates: duplicateEmails,
+      primaryEmail
+    });
   } catch (error) {
     console.error(`Search error: ${error.message}`);
     res.status(500).json({ error: 'Search failed.' });
+  }
+});
+
+// Combined orders view across duplicate accounts
+app.post('/api/search/combined', requireAuth, async (req, res) => {
+  const { store, emails } = req.body;
+
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!Array.isArray(emails) || emails.length === 0) return res.status(400).json({ error: 'No emails provided' });
+  if (emails.length > 10) return res.status(400).json({ error: 'Too many emails' });
+
+  try {
+    let allOrders = [];
+
+    for (const email of emails) {
+      try {
+        const emailOrders = await bcApiRequest(
+          store,
+          `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
+        );
+        if (Array.isArray(emailOrders)) {
+          // Tag each order with which email account it came from
+          emailOrders.forEach(o => { o._accountEmail = email.toLowerCase(); });
+          allOrders = allOrders.concat(emailOrders);
+        }
+      } catch (e) {
+        console.error(`Combined fetch error for ${email}:`, e.message);
+      }
+    }
+
+    // Deduplicate and sort
+    allOrders = allOrders.filter((o, i, arr) => arr.findIndex(x => x.id === o.id) === i);
+    allOrders.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
+
+    res.json({ success: true, orders: allOrders, emails });
+  } catch (error) {
+    console.error('Combined search error:', error.message);
+    res.status(500).json({ error: 'Combined search failed.' });
   }
 });
 
