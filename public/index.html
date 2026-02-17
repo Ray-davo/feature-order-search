@@ -195,10 +195,9 @@
       line-height: 1.7;
     }
     .preview-order-number {
-      font-size: 17px;
-      font-weight: 700;
-      color: #333;
-      margin-bottom: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
       user-select: text;
     }
     .preview-order-number .copyable {
@@ -1477,8 +1476,10 @@
       let html = `
         <div class="preview-grid">
           <div class="preview-address-box">
-            <div class="preview-order-number">Order #<span class="copyable">${orderId}</span></div>
-            <h5>Billing</h5>
+            <div class="preview-box-header">
+              <h5>Billing</h5>
+              <div class="preview-order-number">Order #<span class="copyable">${orderId}</span></div>
+            </div>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
               ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
