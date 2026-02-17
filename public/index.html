@@ -194,6 +194,16 @@
       font-size: 16px;
       line-height: 1.7;
     }
+    .preview-order-number {
+      font-size: 17px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 6px;
+      user-select: text;
+    }
+    .preview-order-number .copyable {
+      user-select: text;
+    }
     .preview-address-box h5 {
       margin: 0 0 6px 0;
       font-size: 18px;
@@ -1467,6 +1477,7 @@
       let html = `
         <div class="preview-grid">
           <div class="preview-address-box">
+            <div class="preview-order-number">Order #<span class="copyable">${orderId}</span></div>
             <h5>Billing</h5>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
