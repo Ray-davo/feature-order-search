@@ -194,15 +194,6 @@
       font-size: 16px;
       line-height: 1.7;
     }
-    .preview-order-number {
-      font-size: 14px;
-      font-weight: 600;
-      color: #555;
-      user-select: text;
-    }
-    .preview-order-number .copyable {
-      user-select: text;
-    }
     .preview-address-box h5 {
       margin: 0 0 6px 0;
       font-size: 18px;
@@ -391,63 +382,39 @@
     /* Notes Section (Preview only) */
     .notes-section {
       margin-top: 15px;
-      padding: 16px;
-      border-left: 4px solid #007bff;
-      background: #eaf4ff;
-      border-radius: 0 8px 8px 0;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
     }
-    .notes-section-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0 0 12px 0;
-    }
-    .notes-section-header h5 {
-      margin: 0;
-      font-size: 16px;
-      color: #004085;
+    .notes-section h5 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      color: #000000;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      font-weight: 700;
     }
-    .notes-count-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 22px;
-      height: 22px;
-      padding: 0 6px;
-      border-radius: 11px;
-      background: #007bff;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .notes-list { max-height: 200px; overflow-y: auto; margin-bottom: 12px; }
+    .notes-list { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
     .note-item {
       background: #fff;
-      border: 1px solid #c5ddf5;
-      border-radius: 6px;
-      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 10px;
       margin-bottom: 8px;
       font-size: 13px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
     .note-item:last-child { margin-bottom: 0; }
     .note-meta { font-size: 16px; color: #888; margin-bottom: 5px;}
-    .note-meta strong { color: #004085; }
+    .note-meta strong { color: #555; }
     .note-text { color: #333; line-height: 1.4; white-space: pre-wrap; font-size: 16px; }
     .note-form { display: flex; flex-direction: column; gap: 8px; }
     .note-textarea {
       width: 100%;
       padding: 10px;
-      border: 1px solid #c5ddf5;
-      border-radius: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
       font-size: 16px;
       font-family: inherit;
       resize: vertical;
       min-height: 60px;
-      background: #fff;
     }
     .note-textarea:focus { outline: none; border-color: #007bff; }
     .note-form-footer { display: flex; justify-content: space-between; align-items: center; }
@@ -465,75 +432,6 @@
     .add-note-btn:hover { background: #0056b3; }
     .add-note-btn:disabled { background: #ccc; cursor: not-allowed; }
     .no-notes { color: #888; font-size: 13px; font-style: italic; }
-
-    /* Duplicate detection banner */
-    .duplicate-banner {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: #fffbea;
-      border: 1px solid #f0c040;
-      border-left: 4px solid #f0a000;
-      padding: 12px 16px;
-      border-radius: 6px 6px 0 0;
-      flex-wrap: wrap;
-    }
-    .dup-icon { font-size: 18px; flex-shrink: 0; }
-    .dup-text { flex: 1; font-size: 14px; color: #555; min-width: 200px; }
-    .dup-email {
-      display: inline-block;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 3px;
-      padding: 1px 6px;
-      font-size: 13px;
-      color: #333;
-      margin: 0 2px;
-    }
-    .dup-view-btn {
-      background: #f0a000;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 5px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .dup-view-btn:hover { background: #d08800; }
-
-    /* Combined view header */
-    .combined-header {
-      padding: 12px 16px;
-      background: #f0f7ff;
-      border-bottom: 1px solid #cce0ff;
-      font-size: 13px;
-      color: #444;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .account-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-    .account-tag {
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    /* Account dot on order rows in combined view */
-    .account-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 5px;
-      flex-shrink: 0;
-      vertical-align: middle;
-    }
 
     /* Order Detail Modal */
     .modal {
@@ -591,19 +489,19 @@
     /* Invoice layout (View Full Order) */
     .invoice-wrap { background:#fff; padding:20px; }
     .invoice-top { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
-    .invoice-brand img { height:35px; width:auto; display:block; margin-bottom:8px; }
+    .invoice-brand img { height:60px; width:auto; display:block; margin-bottom:8px; }
     .invoice-brand .addr { font-size:12px; color:#333; line-height:1.4; }
-    .invoice-meta { text-align:right; font-size:14px; color:#333; line-height:1.6; }
+    .invoice-meta { text-align:right; font-size:12px; color:#333; line-height:1.6; }
     .invoice-meta .inv-title { font-size:16px; font-weight:700; margin-bottom:6px; }
     .invoice-two { display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:18px; }
     .invoice-box { border:1px solid #e6e6e6; border-radius:6px; padding:12px; }
     .invoice-box h4 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; color:#444; }
-    .invoice-box p { font-size:14px; color:#222; line-height:1.4; margin:0; }
-    .invoice-table { width:100%; border-collapse:collapse; margin-top:18px; font-size:13px; table-layout: fixed; }
+    .invoice-box p { font-size:13px; color:#222; line-height:1.4; margin:0; }
+    .invoice-table { width:100%; border-collapse:collapse; margin-top:18px; font-size:13px; }
     .invoice-table th { text-align:left; border-bottom:1px solid #e6e6e6; padding:10px 8px; font-size:12px; color:#444; }
-    .invoice-table td { border-bottom:1px solid #f0f0f0; padding:10px 8px; vertical-align:top; overflow: visible; }
+    .invoice-table td { border-bottom:1px solid #f0f0f0; padding:10px 8px; vertical-align:top; }
     .invoice-table .num { text-align:right; white-space:nowrap; }
-    .invoice-table .sku { white-space: normal; overflow-wrap: anywhere; word-break: break-word; color:#333; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .invoice-table .sku { white-space:nowrap; color:#333; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .invoice-totals { margin-top:14px; width:320px; margin-left:auto; }
     .invoice-totals .row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
     .invoice-totals .row strong { font-size:14px; }
@@ -725,7 +623,8 @@
 
   /* Header section with logo */
   .invoice-brand {
-    display: block !important;
+    display: flex !important;
+    justify-content: space-between !important;
     margin-bottom: 15pt !important;
   }
 
@@ -759,7 +658,6 @@
     width: 100% !important;
     border-collapse: collapse !important;
     margin-bottom: 15pt !important;
-    table-layout: fixed !important;
   }
   .invoice-table th { 
     font-size: 9pt !important; 
@@ -773,7 +671,6 @@
     font-size: 10pt !important;
     border-bottom: 1px solid #eee !important;
     vertical-align: top !important;
-    overflow: hidden !important;
   }
 
   /* Totals section */
@@ -799,8 +696,6 @@
     width: auto !important;
     max-width: 150pt !important;
     object-fit: contain !important;
-    display: block !important;
-    margin: 0 0 6pt 0 !important;
   }
 
   * {
@@ -818,7 +713,7 @@
       gap: 10px;
       align-items: center;
       justify-content: initial !important;
-      padding: 15px 16px !important;
+      padding: 10px 16px !important;
     }
     .order-row > * { min-width: 0; } /* allow ellipsis */
     .order-col{
@@ -832,43 +727,8 @@
       color: #007bff;
       cursor: pointer;
     }
-    .order-col.order-email{
-      color: #333;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .order-col.order-email .email-text{
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .note-badge{
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      padding: 2px 7px;
-      border-radius: 10px;
-      background: #e8f4fd;
-      border: 1px solid #007bff;
-      color: #007bff;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.3;
-      white-space: nowrap;
-      flex-shrink: 0;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .note-badge:hover{
-      background: #007bff;
-      color: #fff;
-    }
-    .note-badge .note-icon{
-      font-size: 11px;
-    }
     .order-col.order-customer{ color:#333; }
+    .order-col.order-email{ color:#333; font-size: 16px; }
     .order-col.order-date{ color:#333; font-size: 16px; text-align:right; }
     .order-col.order-total{
       text-align: right;
@@ -1022,7 +882,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Order #<span id="modalOrderId"></span></h2>
-        <button class="print-btn" onclick="printInvoice()">Print</button>
+        <button class="print-btn" onclick="window.print()">Print</button>
         <button class="close-btn" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body" id="modalBody">
@@ -1034,7 +894,7 @@
   <!-- Session Timeout Warning Modal -->
   <div class="session-warning" id="sessionWarning">
     <div class="session-warning-content">
-      <div class="session-warning-icon">⏰</div>
+      <div class="session-warning-icon">â°</div>
       <h3>Session Expiring Soon</h3>
       <p>Your session will expire due to inactivity.<br>Do you want to stay logged in?</p>
       <div class="countdown" id="sessionCountdown">2:00</div>
@@ -1145,8 +1005,8 @@
 
         document.getElementById('username').textContent = capitalize(data.user);
         
-        // Show admin link if user is admin
-        if (data.isAdmin) {
+        // Show admin link if user has admin permission
+        if (data.permissions && data.permissions.includes('admin.users.manage')) {
           document.getElementById('adminLink').style.display = 'inline-block';
         }
         
@@ -1234,8 +1094,7 @@
         if (!response.ok) throw new Error(data.error || 'Search failed');
 
         currentStore = store;
-        displayResults(data.orders, detected.label, data.duplicates || [], data.primaryEmail || '');
-        fetchNoteCounts(store, data.orders);
+        displayResults(data.orders, detected.label);
 
       } catch (err) {
         resultsDiv.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
@@ -1245,7 +1104,7 @@
       }
     }
 
-    function displayResults(orders, searchedBy, duplicates, primaryEmail, isCombined) {
+    function displayResults(orders, searchedBy) {
       const resultsDiv = document.getElementById('results');
 
       if (!orders || orders.length === 0) {
@@ -1253,46 +1112,18 @@
         return;
       }
 
-      // Build account color map for combined view (different email = different color tag)
-      const accountColors = ['#007bff', '#e67e22', '#27ae60', '#8e44ad', '#e74c3c', '#16a085'];
-      const allEmails = primaryEmail ? [primaryEmail.toLowerCase(), ...(duplicates || []).map(e => e.toLowerCase())] : [];
-      const emailColorMap = {};
-      allEmails.forEach((em, i) => { emailColorMap[em] = accountColors[i % accountColors.length]; });
+      // Filter out Incomplete orders (payment never went through — nothing for support to act on)
+      const filteredOrders = orders.filter(o => (o.status || '').toLowerCase() !== 'incomplete');
 
-      // Duplicate banner (shown when duplicates exist and not already in combined view)
-      let bannerHtml = '';
-      if (!isCombined && duplicates && duplicates.length > 0) {
-        const allEmailsList = [primaryEmail, ...duplicates].filter(Boolean);
-        const emailsJson = JSON.stringify(allEmailsList).replace(/"/g, '&quot;');
-        bannerHtml = `
-          <div class="duplicate-banner" id="duplicateBanner">
-            <span class="dup-icon">⚠️</span>
-            <span class="dup-text">
-              <strong>Possible duplicate accounts found</strong> — this customer may have
-              ${duplicates.length} other email${duplicates.length > 1 ? 's' : ''}:
-              ${duplicates.map(e => `<span class="dup-email">${e}</span>`).join(', ')}
-            </span>
-            <button class="dup-view-btn" onclick="viewCombinedOrders(${emailsJson})">
-              View All Orders Together →
-            </button>
-          </div>`;
+      if (filteredOrders.length === 0) {
+        resultsDiv.innerHTML = '<div class="no-results">No orders found</div>';
+        return;
       }
 
-      // Combined view header
-      let headerHtml = '';
-      if (isCombined) {
-        const emailTags = allEmails.map(em =>
-          `<span class="account-tag" style="background:${emailColorMap[em]}20; color:${emailColorMap[em]}; border:1px solid ${emailColorMap[em]}40;">${em}</span>`
-        ).join('');
-        headerHtml = `<div class="combined-header">
-          <span>📋 Combined view — ${orders.length} orders across ${allEmails.length} accounts:</span>
-          <div class="account-tags">${emailTags}</div>
-        </div>`;
-      } else {
-        headerHtml = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span></div>`;
-      }
+      // Replace orders with filtered list for the rest of the function
+      orders = filteredOrders;
 
-      let html = bannerHtml + headerHtml;
+      let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span></div>`;
 
       for (const order of orders) {
         const date = new Date(order.date_created).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
@@ -1302,21 +1133,14 @@
           : 'Guest';
         const customerEmail = order.billing_address?.email || '';
 
-        // Account dot for combined view
-        const accountEmail = (order._accountEmail || customerEmail).toLowerCase();
-        const dotColor = emailColorMap[accountEmail] || '#999';
-        const accountDot = isCombined
-          ? `<span class="account-dot" style="background:${dotColor}" title="Account: ${accountEmail}"></span>`
-          : '';
-
         html += `          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
 
-            <div class="order-col order-id">${accountDot}#${order.id}</div>
+            <div class="order-col order-id">#${order.id}</div>
 
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
 
-            <div class="order-col order-email" title="${customerEmail}"><span id="note-badge-${order.id}"></span><span class="email-text">${customerEmail}</span></div>
+            <div class="order-col order-email" title="${customerEmail}">${customerEmail}</div>
 
             <div class="order-col order-date">${date}</div>
 
@@ -1336,99 +1160,6 @@
       resultsDiv.innerHTML = html;
     }
 
-    async function viewCombinedOrders(emails) {
-      const store = document.getElementById('store').value;
-      const resultsDiv = document.getElementById('results');
-
-      expandedOrders = {};
-      orderDetailsCache = {};
-
-      resultsDiv.innerHTML = '<div class="loading">Loading all orders...</div>';
-
-      try {
-        const response = await fetch('/api/search/combined', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ store, emails })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed');
-
-        currentStore = store;
-        const primaryEmail = emails[0];
-        const duplicates = emails.slice(1);
-        displayResults(data.orders, '', duplicates, primaryEmail, true);
-        fetchNoteCounts(store, data.orders);
-      } catch (err) {
-        resultsDiv.innerHTML = `<div class="no-results" style="color:#dc3545;">${err.message}</div>`;
-      }
-    }
-
-    // Fetch note counts and show badges on order rows
-    async function fetchNoteCounts(store, orders) {
-      if (!orders || orders.length === 0) return;
-
-      try {
-        const orderIds = orders.map(o => o.id);
-        const response = await fetch('/api/note-counts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ store, orderIds })
-        });
-
-        const data = await response.json();
-        if (!response.ok || !data.counts) return;
-
-        for (const [orderId, count] of Object.entries(data.counts)) {
-          if (count > 0) {
-            const badge = document.getElementById(`note-badge-${orderId}`);
-            if (badge) {
-              badge.innerHTML = `<span class="note-badge" title="${count} note${count > 1 ? 's' : ''} — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})"><span class="note-icon">&#128221;</span>${count}</span>`;
-            }
-          }
-        }
-      } catch (err) {
-        // Silent fail — badge is just a nice-to-have
-        console.error('Note counts fetch failed:', err);
-      }
-    }
-
-    // Update note badge after adding a note
-    function updateNoteBadge(orderId) {
-      const badge = document.getElementById(`note-badge-${orderId}`);
-      if (!badge) return;
-
-      const existing = badge.querySelector('.note-badge');
-      if (existing) {
-        // Increment the count
-        const countText = existing.textContent.replace(/\D/g, '');
-        const newCount = (parseInt(countText) || 0) + 1;
-        existing.title = `${newCount} note${newCount > 1 ? 's' : ''} — click to view`;
-        existing.innerHTML = `<span class="note-icon">&#128221;</span>${newCount}`;
-      } else {
-        badge.innerHTML = `<span class="note-badge" title="1 note — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})"><span class="note-icon">&#128221;</span>1</span>`;
-      }
-    }
-
-    // Open preview and highlight notes (called from note badge click)
-    async function openPreviewToNotes(orderId) {
-      // Open the preview if it's not already expanded
-      if (!expandedOrders[orderId]) {
-        await togglePreview(null, orderId);
-      }
-      // Brief delay to let content render, then scroll notes into view
-      setTimeout(() => {
-        const notesSection = document.querySelector(`#preview-content-${orderId} .notes-section`);
-        if (notesSection) {
-          notesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          // Quick flash to draw attention
-          notesSection.style.transition = 'box-shadow 0.3s';
-          notesSection.style.boxShadow = '0 0 0 3px #007bff44';
-          setTimeout(() => { notesSection.style.boxShadow = ''; }, 1500);
-        }
-      }, 150);
-    }
-
     async function togglePreview(event, orderId) {
       if (event) event.stopPropagation();
 
@@ -1444,7 +1175,7 @@
       } else {
         previewPanel.classList.add('show');
         expandBtn.classList.add('expanded');
-        expandBtn.textContent = '−';
+        expandBtn.textContent = 'âˆ’';
         expandedOrders[orderId] = true;
 
         if (!orderDetailsCache[orderId]) {
@@ -1536,7 +1267,7 @@
 
     // Format Order Date with time + timezone (America/Los_Angeles)
     function formatOrderDateTime(iso) {
-      if (!iso) return '—';
+      if (!iso) return 'â€”';
       try {
         return new Date(iso).toLocaleString('en-US', {
           month: 'short',
@@ -1548,7 +1279,7 @@
           timeZoneName: 'short'
         }).replace(',', '');
       } catch (e) {
-        return '—';
+        return 'â€”';
       }
     }
 
@@ -1565,7 +1296,7 @@
       if (!dt && order) {
         dt = pick(order.date_shipped) || pick(order.shipped_at) || null;
       }
-      if (!dt) return '—';
+      if (!dt) return 'â€”';
 
       try {
         return dt.toLocaleDateString('en-US', {
@@ -1575,7 +1306,7 @@
           timeZone: 'America/Los_Angeles'
         }).replace(',', '');
       } catch (e) {
-        return '—';
+        return 'â€”';
       }
     }
 
@@ -1619,10 +1350,7 @@
       let html = `
         <div class="preview-grid">
           <div class="preview-address-box">
-            <div class="preview-box-header">
-              <h5>Billing</h5>
-              <div class="preview-order-number">Order #<span class="copyable">${orderId}</span></div>
-            </div>
+            <h5>Billing</h5>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
               ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
@@ -1695,10 +1423,7 @@
         </div>
 
         <div class="notes-section">
-          <div class="notes-section-header">
-            <h5>&#128221; Support Notes</h5>
-            <span class="notes-count-pill" id="preview-notes-count-${orderId}">${(data.notes || []).length}</span>
-          </div>
+          <h5>Support Notes</h5>
           <div class="notes-list" id="preview-notes-${orderId}">
             ${renderNotesList(data.notes || [])}
           </div>
@@ -1729,7 +1454,7 @@
         });
         return `
           <div class="note-item">
-            <div class="note-meta"><strong>${capitalize(note.username)}</strong> · ${date}</div>
+            <div class="note-meta"><strong>${capitalize(note.username)}</strong> Â· ${date}</div>
             <div class="note-text">${escapeHtml(note.note_text)}</div>
           </div>
         `;
@@ -1785,13 +1510,6 @@
 
         textarea.value = '';
         updateCharCounter(textarea, `preview-char-counter-${orderId}`);
-        updateNoteBadge(orderId);
-
-        // Update the notes count pill in the preview header
-        const countPill = document.getElementById(`preview-notes-count-${orderId}`);
-        if (countPill) {
-          countPill.textContent = (orderDetailsCache[orderId]?.notes || []).length;
-        }
 
       } catch (err) {
         alert(err.message);
@@ -1891,7 +1609,7 @@
       let trackingHtml = '';
       if (shipments && shipments.length) {
         trackingHtml = `<div style="margin-top:12px; padding-top:12px; border-top:1px solid #e6e6e6;">
-          <strong>📦 Tracking:</strong><br>
+          <strong>ðŸ“¦ Tracking:</strong><br>
           ${shipments.map(sh => {
             const num = sh.tracking_number ? String(sh.tracking_number).trim() : '';
             if (!num) return 'No tracking';
@@ -1917,10 +1635,11 @@
             </div>
 
             <div class="invoice-meta">
-              <div class="inv-title">Order #${safe(order.id)}</div>
-              <div><strong>Payment Method:</strong> ${safe(order.payment_method) || 'N/A'}</div>
+              <div class="inv-title">Invoice for Order #${safe(order.id)}</div>
+              <div><strong>Payment Method:</strong> ${safe(order.payment_method) || 'N/A'} (${money(grandTotal)})</div>
               <div><strong>Order Date:</strong> ${orderDate}</div>
-              <div><strong>Order Status:</strong> ${safe(order.status) || 'N/A'}</div>
+              <div><strong>Shipping Method:</strong> ${safe(shippingMethod)}</div>
+              <div><strong>Status:</strong> ${safe(order.status) || 'N/A'}</div>
             </div>
           </div>
 
@@ -1950,13 +1669,6 @@
           </div>
 
           <table class="invoice-table">
-  <colgroup>
-    <col style="width: 18%">
-    <col style="width: 56%">
-    <col style="width: 6%">
-    <col style="width: 10%">
-    <col style="width: 10%">
-  </colgroup>
             <thead>
               <tr>
                 <th>Code/SKU</th>
@@ -2013,68 +1725,7 @@
       return null;
     }
 
-    
-    // Print invoice like BigCommerce: open invoice-only page, then user prints to PDF or printer from browser dialog.
-    function printInvoice() {
-      const invoiceEl = document.querySelector('#modalBody .invoice-wrap');
-      if (!invoiceEl) {
-        window.print();
-        return;
-      }
-
-      // Grab the current <style> contents (keeps invoice styling identical) and add a small print-only adjustment.
-      const styleTag = document.querySelector('head style');
-      const baseCss = styleTag ? styleTag.textContent : '';
-
-      const w = window.open('', '_blank');
-      if (!w) {
-        // Popup blocked, fallback to normal print
-        window.print();
-        return;
-      }
-
-      w.document.open();
-      w.document.write(`<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Invoice</title>
-<style>
-${baseCss}
-
-/* Print window should only show the invoice */
-body { background:#fff !important; }
-.header, .container, .modal-header, .session-warning { display:none !important; }
-.modal { position: static !important; display:block !important; background:transparent !important; overflow:visible !important; height:auto !important; }
-.modal-content { box-shadow:none !important; max-width: 7.5in !important; width:100% !important; margin: 0 auto !important; border-radius:0 !important; overflow:visible !important; }
-.modal-body { padding:0 !important; overflow:visible !important; max-height:none !important; }
-
-/* Critical: stack logo above address in print */
-@media print {
-  .invoice-brand { display: block !important; }
-  .invoice-brand img { display: block !important; margin: 0 0 6pt 0 !important; }
-}
-</style>
-</head>
-<body>
-<div class="modal active">
-  <div class="modal-content">
-    <div class="modal-body">
-      ${invoiceEl.outerHTML}
-    </div>
-  </div>
-</div>
-<script>
-  window.onload = function () { window.print(); };
-<\/script>
-</body>
-</html>`);
-      w.document.close();
-      w.focus();
-    }
-
-function closeModal() {
+    function closeModal() {
       document.getElementById('orderModal').classList.remove('active');
     }
 
