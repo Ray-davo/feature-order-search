@@ -1184,7 +1184,7 @@
           const previewPanel = document.getElementById(`preview-${order.id}`);
           const expandBtn = document.querySelector(`#order-row-${order.id} .expand-btn`);
           if (previewPanel) previewPanel.classList.remove('show');
-          if (expandBtn) { expandBtn.classList.remove('expanded'); expandBtn.textContent = '+'; }
+          if (expandBtn) { expandBtn.classList.remove('expanded'); expandBtn.innerHTML = '+'; }
           delete expandedOrders[order.id];
         }
         if (btn) btn.textContent = 'Expand All';
@@ -1200,7 +1200,7 @@
           if (!previewPanel) continue;
 
           previewPanel.classList.add('show');
-          if (expandBtn) { expandBtn.classList.add('expanded'); expandBtn.textContent = '&minus;'; }
+          if (expandBtn) { expandBtn.classList.add('expanded'); expandBtn.innerHTML = '&minus;'; }
           expandedOrders[order.id] = true;
 
           if (!orderDetailsCache[order.id]) {
@@ -1233,12 +1233,12 @@
       if (expandedOrders[orderId]) {
         previewPanel.classList.remove('show');
         expandBtn.classList.remove('expanded');
-        expandBtn.textContent = '+';
+        expandBtn.innerHTML = '+';
         delete expandedOrders[orderId];
       } else {
         previewPanel.classList.add('show');
         expandBtn.classList.add('expanded');
-        expandBtn.textContent = '&minus;';
+        expandBtn.innerHTML = '&minus;';
         expandedOrders[orderId] = true;
 
         if (!orderDetailsCache[orderId]) {
@@ -1420,7 +1420,10 @@
       let html = `
         <div class="preview-grid">
           <div class="preview-address-box">
-            <h5>Billing</h5>
+            <div class="preview-box-header">
+              <h5>Billing</h5>
+              <span style="font-size:14px; font-weight:700; color:#555;">Order #${order.id}</span>
+            </div>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
               ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
