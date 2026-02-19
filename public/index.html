@@ -1200,7 +1200,7 @@
           if (!previewPanel) continue;
 
           previewPanel.classList.add('show');
-          if (expandBtn) { expandBtn.classList.add('expanded'); expandBtn.textContent = '−'; }
+          if (expandBtn) { expandBtn.classList.add('expanded'); expandBtn.textContent = '&minus;'; }
           expandedOrders[order.id] = true;
 
           if (!orderDetailsCache[order.id]) {
@@ -1238,7 +1238,7 @@
       } else {
         previewPanel.classList.add('show');
         expandBtn.classList.add('expanded');
-        expandBtn.textContent = 'âˆ’';
+        expandBtn.textContent = '&minus;';
         expandedOrders[orderId] = true;
 
         if (!orderDetailsCache[orderId]) {
@@ -1337,7 +1337,7 @@
 
     // Format Order Date with time + timezone (America/Los_Angeles)
     function formatOrderDateTime(iso) {
-      if (!iso) return 'â€”';
+      if (!iso) return '&mdash;';
       try {
         return new Date(iso).toLocaleString('en-US', {
           month: 'short',
@@ -1349,7 +1349,7 @@
           timeZoneName: 'short'
         }).replace(',', '');
       } catch (e) {
-        return 'â€”';
+        return '&mdash;';
       }
     }
 
@@ -1366,7 +1366,7 @@
       if (!dt && order) {
         dt = pick(order.date_shipped) || pick(order.shipped_at) || null;
       }
-      if (!dt) return 'â€”';
+      if (!dt) return '&mdash;';
 
       try {
         return dt.toLocaleDateString('en-US', {
@@ -1376,7 +1376,7 @@
           timeZone: 'America/Los_Angeles'
         }).replace(',', '');
       } catch (e) {
-        return 'â€”';
+        return '&mdash;';
       }
     }
 
@@ -1524,7 +1524,7 @@
         });
         return `
           <div class="note-item">
-            <div class="note-meta"><strong>${capitalize(note.username)}</strong> Â· ${date}</div>
+            <div class="note-meta"><strong>${capitalize(note.username)}</strong> &middot; ${date}</div>
             <div class="note-text">${escapeHtml(note.note_text)}</div>
           </div>
         `;
@@ -1679,7 +1679,7 @@
       let trackingHtml = '';
       if (shipments && shipments.length) {
         trackingHtml = `<div style="margin-top:12px; padding-top:12px; border-top:1px solid #e6e6e6;">
-          <strong>ðŸ“¦ Tracking:</strong><br>
+          <strong>Tracking:</strong><br>
           ${shipments.map(sh => {
             const num = sh.tracking_number ? String(sh.tracking_number).trim() : '';
             if (!num) return 'No tracking';
