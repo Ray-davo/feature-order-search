@@ -1126,6 +1126,9 @@
     function displayResults(orders, searchedBy) {
       const resultsDiv = document.getElementById('results');
 
+      // Filter out Incomplete orders (abandoned checkouts - nothing for support to act on)
+      orders = (orders || []).filter(o => (o.status || '').toLowerCase() !== 'incomplete');
+
       if (!orders || orders.length === 0) {
         resultsDiv.innerHTML = '<div class="no-results">No orders found</div>';
         return;
@@ -1395,7 +1398,7 @@
       const countryShort = (c) => {
         const v = (c || '').toString().trim().toLowerCase();
         if (!v) return '';
-        if (v === 'united states' || v === 'united states of america' || v === 'usa' || v === 'us' || v === 'u.s.' ) return 'US';
+        if (v === 'united states' || v === 'united states of america' || v === 'usa' || v === 'us' || v === 'u.s.' ) return '';
         return c;
       };
 
