@@ -1091,7 +1091,7 @@
         });
 
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Unable to complete search. Please try again.');
+        if (!response.ok) throw new Error(data.error || 'Search failed');
 
         currentStore = store;
         displayResults(data.orders, detected.label);
@@ -1339,7 +1339,10 @@
       let html = `
         <div class="preview-grid">
           <div class="preview-address-box">
-            <h5>Billing</h5>
+            <div class="preview-box-header">
+              <h5>Billing</h5>
+              <span style="font-size:14px; font-weight:700; color:#555;">Order #${order.id}</span>
+            </div>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
               ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
