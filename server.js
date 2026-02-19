@@ -72,8 +72,25 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
   `);
 
+  // Search audit log table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS search_audit (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL,
+      store TEXT NOT NULL,
+      search_type TEXT NOT NULL,
+      query TEXT NOT NULL,
+      result_count INT DEFAULT 0,
+      searched_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_search_audit_user ON search_audit (username, searched_at);
+  `);
+
   // Clean up old login attempts (older than 24 hours)
   await pool.query(`DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours'`);
+
+  // Clean up old search audit logs (older than 90 days)
+  await pool.query(`DELETE FROM search_audit WHERE searched_at < NOW() - INTERVAL '90 days'`);
 
   // Migrate users from environment variables to database (one-time)
   await migrateEnvUsers();
@@ -249,6 +266,43 @@ function getLockoutInfo(username) {
     locked: false,
     attemptsLeft: LOCKOUT_THRESHOLD - (record.count || 0)
   };
+}
+
+// ==================== SEARCH RATE LIMITING ====================
+
+const SEARCH_RATE_LIMIT = 30;          // Max searches per hour for non-admins
+const SEARCH_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour window
+
+const searchRateTracker = new Map();   // username -> { count, windowStart }
+
+function isSearchRateLimited(username) {
+  const now = Date.now();
+  const record = searchRateTracker.get(username);
+
+  if (!record || (now - record.windowStart) > SEARCH_RATE_WINDOW_MS) {
+    // New window
+    searchRateTracker.set(username, { count: 1, windowStart: now });
+    return false;
+  }
+
+  if (record.count >= SEARCH_RATE_LIMIT) {
+    const resetMin = Math.ceil((SEARCH_RATE_WINDOW_MS - (now - record.windowStart)) / 60000);
+    return { limited: true, resetMin };
+  }
+
+  record.count++;
+  return false;
+}
+
+async function logSearch(username, store, searchType, query, resultCount) {
+  try {
+    await pool.query(
+      'INSERT INTO search_audit (username, store, search_type, query, result_count) VALUES ($1, $2, $3, $4, $5)',
+      [username, store, searchType, query, resultCount]
+    );
+  } catch (e) {
+    console.error('Failed to log search:', e.message);
+  }
 }
 
 // Middleware
@@ -500,27 +554,17 @@ async function syncOrders(store, fullSync = false) {
 }
 
 // Search local database for emails by name
+// Requires BOTH first and last name - single words are rejected to prevent broad fishing
 async function searchByName(store, query) {
   const searchTerm = (query || '').toLowerCase().trim();
   const nameParts = searchTerm.split(/\s+/).filter(Boolean);
 
-  if (nameParts.length === 0) return [];
+  // Require at least two parts (first + last name) to prevent broad single-name searches
+  if (nameParts.length < 2) return [];
 
-  if (nameParts.length === 1) {
-    const like = `%${nameParts[0]}%`;
-    const { rows } = await pool.query(
-      `SELECT DISTINCT email FROM order_lookup
-       WHERE store = $1
-       AND (LOWER(first_name) LIKE $2 OR LOWER(last_name) LIKE $2)
-       AND email IS NOT NULL AND email <> ''
-       LIMIT 50`,
-      [store, like]
-    );
-    return rows.map(r => r.email);
-  }
-
-  const first = `%${nameParts[0]}%`;
-  const last = `%${nameParts[nameParts.length - 1]}%`;
+  // Match from START of name only (not anywhere in middle) to reduce false positives
+  const first = `${nameParts[0]}%`;
+  const last = `${nameParts[nameParts.length - 1]}%`;
 
   const { rows } = await pool.query(
     `SELECT DISTINCT email FROM order_lookup
@@ -528,7 +572,7 @@ async function searchByName(store, query) {
      AND LOWER(first_name) LIKE $2
      AND LOWER(last_name) LIKE $3
      AND email IS NOT NULL AND email <> ''
-     LIMIT 50`,
+     LIMIT 20`,
     [store, first, last]
   );
 
@@ -537,17 +581,23 @@ async function searchByName(store, query) {
 
 // Search local database for emails by phone
 async function searchByPhone(store, query) {
-  const digits = normalizePhone(query);
+  let digits = normalizePhone(query);
 
-  if (digits.length < 7) return []; // Too short, would match too many
+  // Strip leading country code: +1 or 1 prefix on 11-digit numbers
+  if (digits.length === 11 && digits.startsWith('1')) {
+    digits = digits.slice(1);
+  }
+
+  // Require exactly 10 digits - no partial matching allowed
+  if (digits.length !== 10) return [];
 
   const { rows } = await pool.query(
     `SELECT DISTINCT email FROM order_lookup
      WHERE store = $1
-     AND phone LIKE $2
+     AND phone = $2
      AND email IS NOT NULL AND email <> ''
-     LIMIT 50`,
-    [store, `%${digits}%`]
+     LIMIT 20`,
+    [store, digits]
   );
 
   return rows.map(r => r.email);
@@ -928,6 +978,30 @@ app.get('/api/admin/login-attempts', requireAuth, requireAdmin, async (req, res)
   }
 });
 
+// Get search audit log (admin only)
+app.get('/api/admin/search-audit', requireAuth, requireAdmin, async (req, res) => {
+  const { limit = 200, username } = req.query;
+  try {
+    let query, params;
+    if (username) {
+      query = `SELECT id, username, store, search_type, query, result_count, searched_at
+               FROM search_audit WHERE username = $1
+               ORDER BY searched_at DESC LIMIT $2`;
+      params = [username, Math.min(parseInt(limit), 1000)];
+    } else {
+      query = `SELECT id, username, store, search_type, query, result_count, searched_at
+               FROM search_audit
+               ORDER BY searched_at DESC LIMIT $1`;
+      params = [Math.min(parseInt(limit), 1000)];
+    }
+    const result = await pool.query(query, params);
+    res.json({ success: true, searches: result.rows });
+  } catch (err) {
+    console.error('Get search audit error:', err.message);
+    res.status(500).json({ error: 'Failed to get search audit log' });
+  }
+});
+
 // Admin page route
 app.get('/admin', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -987,6 +1061,8 @@ app.post('/api/sync/:store', requireAuth, requireAdmin, async (req, res) => {
 // Search orders API
 app.post('/api/search', requireAuth, async (req, res) => {
   const { store, searchType, query } = req.body;
+  const username = req.session.user;
+  const isAdmin = req.session.isAdmin || false;
 
   if (!stores[store]) {
     return res.status(400).json({ error: 'Invalid store' });
@@ -996,60 +1072,81 @@ app.post('/api/search', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Search query too short' });
   }
 
+  // Rate limit non-admin users
+  if (!isAdmin) {
+    const rateCheck = isSearchRateLimited(username);
+    if (rateCheck && rateCheck.limited) {
+      console.log(`[SEARCH] Rate limited: ${username} (${SEARCH_RATE_LIMIT} searches/hour exceeded)`);
+      return res.status(429).json({
+        error: `Search limit reached. You have made ${SEARCH_RATE_LIMIT} searches this hour. Please wait ${rateCheck.resetMin} minute${rateCheck.resetMin !== 1 ? 's' : ''} before searching again.`
+      });
+    }
+  }
+
+  // Results cap: 20 for non-admins, 200 for admins
+  const RESULTS_CAP = isAdmin ? 200 : 20;
+  const BC_LIMIT = isAdmin ? 50 : 20;
+
   try {
     let orders = [];
 
     switch (searchType) {
       case 'order': {
-        // Search by order number - direct
         try {
           const order = await bcApiRequest(store, `orders/${query.trim()}`);
           if (order && order.id) orders = [order];
         } catch (e) {
-          if (e.notFound) return res.json({ success: true, orders: [] });
+          if (e.notFound) {
+            await logSearch(username, store, searchType, query, 0);
+            return res.json({ success: true, orders: [] });
+          }
           throw e;
         }
         break;
       }
 
       case 'email': {
-        // Search by email - direct to BigCommerce
         try {
-          const result = await bcApiRequest(store, `orders?email=${encodeURIComponent(query)}&limit=50&sort=date_created:desc`);
+          const result = await bcApiRequest(store, `orders?email=${encodeURIComponent(query)}&limit=${BC_LIMIT}&sort=date_created:desc`);
           orders = Array.isArray(result) ? result : [];
         } catch (e) {
-          if (e.notFound) return res.json({ success: true, orders: [] });
+          if (e.notFound) {
+            await logSearch(username, store, searchType, query, 0);
+            return res.json({ success: true, orders: [] });
+          }
           throw e;
         }
         break;
       }
 
       case 'name': {
-        // Search local database for emails, then fetch from BigCommerce
+        // Requires both first + last name (enforced in searchByName)
         const nameEmails = await searchByName(store, query);
+
+        if (nameEmails.length === 0 && query.trim().split(/\s+/).filter(Boolean).length < 2) {
+          await logSearch(username, store, searchType, query, 0);
+          return res.status(400).json({ error: 'Please enter both first and last name to search by name.' });
+        }
+
         console.log(`Name search found ${nameEmails.length} emails:`, nameEmails.slice(0, 5));
 
         for (const email of nameEmails.slice(0, 10)) {
           try {
             const emailOrders = await bcApiRequest(
               store,
-              `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
+              `orders?email=${encodeURIComponent(email)}&limit=${BC_LIMIT}&sort=date_created:desc`
             );
             if (Array.isArray(emailOrders)) {
               orders = orders.concat(emailOrders);
             }
-          } catch (e) {
-            // Skip
-          }
+          } catch (e) { /* Skip */ }
         }
 
-        // Deduplicate
         orders = orders.filter((o, i, arr) => arr.findIndex(x => x.id === o.id) === i);
         break;
       }
 
       case 'phone': {
-        // Search local database for emails, then fetch from BigCommerce
         const phoneEmails = await searchByPhone(store, query);
         console.log(`Phone search found ${phoneEmails.length} emails:`, phoneEmails.slice(0, 5));
 
@@ -1057,17 +1154,14 @@ app.post('/api/search', requireAuth, async (req, res) => {
           try {
             const emailOrders = await bcApiRequest(
               store,
-              `orders?email=${encodeURIComponent(email)}&limit=50&sort=date_created:desc`
+              `orders?email=${encodeURIComponent(email)}&limit=${BC_LIMIT}&sort=date_created:desc`
             );
             if (Array.isArray(emailOrders)) {
               orders = orders.concat(emailOrders);
             }
-          } catch (e) {
-            // Skip
-          }
+          } catch (e) { /* Skip */ }
         }
 
-        // Deduplicate
         orders = orders.filter((o, i, arr) => arr.findIndex(x => x.id === o.id) === i);
         break;
       }
@@ -1080,6 +1174,15 @@ app.post('/api/search', requireAuth, async (req, res) => {
     if (Array.isArray(orders)) {
       orders.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
     }
+
+    // Cap results for non-admins
+    if (!isAdmin && orders.length > RESULTS_CAP) {
+      orders = orders.slice(0, RESULTS_CAP);
+    }
+
+    // Log the search for audit
+    await logSearch(username, store, searchType, query, orders.length);
+    console.log(`[SEARCH] ${username} searched ${store} by ${searchType}: "${query}" -> ${orders.length} results`);
 
     res.json({ success: true, orders: orders || [] });
   } catch (error) {
