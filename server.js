@@ -1310,6 +1310,31 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
   }
 });
 
+// Get note counts for multiple orders (used for note badges on search results)
+app.post('/api/note-counts', requireAuth, async (req, res) => {
+  const { store, orderIds } = req.body;
+
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!Array.isArray(orderIds) || orderIds.length === 0) return res.json({ counts: {} });
+
+  try {
+    const result = await pool.query(
+      `SELECT order_id, COUNT(*)::int as count
+       FROM order_notes
+       WHERE store = $1 AND order_id = ANY($2::bigint[])
+       GROUP BY order_id`,
+      [store, orderIds]
+    );
+
+    const counts = {};
+    result.rows.forEach(row => { counts[row.order_id] = row.count; });
+    res.json({ counts });
+  } catch (err) {
+    console.error('Note counts error:', err.message);
+    res.status(500).json({ error: 'Failed to get note counts' });
+  }
+});
+
 // Add note to order
 app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
   const { store, orderId } = req.params;
@@ -1386,27 +1411,37 @@ function buildConfirmationEmailHtml(order, products, shipping, branding) {
   const shippingAddr = shipping || billing;
   const safe = (v) => v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const money = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
-
   const font = "Montserrat,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
 
   const orderDate = order.date_created
     ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     : '';
 
+  // Shipping address one-liner for "Items shipped to" line
+  const shipToLine = [
+    shippingAddr.street_1,
+    shippingAddr.street_2,
+    shippingAddr.city,
+    shippingAddr.state,
+    shippingAddr.zip
+  ].filter(Boolean).join(', ');
+
+  // Products - BC style: name bold, SKU small below, qty right, total right (no unit price)
   const itemRows = products.map(p => {
     const qty = parseFloat(p.quantity || 0);
     const unit = parseFloat(p.price_ex_tax ?? p.base_price ?? 0);
     const total = parseFloat(p.total_ex_tax ?? (unit * qty));
     return `
       <tr class="products__item">
-        <th class="products__content" style="padding:12px 0 12px 0; text-align:left; vertical-align:middle; font-weight:400;">
+        <th class="products__content" style="padding:12px 0; text-align:left; vertical-align:middle; font-weight:400; font-family:${font};">
           <p style="margin:0 0 3px; font-size:14px; color:#333; font-weight:600;">${safe(p.name)}</p>
-          ${p.sku ? `<p style="margin:0; font-size:12px; color:#888; font-family:monospace;">${safe(p.sku)}</p>` : ''}
+          ${p.sku ? `<p style="margin:0; font-size:12px; color:#888; line-height:1.5;">${safe(p.sku)}</p>` : ''}
+          <p style="margin:2px 0 0; font-size:12px; color:#888;">${money(unit)}</p>
         </th>
-        <th class="products__quantity" style="padding:12px 0 12px 16px; vertical-align:middle; width:65px; white-space:nowrap; font-weight:400;">
-          <p style="margin:0; font-size:14px; color:#333;">Qty ${qty}</p>
+        <th class="products__quantity" style="padding:12px 0 12px 16px; vertical-align:middle; width:65px; white-space:nowrap; font-weight:400; font-family:${font};">
+          <p style="margin:0; font-size:14px; color:#333;">Qty: ${qty}</p>
         </th>
-        <th class="products__total" style="padding:12px 0 12px 16px; vertical-align:middle; width:90px; text-align:right; font-weight:400;">
+        <th class="products__total" style="padding:12px 0 12px 16px; vertical-align:middle; width:90px; text-align:right; font-weight:400; font-family:${font};">
           <p style="margin:0; font-size:14px; color:#333; text-align:right;">${money(total)}</p>
         </th>
       </tr>`;
@@ -1415,247 +1450,15 @@ function buildConfirmationEmailHtml(order, products, shipping, branding) {
   const couponDiscount = parseFloat(order.coupon_discount || 0);
   const discountAmount = parseFloat(order.discount_amount || 0);
 
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta name="viewport" content="width=device-width">
-  <style type="text/css">
-    body, table, tr, td, th, div, h1, h2, p, img { Margin:0; margin:0; padding:0; }
-    body { background:#fff; min-width:100%; -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%; }
-    table { border-collapse:collapse; border-spacing:0; width:100%; }
-    h1, h2, p, a, span { color:#333; font-family:${font}; font-weight:400; -moz-hyphens:auto; -webkit-hyphens:auto; hyphens:auto; word-wrap:break-word; }
-    h1 { font-size:28px; font-weight:500; line-height:1.21429; }
-    h2 { font-size:21px; font-weight:500; margin:0 0 4px; }
-    p { font-size:14px; line-height:1.57143; }
-    p:not(:last-child) { Margin:0 0 16px; margin:0 0 16px; }
-    a { color:#2199e8; text-decoration:none; }
-    strong { font-weight:600; }
-    hr { border:none; border-bottom:1px solid #d0d0d0; }
-    .container { Margin:0 auto; margin:0 auto; width:544px; }
-    .products { border-top:1px solid #e5e5e5; width:100%; border-collapse:collapse; }
-    .products__item { border-bottom:1px solid #e5e5e5; }
-    .addresses__item { width:50%; vertical-align:top; }
-    .addresses__item:first-child { padding-right:15px; }
-    .addresses__item:last-child { padding-left:15px; }
-    .addresses__label { font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.05em; margin:0 0 6px; }
-    .addresses__content { border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.6; }
-    .total__name { text-align:right; padding-bottom:4px; }
-    .total__value { padding-left:15px; padding-bottom:4px; text-align:right; }
-    .store a { color:#777; font-size:12px; }
-    .store-button a { border:1px solid #999; border-radius:4px; color:#777; padding:3px 15px; text-align:center; white-space:nowrap; }
-  </style>
-</head>
-<body>
-  <table width="100%" cellpadding="0" cellspacing="0">
-    <tr><td align="center">
-
-      <!-- Logo -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-top:16px;">
-        <tr><td style="padding:24px 0; text-align:center;">
-          <a href="https://www.1ink.com" target="_blank">
-            <img src="${branding.logoUrl}" alt="${safe(branding.name)}" style="max-width:240px; height:auto; display:block; margin:0 auto;">
-          </a>
-        </td></tr>
-      </table>
-
-      <!-- HR Delimiter -->
-      <table class="container" cellpadding="0" cellspacing="0">
-        <tr><td><hr></td></tr>
-      </table>
-
-      <!-- Title + notice box -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-top:24px;">
-        <tr><td>
-          <h1 style="margin:0 0 24px; font-size:28px; font-weight:500; color:#333;">Thank you for your order!</h1>
-
-          <!-- Yellow notice box -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff9e5; border:1px solid #e0c96a; border-radius:4px; margin-bottom:24px;">
-            <tr><td style="padding:12px 16px; font-family:${font}; font-size:14px; line-height:1.6; color:#333;">
-              <strong>Please note:</strong>
-              We ship all orders within 24 hours to ensure prompt delivery. Orders placed on weekends or holidays will ship the next business day.
-              You will receive a separate email with your tracking information once your order has shipped, typically within 24&ndash;48 hours.
-            </td></tr>
-          </table>
-
-          <!-- Order # badge -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-            <tr><td>
-              <span style="display:inline-block; background:#e8f0fe; border:1px solid #b6cffb; color:#0b3d91; padding:8px 14px; border-radius:8px; font-size:15px; font-weight:700; font-family:${font};">
-                Order #${safe(order.id)}
-              </span>
-            </td></tr>
-          </table>
-        </td></tr>
-      </table>
-
-      <!-- Order details (date + payment) -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-        <tr><td>
-          <h2>Order Details</h2>
-          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e5e5; margin-top:8px;">
-            <tr>
-              <th style="padding:8px 0; text-align:left; font-weight:400; font-size:14px; color:#555; width:50%;">Order Date</th>
-              <th style="padding:8px 0; text-align:left; font-weight:600; font-size:14px; color:#333;">${orderDate}</th>
-            </tr>
-            <tr>
-              <th style="padding:8px 0; text-align:left; font-weight:400; font-size:14px; color:#555; border-top:1px solid #f0f0f0;">Payment Method</th>
-              <th style="padding:8px 0; text-align:left; font-weight:600; font-size:14px; color:#333; border-top:1px solid #f0f0f0;">${safe(order.payment_method || '')}</th>
-            </tr>
-          </table>
-        </td></tr>
-      </table>
-
-      <!-- Products -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
-        <tr><td>
-          <h2 style="margin-bottom:8px;">Items in Your Order</h2>
-          <table class="products" cellpadding="0" cellspacing="0">
-            ${itemRows}
-          </table>
-        </td></tr>
-      </table>
-
-      <!-- Totals -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+  // Cart icon delimiter (matches BC's shopping cart divider)
+  const delimiter = `
+      <table class="container" cellpadding="0" cellspacing="0" style="margin:8px auto;">
         <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td>
-                  <table style="margin-left:auto;" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="total__name" style="padding:4px 0; font-size:14px; color:#555; text-align:right;">Subtotal:</td>
-                      <td class="total__value" style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#333; text-align:right;">${money(order.subtotal_ex_tax)}</td>
-                    </tr>
-                    ${couponDiscount > 0 ? `<tr>
-                      <td class="total__name" style="padding:4px 0; font-size:14px; color:#d32f2f; text-align:right;">Coupon${order.coupon_code ? ' (' + safe(order.coupon_code) + ')' : ''}:</td>
-                      <td class="total__value" style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#d32f2f; text-align:right;">-${money(couponDiscount)}</td>
-                    </tr>` : ''}
-                    ${discountAmount > 0 && discountAmount !== couponDiscount ? `<tr>
-                      <td class="total__name" style="padding:4px 0; font-size:14px; color:#28a745; text-align:right;">Discount:</td>
-                      <td class="total__value" style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#28a745; text-align:right;">-${money(discountAmount)}</td>
-                    </tr>` : ''}
-                    <tr>
-                      <td class="total__name" style="padding:4px 0; font-size:14px; color:#555; text-align:right;">Shipping:</td>
-                      <td class="total__value" style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#333; text-align:right;">${money(order.shipping_cost_ex_tax)}</td>
-                    </tr>
-                    <tr>
-                      <td class="total__name" style="padding:4px 0; font-size:14px; color:#555; text-align:right;">Tax:</td>
-                      <td class="total__value" style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#333; text-align:right;">${money(order.total_tax)}</td>
-                    </tr>
-                    <tr>
-                      <td colspan="2"><hr style="margin:6px 0;"></td>
-                    </tr>
-                    <tr>
-                      <td class="total__name" style="padding:4px 0; font-size:15px; font-weight:600; color:#333; text-align:right;">Order Total:</td>
-                      <td class="total__value" style="padding:4px 0 4px 15px; font-size:15px; font-weight:700; color:#333; text-align:right;">${money(order.total_inc_tax)}</td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
+          <td style="vertical-align:middle;"><hr style="border:none; border-bottom:1px solid #d0d0d0; width:230px;"></td>
+          <td style="padding:0 14px; vertical-align:middle; text-align:center; font-size:22px; color:#aaa;">&#128722;</td>
+          <td style="vertical-align:middle;"><hr style="border:none; border-bottom:1px solid #d0d0d0; width:230px;"></td>
         </tr>
-      </table>
-
-      <!-- Addresses -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:40px;">
-        <tr><td>
-          <h2 style="margin-bottom:12px;">Addresses</h2>
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td class="addresses__item" style="width:50%; vertical-align:top; padding-right:15px;">
-                <p class="addresses__label" style="margin:0 0 6px; font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.05em;">Billing Address</p>
-                <div class="addresses__content" style="border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.7;">
-                  <strong>${safe(billing.first_name)} ${safe(billing.last_name)}</strong><br>
-                  ${safe(billing.street_1)}${billing.street_2 ? '<br>' + safe(billing.street_2) : ''}<br>
-                  ${safe(billing.city)}, ${safe(billing.state)} ${safe(billing.zip)}
-                  ${billing.phone ? '<br>' + safe(billing.phone) : ''}
-                </div>
-              </td>
-              <td class="addresses__item" style="width:50%; vertical-align:top; padding-left:15px;">
-                <p class="addresses__label" style="margin:0 0 6px; font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.05em;">Shipping Address</p>
-                <div class="addresses__content" style="border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.7;">
-                  <strong>${safe(shippingAddr.first_name)} ${safe(shippingAddr.last_name)}</strong><br>
-                  ${safe(shippingAddr.street_1)}${shippingAddr.street_2 ? '<br>' + safe(shippingAddr.street_2) : ''}<br>
-                  ${safe(shippingAddr.city)}, ${safe(shippingAddr.state)} ${safe(shippingAddr.zip)}
-                </div>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
-      </table>
-
-      <!-- Footer HR + store info -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr><td>
-          <hr style="margin-bottom:24px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:75%; vertical-align:top;">
-                <p style="margin:0; font-size:14px; font-weight:600; color:#333;">${safe(branding.name)}</p>
-                <p style="margin:0;"><a href="https://www.1ink.com" style="color:#777; font-size:12px;">www.1ink.com</a></p>
-              </td>
-              <td style="width:25%; text-align:right; vertical-align:top;">
-                <a href="https://www.1ink.com" style="display:inline-block; border:1px solid #999; border-radius:4px; color:#777; padding:3px 15px; font-size:13px; font-weight:600; text-decoration:none;">Shop Now</a>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
-      </table>
-
-      <table cellpadding="0" cellspacing="0" style="width:100%; height:16px;"><tr><td>&nbsp;</td></tr></table>
-
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
-
-// Build tracking HTML email (BC-style)
-function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
-  const billing = order.billing_address || {};
-  const addr = shippingAddr || billing;
-  const recipientName = (addr.first_name || '').trim();
-  const safe = (v) => v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-  const font = "Montserrat,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
-
-  const orderDate = order.date_created
-    ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
-    : '';
-
-  const trackingButtons = shipments.map(s => {
-    const num = s.tracking_number ? String(s.tracking_number).trim() : '';
-    if (!num) return '';
-    const url = buildTrackingUrl(s.tracking_carrier, num) || 'https://www.1ink.com/order-tracking/';
-    const method = s.shipping_method || s.tracking_carrier || '';
-    return `
-    <tr><td style="padding:6px 0 16px;">
-      <table border="0" cellpadding="0" cellspacing="0">
-        <tr>
-          <td align="left" valign="middle">
-            <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
-              <tr>
-                <td bgcolor="#1a73e8" style="border-radius:22px; text-align:center;">
-                  <a href="${url}" target="_blank" style="display:inline-block; width:160px; background:#1a73e8; color:#ffffff; text-decoration:none; font-weight:600; font-size:16px; line-height:17px; padding:14px 0; border-radius:22px; text-align:center;">
-                    Track your order
-                  </a>
-                </td>
-              </tr>
-            </table>
-          </td>
-          ${method ? `<td style="vertical-align:middle; padding-left:14px;">
-            <span style="font-size:14px; font-weight:600; color:#333; font-family:${font};">${safe(num)}</span><br>
-            <span style="font-size:12px; color:#888; font-family:${font};">${safe(method)}</span>
-          </td>` : `<td style="vertical-align:middle; padding-left:14px;">
-            <span style="font-size:14px; font-weight:600; color:#333; font-family:${font};">${safe(num)}</span>
-          </td>`}
-        </tr>
-      </table>
-    </td></tr>`;
-  }).filter(Boolean).join('');
+      </table>`;
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -1674,8 +1477,8 @@ function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
     strong { font-weight:600; }
     hr { border:none; border-bottom:1px solid #d0d0d0; }
     .container { Margin:0 auto; margin:0 auto; width:544px; }
-    .addresses__content { border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.7; }
-    .store a { color:#777; font-size:12px; }
+    .products { border-top:1px solid #e5e5e5; width:100%; border-collapse:collapse; }
+    .products__item { border-bottom:1px solid #e5e5e5; }
   </style>
 </head>
 <body>
@@ -1691,17 +1494,264 @@ function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
         </td></tr>
       </table>
 
-      <!-- HR Delimiter -->
-      <table class="container" cellpadding="0" cellspacing="0">
-        <tr><td><hr></td></tr>
+      <!-- Cart icon delimiter -->
+      ${delimiter}
+
+      <!-- Title + notice box -->
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+        <tr><td>
+          <h1 style="margin:0 0 20px; font-size:28px; font-weight:500; color:#333; font-family:${font};">Thank you for your order!</h1>
+
+          <!-- Yellow notice box with Track button -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff9e5; border:1px solid #eee; border-radius:0; margin-bottom:32px;">
+            <tr><td style="padding:12px 14px; text-align:center; font-family:${font}; font-size:14px; line-height:1.6; font-weight:600; color:#000;">
+              <p style="margin:0 0 12px;"><strong>Please Note:</strong> You will receive a separate email with your tracking information once your order has shipped, typically within 24&ndash;48 hrs.</p>
+              <!-- Track your order pill button -->
+              <table border="0" cellpadding="0" cellspacing="0" align="center" style="width:auto; margin:0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#1a73e8" style="border-radius:50px; padding:14px 26px;">
+                    <a href="https://www.1ink.com/order-tracking/" target="_blank"
+                       style="display:block; color:#ffffff; text-decoration:none; font-weight:600; font-size:16px; line-height:14px; white-space:nowrap;">
+                      Track your order
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </td></tr>
       </table>
 
-      <!-- Title -->
+      <!-- Order # + products -->
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+        <tr><td>
+          <h2 style="margin-bottom:4px; font-family:${font};">Order #${safe(order.id)}</h2>
+          ${shipToLine ? `<p style="margin:0 0 12px; font-size:14px;"><a href="#" style="color:#2199e8;">Items shipped to ${safe(shipToLine)}</a></p>` : ''}
+          <table class="products" cellpadding="0" cellspacing="0">
+            ${itemRows}
+          </table>
+        </td></tr>
+      </table>
+
+      <!-- Totals -->
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+        <tr><td>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="right">
+                <table cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding:4px 0; font-size:14px; color:#555; text-align:right; font-family:${font};">Subtotal:</td>
+                    <td style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#333; text-align:right; font-family:${font};">${money(order.subtotal_ex_tax)}</td>
+                  </tr>
+                  ${couponDiscount > 0 ? `<tr>
+                    <td style="padding:4px 0; font-size:14px; color:#d32f2f; text-align:right; font-family:${font};">Coupon${order.coupon_code ? ' (' + safe(order.coupon_code) + ')' : ''}:</td>
+                    <td style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#d32f2f; text-align:right; font-family:${font};">-${money(couponDiscount)}</td>
+                  </tr>` : ''}
+                  ${discountAmount > 0 && discountAmount !== couponDiscount ? `<tr>
+                    <td style="padding:4px 0; font-size:14px; color:#28a745; text-align:right; font-family:${font};">Discount:</td>
+                    <td style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#28a745; text-align:right; font-family:${font};">-${money(discountAmount)}</td>
+                  </tr>` : ''}
+                  <tr>
+                    <td style="padding:4px 0; font-size:14px; color:#555; text-align:right; font-family:${font};">Shipping:</td>
+                    <td style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#333; text-align:right; font-family:${font};">${money(order.shipping_cost_ex_tax)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 0; font-size:14px; color:#555; text-align:right; font-family:${font};">Tax:</td>
+                    <td style="padding:4px 0 4px 15px; font-size:14px; font-weight:600; color:#333; text-align:right; font-family:${font};">${money(order.total_tax)}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2"><hr style="margin:4px 0;"></td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 0; font-size:14px; font-weight:600; color:#333; text-align:right; font-family:${font};">Grand total:</td>
+                    <td style="padding:4px 0 4px 15px; font-size:14px; font-weight:700; color:#333; text-align:right; font-family:${font};">${money(order.total_inc_tax)}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+
+      <!-- Addresses: Shipping first, then Billing -->
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr><td>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="width:50%; vertical-align:top; padding-right:15px;">
+                <p style="margin:0 0 6px; font-size:14px; font-weight:600; color:#333; font-family:${font};">Shipping address</p>
+                <div style="border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.7; font-family:${font};">
+                  ${safe(shippingAddr.first_name)} ${safe(shippingAddr.last_name)}<br>
+                  <a href="#" style="color:#2199e8;">${safe(shippingAddr.street_1)}${shippingAddr.street_2 ? ', ' + safe(shippingAddr.street_2) : ''}</a><br>
+                  ${safe(shippingAddr.city)}, ${safe(shippingAddr.state)} ${safe(shippingAddr.zip)}<br>
+                  ${shippingAddr.country && shippingAddr.country.toLowerCase() !== 'united states' ? safe(shippingAddr.country) + '<br>' : 'United States<br>'}
+                  ${shippingAddr.phone ? safe(shippingAddr.phone) : ''}
+                </div>
+              </td>
+              <td style="width:50%; vertical-align:top; padding-left:15px;">
+                <p style="margin:0 0 6px; font-size:14px; font-weight:600; color:#333; font-family:${font};">Billing Address</p>
+                <div style="border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.7; font-family:${font};">
+                  ${safe(billing.first_name)} ${safe(billing.last_name)}<br>
+                  <a href="#" style="color:#2199e8;">${safe(billing.street_1)}${billing.street_2 ? ', ' + safe(billing.street_2) : ''}</a><br>
+                  ${safe(billing.city)}, ${safe(billing.state)} ${safe(billing.zip)}<br>
+                  ${billing.country ? safe(billing.country) + '<br>' : ''}
+                  ${billing.phone ? safe(billing.phone) : ''}
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+
+      <!-- Yellow shipping notice box (below addresses) -->
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:40px;">
+        <tr><td>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff9e5; border:1px solid #e0c96a; border-radius:4px;">
+            <tr><td style="padding:12px 16px; font-family:${font}; font-size:14px; line-height:1.6; color:#333;">
+              <strong>Please note:</strong>
+              We ship all orders within 24 hours to ensure prompt delivery. Orders placed on weekends or holidays will ship the next business day.
+              <br><br>
+              During the holiday season, USPS and UPS may experience delays of 1&ndash;2 extra days in transit.
+              <br><br>
+              We sincerely appreciate your patience and understanding.
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+
+      <!-- Footer cart delimiter + store info -->
+      ${delimiter}
+
+      <table class="container" cellpadding="0" cellspacing="0" style="margin:16px auto 16px;">
+        <tr>
+          <td style="width:75%; vertical-align:top; font-family:${font};">
+            <p style="margin:0; font-size:14px; font-weight:600; color:#333;">${safe(branding.name)}</p>
+            <p style="margin:0;"><a href="https://www.1ink.com" style="color:#777; font-size:12px;">www.1ink.com</a></p>
+          </td>
+          <td style="width:25%; text-align:right; vertical-align:top;">
+            <a href="https://www.1ink.com" style="display:inline-block; border:1px solid #999; border-radius:4px; color:#777; padding:3px 15px; font-size:13px; font-weight:600; text-decoration:none; font-family:${font};">Go shopping</a>
+          </td>
+        </tr>
+      </table>
+
+      <table cellpadding="0" cellspacing="0" style="width:100%; height:16px;"><tr><td>&nbsp;</td></tr></table>
+
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// Build tracking HTML email (BC-style)
+function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
+  const billing = order.billing_address || {};
+  const addr = shippingAddr || billing;
+  const recipientName = (addr.first_name || '').trim();
+  const safe = (v) => v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const font = "Montserrat,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+
+  const orderDate = order.date_created
+    ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric', year:'numeric' })
+    : '';
+
+  const trackingButtons = shipments.map(s => {
+    const num = s.tracking_number ? String(s.tracking_number).trim() : '';
+    if (!num) return '';
+    const url = buildTrackingUrl(s.tracking_carrier, num) || 'https://www.1ink.com/order-tracking/';
+    const method = s.shipping_method || s.tracking_carrier || '';
+    return `
+    <tr><td style="padding:6px 0 16px 0;">
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="left" valign="middle">
+            <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
+              <tr>
+                <td bgcolor="#1a73e8" style="border-radius:22px; text-align:center;">
+                  <a href="${url}" target="_blank"
+                     style="display:inline-block; width:160px; background:#1a73e8; color:#ffffff; text-decoration:none; font-weight:600; font-size:16px; line-height:17px; padding:14px 0; border-radius:22px; text-align:center; font-family:${font};">
+                    Track your order
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td style="vertical-align:middle; padding-left:14px; font-family:${font};">
+            ${method ? `<span style="font-size:14px; font-weight:600; color:#333;">(${safe(method)})</span>` : ''}
+          </td>
+        </tr>
+      </table>
+    </td></tr>`;
+  }).filter(Boolean).join('');
+
+  // Products shipped rows
+  const productRows = (order._products || []).map(p => {
+    const qty = parseFloat(p.quantity || 0);
+    return `
+      <tr class="products__item">
+        <th class="products__content" style="padding:12px 0; text-align:left; vertical-align:middle; font-weight:400; font-family:${font};">
+          <p style="margin:0 0 3px; font-size:14px; color:#333; font-weight:600;">${safe(p.name)}</p>
+          ${p.sku ? `<p style="margin:0; font-size:12px; color:#888;">${safe(p.sku)}</p>` : ''}
+        </th>
+        <th class="products__quantity" style="padding:12px 0 12px 16px; vertical-align:middle; width:65px; text-align:right; font-weight:400; font-family:${font};">
+          <p style="margin:0; font-size:14px; color:#333; text-align:right;">Qty: ${qty}</p>
+        </th>
+      </tr>`;
+  }).join('');
+
+  // Cart icon delimiter
+  const delimiter = `
+      <table class="container" cellpadding="0" cellspacing="0" style="margin:8px auto;">
+        <tr>
+          <td style="vertical-align:middle;"><hr style="border:none; border-bottom:1px solid #d0d0d0; width:230px;"></td>
+          <td style="padding:0 14px; vertical-align:middle; text-align:center; font-size:22px; color:#aaa;">&#128722;</td>
+          <td style="vertical-align:middle;"><hr style="border:none; border-bottom:1px solid #d0d0d0; width:230px;"></td>
+        </tr>
+      </table>`;
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style type="text/css">
+    body, table, tr, td, th, div, h1, h2, p, img { Margin:0; margin:0; padding:0; }
+    body { background:#fff; min-width:100%; -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%; }
+    table { border-collapse:collapse; border-spacing:0; width:100%; }
+    h1, h2, p, a, span { color:#333; font-family:${font}; font-weight:400; word-wrap:break-word; }
+    h1 { font-size:28px; font-weight:500; line-height:1.21429; }
+    h2 { font-size:21px; font-weight:500; margin:0 0 4px; }
+    p { font-size:14px; line-height:1.57143; }
+    a { color:#2199e8; text-decoration:none; }
+    strong { font-weight:600; }
+    hr { border:none; border-bottom:1px solid #d0d0d0; }
+    .container { Margin:0 auto; margin:0 auto; width:544px; }
+    .products { border-top:1px solid #e5e5e5; width:100%; border-collapse:collapse; }
+    .products__item { border-bottom:1px solid #e5e5e5; }
+  </style>
+</head>
+<body>
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center">
+
+      <!-- Logo -->
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+        <tr><td style="padding:24px 0; text-align:center;">
+          <a href="https://www.1ink.com" target="_blank">
+            <img src="${branding.logoUrl}" alt="${safe(branding.name)}" style="max-width:240px; height:auto; display:block; margin:0 auto;">
+          </a>
+        </td></tr>
+      </table>
+
+      <!-- Cart icon delimiter -->
+      ${delimiter}
+
+      <!-- Title + greeting -->
       <table class="container" cellpadding="0" cellspacing="0" style="margin-top:24px;">
         <tr><td>
-          <h1 style="margin:0 0 16px;">Your order has shipped!</h1>
-          <p style="margin:0 0 10px;">Hi ${safe(recipientName) || 'there'},</p>
-          <p style="margin:0 0 18px;">Great news &mdash; your order has been shipped and is on its way to you.</p>
+          <h1 style="margin:0 0 16px; font-family:${font};">Order Status Update!</h1>
+          <p style="margin:0 0 8px; font-family:${font};">Hi ${safe(recipientName)},</p>
+          <p style="margin:0 0 18px; font-family:${font};">Good news! Your order <strong>#${safe(order.id)}</strong> has been <strong>Shipped</strong>.</p>
 
           <!-- Order # badge -->
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -1717,29 +1767,40 @@ function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
       <!-- Order details -->
       <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
         <tr><td>
-          <h2>Shipment Details</h2>
+          <h2 style="margin-bottom:8px; font-family:${font};">Order details</h2>
           <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e5e5; margin-top:8px;">
             <tr>
-              <th style="padding:8px 0; text-align:left; font-weight:400; font-size:14px; color:#555; width:40%;">Order Date</th>
-              <th style="padding:8px 0; text-align:left; font-weight:600; font-size:14px; color:#333;">${orderDate}</th>
+              <th style="padding:8px 0; text-align:left; font-weight:400; font-size:14px; color:#555; width:40%; font-family:${font};">Date placed</th>
+              <th style="padding:8px 0; text-align:left; font-weight:600; font-size:14px; color:#333; font-family:${font};">${orderDate}</th>
             </tr>
             <tr>
-              <th style="padding:8px 0; text-align:left; font-weight:400; font-size:14px; color:#555; border-top:1px solid #f0f0f0;">Payment Method</th>
-              <th style="padding:8px 0; text-align:left; font-weight:600; font-size:14px; color:#333; border-top:1px solid #f0f0f0;">${safe(order.payment_method || '')}</th>
+              <th style="padding:8px 0; text-align:left; font-weight:400; font-size:14px; color:#555; border-top:1px solid #f0f0f0; font-family:${font};">Payment method</th>
+              <th style="padding:8px 0; text-align:left; font-weight:600; font-size:14px; color:#333; border-top:1px solid #f0f0f0; font-family:${font};">${safe(order.payment_method || '')}</th>
             </tr>
           </table>
         </td></tr>
       </table>
 
+      <!-- Products shipped -->
+      ${productRows ? `
+      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr><td>
+          <h2 style="margin-bottom:8px; font-family:${font};">Products shipped</h2>
+          <table class="products" cellpadding="0" cellspacing="0">
+            ${productRows}
+          </table>
+        </td></tr>
+      </table>` : ''}
+
       <!-- Tracking section -->
       <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
         <tr><td>
-          <h2>Tracking Information</h2>
+          <h2 style="margin-bottom:8px; font-family:${font};">Tracking information</h2>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
-            ${trackingButtons || '<tr><td style="padding:12px 0; font-size:14px; color:#666;">Tracking information will be available shortly.</td></tr>'}
+            ${trackingButtons || '<tr><td style="padding:12px 0; font-size:14px; color:#666; font-family:' + font + '">Tracking information will be available shortly.</td></tr>'}
           </table>
 
-          <!-- Yellow info box -->
+          <!-- Yellow delivery times box -->
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff9e5; border:1px solid #e0c96a; border-radius:4px; margin-top:8px;">
             <tr><td style="padding:14px 18px; font-family:${font}; font-size:14px; line-height:1.6; color:#000; text-align:center;">
               <p style="margin:0 0 8px; font-weight:600;">We ship all orders within 24 hours to ensure prompt delivery. Orders placed on weekends or holidays ship the next business day.</p>
@@ -1752,34 +1813,19 @@ function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
         </td></tr>
       </table>
 
-      <!-- Shipping address -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:40px;">
-        <tr><td>
-          <h2 style="margin-bottom:12px;">Delivering To</h2>
-          <div class="addresses__content" style="border-top:1px solid #e5e5e5; padding-top:12px; font-size:14px; color:#333; line-height:1.7;">
-            <strong>${safe(addr.first_name)} ${safe(addr.last_name)}</strong><br>
-            ${safe(addr.street_1)}${addr.street_2 ? '<br>' + safe(addr.street_2) : ''}<br>
-            ${safe(addr.city)}, ${safe(addr.state)} ${safe(addr.zip)}
-          </div>
-        </td></tr>
-      </table>
+      <!-- Footer cart delimiter + store info -->
+      ${delimiter}
 
-      <!-- Footer HR + store info -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr><td>
-          <hr style="margin-bottom:24px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:75%; vertical-align:top;">
-                <p style="margin:0; font-size:14px; font-weight:600; color:#333;">${safe(branding.name)}</p>
-                <p style="margin:0;"><a href="https://www.1ink.com" style="color:#777; font-size:12px;">www.1ink.com</a></p>
-              </td>
-              <td style="width:25%; text-align:right; vertical-align:top;">
-                <a href="https://www.1ink.com" style="display:inline-block; border:1px solid #999; border-radius:4px; color:#777; padding:3px 15px; font-size:13px; font-weight:600; text-decoration:none;">Shop Now</a>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
+      <table class="container" cellpadding="0" cellspacing="0" style="margin:16px auto 16px;">
+        <tr>
+          <td style="width:75%; vertical-align:top; font-family:${font};">
+            <p style="margin:0; font-size:14px; font-weight:600; color:#333;">${safe(branding.name)}</p>
+            <p style="margin:0;"><a href="https://www.1ink.com" style="color:#777; font-size:12px;">www.1ink.com</a></p>
+          </td>
+          <td style="width:25%; text-align:right; vertical-align:top;">
+            <a href="https://www.1ink.com" style="display:inline-block; border:1px solid #999; border-radius:4px; color:#777; padding:3px 15px; font-size:13px; font-weight:600; text-decoration:none; font-family:${font};">Go shopping</a>
+          </td>
+        </tr>
       </table>
 
       <table cellpadding="0" cellspacing="0" style="width:100%; height:16px;"><tr><td>&nbsp;</td></tr></table>
@@ -1853,12 +1899,15 @@ app.post('/api/order/:store/:orderId/resend-tracking', requireAuth, async (req, 
   try {
     const branding = storeBranding[store] || storeBranding['1ink'];
 
-    // Fetch order, shipping addresses, and shipments
+    // Fetch order, shipping addresses, shipments, and products
     const order = await bcApiRequest(store, `orders/${orderId}`);
     let shippingAddresses = [];
     try { shippingAddresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`); } catch(e) {}
     let rawShipments = [];
     try { rawShipments = await bcApiRequest(store, `orders/${orderId}/shipments`); } catch(e) {}
+    let products = [];
+    try { products = await bcApiRequest(store, `orders/${orderId}/products`); } catch(e) {}
+    order._products = Array.isArray(products) ? products : [];
 
     const billing = order.billing_address || {};
     const recipientEmail = billing.email;
