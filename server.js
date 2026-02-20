@@ -1375,6 +1375,23 @@ app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
 // ==================== EMAIL HELPERS (POSTMARK) ====================
 
 // Build tracking URL (same logic as frontend)
+// Detect clean carrier name from tracking number pattern + hint
+function detectCarrierName(carrier, number) {
+  const hint = String(carrier || '').toLowerCase();
+  const n = String(number || '').trim().replace(/\s+/g, '');
+  if (!n) return carrier || '';
+
+  if (hint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n)) return 'UPS';
+  if (hint.includes('usps') || /^(94|93|92|95)\d{18,20}$/.test(n) || /^420\d{5,}\d+$/.test(n)) return 'USPS';
+  if (hint.includes('fedex') || (/^\d+$/.test(n) && [12,15,20,22].includes(n.length) && !/^(94|93|92|95)/.test(n))) return 'FedEx';
+  if (hint.includes('dhl') || /^JD\d+/i.test(n)) return 'DHL';
+
+  // Fallback: return original value only if it looks like a real carrier name, not generic shipping labels
+  const genericTerms = ['shipping', 'standard', 'free', 'ground', 'delivery', 'express', 'priority'];
+  const isGeneric = genericTerms.some(t => hint.includes(t));
+  return isGeneric ? '' : (carrier || '');
+}
+
 function buildTrackingUrl(carrier, number) {
   if (!number) return null;
   const hint = String(carrier || '').toLowerCase();
@@ -1659,7 +1676,7 @@ function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
     const num = s.tracking_number ? String(s.tracking_number).trim() : '';
     if (!num) return '';
     const url = buildTrackingUrl(s.tracking_carrier, num) || 'https://www.1ink.com/order-tracking/';
-    const method = s.shipping_method || s.tracking_carrier || '';
+    const method = detectCarrierName(s.tracking_carrier || s.shipping_method, num);
     return `
     <tr><td style="padding:6px 0 16px 0;">
       <table border="0" cellpadding="0" cellspacing="0">
