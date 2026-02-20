@@ -385,6 +385,66 @@
     }
     .view-full-btn:hover { background: #278a3c; }
 
+    /* Email action buttons */
+    .email-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .email-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 13px;
+      border: none;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .email-action-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .email-btn-confirmation { background: #6f42c1; color: #fff; }
+    .email-btn-confirmation:hover:not(:disabled) { background: #5a32a3; }
+    .email-btn-tracking { background: #fd7e14; color: #fff; }
+    .email-btn-tracking:hover:not(:disabled) { background: #e06c10; }
+
+    /* Email log section */
+    .email-log-section {
+      margin-top: 14px;
+      background: #fff8f0;
+      border: 1px solid #fcd9b0;
+      border-left: 4px solid #fd7e14;
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+    .email-log-section h5 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      color: #c05c00;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .email-log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #fcd9b0;
+      font-size: 13px;
+    }
+    .email-log-item:last-child { border-bottom: none; }
+    .email-log-type {
+      font-weight: 600;
+      color: #444;
+    }
+    .email-log-meta { color: #888; font-size: 12px; }
+    .email-log-status-sent { color: #28a745; font-weight: 600; }
+    .email-log-status-failed { color: #dc3545; font-weight: 600; }
+    .no-emails { color: #aaa; font-size: 13px; font-style: italic; }
+
     /* Totals block: keep it right-aligned like an invoice */
     .preview-total{
       max-width: 320px;
@@ -1597,6 +1657,21 @@
           </div>
         </div>
 
+
+        <div class="email-actions">
+          <button class="email-action-btn email-btn-confirmation" id="btn-confirm-${orderId}" onclick="resendEmail(${orderId}, 'confirmation')">
+            &#9993; Resend Order Confirmation
+          </button>
+          ${shipments.length > 0 ? `
+          <button class="email-action-btn email-btn-tracking" id="btn-tracking-${orderId}" onclick="resendEmail(${orderId}, 'tracking')">
+            &#128230; Resend Tracking Email
+          </button>` : ''}
+        </div>
+
+        <div class="email-log-section" id="email-log-section-${orderId}" style="display:none;">
+          <h5>&#9993; Emails Sent</h5>
+          <div id="email-log-list-${orderId}"><span class="no-emails">No emails sent yet</span></div>
+        </div>
       `;
 
       previewContent.innerHTML = html;
@@ -1891,6 +1966,82 @@
     document.getElementById('orderModal').addEventListener('click', function(e) {
       if (e.target === this) closeModal();
     });
+
+
+    // ==================== EMAIL ACTIONS ====================
+
+    async function resendEmail(orderId, type) {
+      const btnId = type === 'confirmation' ? `btn-confirm-${orderId}` : `btn-tracking-${orderId}`;
+      const btn = document.getElementById(btnId);
+      const label = type === 'confirmation' ? 'Order Confirmation' : 'Tracking Email';
+
+      if (!confirm(`Resend the ${label} for Order #${orderId} to the customer?`)) return;
+
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+      try {
+        const response = await fetch(`/api/order/${currentStore}/${orderId}/resend-${type}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Failed to send');
+
+        alert(`${label} sent successfully to ${data.sentTo}`);
+        loadEmailLog(orderId); // Refresh the log
+      } catch (err) {
+        alert(`Failed to send: ${err.message}`);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = type === 'confirmation'
+            ? '&#9993; Resend Order Confirmation'
+            : '&#128230; Resend Tracking Email';
+        }
+      }
+    }
+
+    async function loadEmailLog(orderId) {
+      try {
+        const response = await fetch(`/api/order/${currentStore}/${orderId}/email-log`);
+        const data = await response.json();
+        if (!response.ok || !data.emails) return;
+
+        const section = document.getElementById(`email-log-section-${orderId}`);
+        const list = document.getElementById(`email-log-list-${orderId}`);
+        if (!section || !list) return;
+
+        if (data.emails.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+
+        section.style.display = 'block';
+        list.innerHTML = data.emails.map(e => {
+          const date = new Date(e.sent_at).toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: 'numeric', minute: '2-digit'
+          });
+          const typeLabel = e.email_type === 'confirmation' ? '&#9993; Confirmation' : '&#128230; Tracking';
+          const statusClass = e.status === 'sent' ? 'email-log-status-sent' : 'email-log-status-failed';
+          return `
+            <div class="email-log-item">
+              <div>
+                <span class="email-log-type">${typeLabel}</span>
+                <span class="email-log-meta"> &middot; to ${escapeHtml(e.sent_to)} &middot; by ${capitalize(e.sent_by)}</span>
+              </div>
+              <div>
+                <span class="${statusClass}">${e.status === 'sent' ? '&#10003; Sent' : '&#10007; Failed'}</span>
+                <span class="email-log-meta"> &middot; ${date}</span>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        // Silent fail — log is a nice-to-have
+        console.error('Failed to load email log:', err);
+      }
+    }
 
     async function logout() {
       await fetch('/api/logout', { method: 'POST' });
