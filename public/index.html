@@ -389,8 +389,9 @@
     .email-actions {
       display: flex;
       gap: 8px;
-      margin-top: 12px;
+      justify-content: flex-end;
       flex-wrap: wrap;
+      margin-bottom: 8px;
     }
     .email-action-btn {
       display: inline-flex;
@@ -1640,6 +1641,21 @@
           </div>
         </div>
 
+        <div class="email-actions">
+          <button class="email-action-btn email-btn-confirmation" id="btn-confirm-${orderId}" onclick="resendEmail(${orderId}, 'confirmation')">
+            &#9993; Resend Order Confirmation
+          </button>
+          ${shipments.length > 0 ? `
+          <button class="email-action-btn email-btn-tracking" id="btn-tracking-${orderId}" onclick="resendEmail(${orderId}, 'tracking')">
+            &#128230; Resend Tracking Email
+          </button>` : ''}
+        </div>
+
+        <div class="email-log-section" id="email-log-section-${orderId}" style="display:none;">
+          <h5>&#9993; Emails Sent</h5>
+          <div id="email-log-list-${orderId}"><span class="no-emails">No emails sent yet</span></div>
+        </div>
+
         <div class="notes-section">
           <h5>Support Notes</h5>
           <div class="notes-list" id="preview-notes-${orderId}">
@@ -1657,21 +1673,6 @@
           </div>
         </div>
 
-
-        <div class="email-actions">
-          <button class="email-action-btn email-btn-confirmation" id="btn-confirm-${orderId}" onclick="resendEmail(${orderId}, 'confirmation')">
-            &#9993; Resend Order Confirmation
-          </button>
-          ${shipments.length > 0 ? `
-          <button class="email-action-btn email-btn-tracking" id="btn-tracking-${orderId}" onclick="resendEmail(${orderId}, 'tracking')">
-            &#128230; Resend Tracking Email
-          </button>` : ''}
-        </div>
-
-        <div class="email-log-section" id="email-log-section-${orderId}" style="display:none;">
-          <h5>&#9993; Emails Sent</h5>
-          <div id="email-log-list-${orderId}"><span class="no-emails">No emails sent yet</span></div>
-        </div>
       `;
 
       previewContent.innerHTML = html;
