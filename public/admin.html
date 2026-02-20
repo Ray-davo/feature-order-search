@@ -312,6 +312,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="showTab('users')">👥 Users</button>
       <button class="tab-btn" onclick="showTab('attempts')">📋 Login Attempts</button>
+      <button class="tab-btn" onclick="showTab('searches')">🔍 Search Audit</button>
     </div>
 
     <!-- Users Panel -->
@@ -358,6 +359,35 @@
         </thead>
         <tbody id="attemptsTableBody">
           <tr><td colspan="4" class="no-data">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Search Audit Panel -->
+    <div class="panel" id="panel-searches">
+      <div class="panel-header">
+        <h2>Search Audit Log</h2>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="text" id="auditFilterUser" placeholder="Filter by username..." style="padding:7px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; width:200px;" onkeypress="if(event.key==='Enter')loadSearchAudit()">
+          <button class="btn btn-primary btn-sm" onclick="loadSearchAudit()">Filter</button>
+          <button class="refresh-btn" onclick="document.getElementById('auditFilterUser').value=''; loadSearchAudit()">Clear</button>
+        </div>
+      </div>
+
+      <div id="auditStats" style="display:flex; gap:15px; margin-bottom:15px;"></div>
+
+      <table class="attempts-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Store</th>
+            <th>Type</th>
+            <th>Query</th>
+            <th>Results</th>
+          </tr>
+        </thead>
+        <tbody id="searchesTableBody">
+          <tr><td colspan="6" class="no-data">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -447,9 +477,8 @@
       document.querySelector(`[onclick="showTab('${tab}')"]`).classList.add('active');
       document.getElementById(`panel-${tab}`).classList.add('active');
 
-      if (tab === 'attempts') {
-        loadLoginAttempts();
-      }
+      if (tab === 'attempts') loadLoginAttempts();
+      if (tab === 'searches') loadSearchAudit();
     }
 
     async function loadUsers() {
@@ -696,6 +725,58 @@
         loadUsers();
       } catch (err) {
         alert(err.message);
+      }
+    }
+
+    async function loadSearchAudit() {
+      const filterUser = document.getElementById('auditFilterUser').value.trim();
+      const url = filterUser
+        ? `/api/admin/search-audit?limit=200&username=${encodeURIComponent(filterUser)}`
+        : '/api/admin/search-audit?limit=200';
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+
+        const searches = data.searches || [];
+        const tbody = document.getElementById('searchesTableBody');
+
+        // Stats bar
+        const uniqueUsers = new Set(searches.map(s => s.username)).size;
+        const totalResults = searches.reduce((sum, s) => sum + (s.result_count || 0), 0);
+        document.getElementById('auditStats').innerHTML = `
+          <div class="stat-card"><h4>Searches Shown</h4><div class="number">${searches.length}</div></div>
+          <div class="stat-card"><h4>Unique Users</h4><div class="number">${uniqueUsers}</div></div>
+          <div class="stat-card"><h4>Total Results Returned</h4><div class="number">${totalResults.toLocaleString()}</div></div>
+        `;
+
+        if (searches.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="no-data">No searches found</td></tr>';
+          return;
+        }
+
+        const typeLabels = { order: 'Order #', email: 'Email', phone: 'Phone', name: 'Name' };
+        const typeColors = { order: '#007bff', email: '#17a2b8', phone: '#6f42c1', name: '#fd7e14' };
+
+        tbody.innerHTML = searches.map(s => {
+          const time = new Date(s.searched_at).toLocaleString();
+          const typeLabel = typeLabels[s.search_type] || s.search_type;
+          const typeColor = typeColors[s.search_type] || '#6c757d';
+          const resultColor = s.result_count === 0 ? '#dc3545' : '#28a745';
+          return `<tr>
+            <td style="white-space:nowrap; font-size:13px;">${time}</td>
+            <td><strong>${s.username}</strong></td>
+            <td>${s.store}</td>
+            <td><span style="background:${typeColor}22; color:${typeColor}; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600;">${typeLabel}</span></td>
+            <td style="font-family:monospace; font-size:13px;">${s.query}</td>
+            <td style="font-weight:600; color:${resultColor};">${s.result_count}</td>
+          </tr>`;
+        }).join('');
+
+      } catch (err) {
+        document.getElementById('searchesTableBody').innerHTML =
+          `<tr><td colspan="6" class="no-data" style="color:#dc3545;">${err.message}</td></tr>`;
       }
     }
 
