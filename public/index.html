@@ -745,7 +745,32 @@
       cursor: pointer;
     }
     .order-col.order-customer{ color:#333; }
-    .order-col.order-email{ color:#333; font-size: 16px; }
+    .order-col.order-email{
+      color:#333;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .note-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px 2px 5px;
+      border-radius: 10px;
+      background: #ff6b35;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.3;
+      white-space: nowrap;
+      flex-shrink: 0;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(255,107,53,0.4);
+      transition: background 0.15s;
+    }
+    .note-badge:hover{ background: #e85a24; }
+    .note-badge .note-icon{ font-size: 11px; }
     .order-col.order-date{ color:#333; font-size: 16px; text-align:right; }
     .order-col.order-total{
       text-align: right;
@@ -1157,7 +1182,7 @@
 
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
 
-            <div class="order-col order-email" title="${customerEmail}">${customerEmail}</div>
+            <div class="order-col order-email" title="${customerEmail}"><span id="note-badge-${order.id}"></span>${customerEmail}</div>
 
             <div class="order-col order-date">${date}</div>
 
@@ -1175,6 +1200,63 @@
       }
 
       resultsDiv.innerHTML = html;
+
+      // Fetch note counts and show badges on any orders that have notes
+      fetchNoteCounts(store, orders.map(o => o.id));
+    }
+
+    async function fetchNoteCounts(store, orderIds) {
+      if (!orderIds || orderIds.length === 0) return;
+      try {
+        const response = await fetch('/api/note-counts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store, orderIds })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.counts) return;
+
+        for (const [orderId, count] of Object.entries(data.counts)) {
+          if (count > 0) {
+            const badge = document.getElementById(`note-badge-${orderId}`);
+            if (badge) {
+              badge.innerHTML = `<span class="note-badge" title="${count} note${count > 1 ? 's' : ''} — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})"><span class="note-icon">&#128221;</span>${count}</span>`;
+            }
+          }
+        }
+      } catch (err) {
+        // Silent fail — badge is just a nice-to-have
+        console.error('Note counts fetch failed:', err);
+      }
+    }
+
+    // Update note badge after adding a note
+    function updateNoteBadge(orderId) {
+      const badge = document.getElementById(`note-badge-${orderId}`);
+      if (!badge) return;
+
+      const existing = badge.querySelector('.note-badge');
+      if (existing) {
+        const countText = existing.textContent.replace(/\D/g, '');
+        const newCount = (parseInt(countText) || 0) + 1;
+        existing.title = `${newCount} note${newCount > 1 ? 's' : ''} — click to view`;
+        existing.innerHTML = `<span class="note-icon">&#128221;</span>${newCount}`;
+      } else {
+        badge.innerHTML = `<span class="note-badge" title="1 note — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})"><span class="note-icon">&#128221;</span>1</span>`;
+      }
+    }
+
+    // Open the preview panel and scroll to the notes section
+    async function openPreviewToNotes(orderId) {
+      const isExpanded = expandedOrders[orderId];
+      if (!isExpanded) {
+        await togglePreview(null, orderId);
+      }
+      // Small delay to let the panel render, then scroll to notes
+      setTimeout(() => {
+        const notesSection = document.querySelector(`#preview-content-${orderId} .notes-section`);
+        if (notesSection) notesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 200);
     }
 
     async function expandAllOrders() {
@@ -1586,6 +1668,7 @@
 
         textarea.value = '';
         updateCharCounter(textarea, `preview-char-counter-${orderId}`);
+        updateNoteBadge(orderId);
 
       } catch (err) {
         alert(err.message);
