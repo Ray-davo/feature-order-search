@@ -1023,8 +1023,8 @@
 
         document.getElementById('username').textContent = capitalize(data.user);
         
-        // Show admin link if user has admin permission
-        if (data.permissions && data.permissions.includes('admin.users.manage')) {
+        // Show admin link if user is admin
+        if (data.isAdmin) {
           document.getElementById('adminLink').style.display = 'inline-block';
         }
         
