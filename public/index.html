@@ -816,8 +816,7 @@
     .note-badge{
       display: inline-flex;
       align-items: center;
-      gap: 3px;
-      padding: 2px 7px 2px 5px;
+      padding: 2px 7px;
       border-radius: 10px;
       background: #ff6b35;
       color: #fff;
@@ -829,9 +828,9 @@
       cursor: pointer;
       box-shadow: 0 1px 3px rgba(255,107,53,0.4);
       transition: background 0.15s;
+      margin-right: 5px;
     }
     .note-badge:hover{ background: #e85a24; }
-    .note-badge .note-icon{ font-size: 11px; }
     .order-col.order-date{ color:#333; font-size: 16px; text-align:right; }
     .order-col.order-total{
       text-align: right;
@@ -1263,7 +1262,7 @@
       resultsDiv.innerHTML = html;
 
       // Fetch note counts and show badges on any orders that have notes
-      fetchNoteCounts(store, orders.map(o => o.id));
+      fetchNoteCounts(currentStore, orders.map(o => o.id));
     }
 
     async function fetchNoteCounts(store, orderIds) {
@@ -1281,7 +1280,7 @@
           if (count > 0) {
             const badge = document.getElementById(`note-badge-${orderId}`);
             if (badge) {
-              badge.innerHTML = `<span class="note-badge" title="${count} note${count > 1 ? 's' : ''} — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})"><span class="note-icon">&#128221;</span>${count}</span>`;
+              badge.innerHTML = `<span class="note-badge" title="${count} note${count > 1 ? 's' : ''} — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})">Note${count > 1 ? ' ' + count : ''}</span>`;
             }
           }
         }
@@ -1301,9 +1300,9 @@
         const countText = existing.textContent.replace(/\D/g, '');
         const newCount = (parseInt(countText) || 0) + 1;
         existing.title = `${newCount} note${newCount > 1 ? 's' : ''} — click to view`;
-        existing.innerHTML = `<span class="note-icon">&#128221;</span>${newCount}`;
+        existing.innerHTML = `Note${newCount > 1 ? ' ' + newCount : ''}`;
       } else {
-        badge.innerHTML = `<span class="note-badge" title="1 note — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})"><span class="note-icon">&#128221;</span>1</span>`;
+        badge.innerHTML = `<span class="note-badge" title="1 note — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})">Note</span>`;
       }
     }
 
