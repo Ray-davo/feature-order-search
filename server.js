@@ -5,11 +5,43 @@ const fetch = require('node-fetch');
 const path = require('path');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
+const postmark = require('postmark');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const BCRYPT_ROUNDS = 10;
+
+// ==================== POSTMARK EMAIL CLIENT ====================
+const postmarkClient = process.env.POSTMARK_SERVER_KEY
+  ? new postmark.ServerClient(process.env.POSTMARK_SERVER_KEY)
+  : null;
+
+// Per-store branding for emails
+const storeBranding = {
+  '1ink': {
+    name: '1ink.com',
+    fromName: '1ink.com Support',
+    fromEmail: 'support@1inkonline.com',
+    replyTo: 'support@1inkonline.com',
+    logoUrl: 'https://cdn11.bigcommerce.com/s-9u5u1ss/content/banners/1ink-logo-trademark-invoice.png',
+    color: '#007bff',
+    address: '21200 Oxnard St. #969, Woodland Hills, CA 91367',
+    phone: '1-818-534-2660',
+    website: 'https://www.1ink.com'
+  },
+  'needink': {
+    name: 'NeedInk.com',
+    fromName: 'NeedInk.com Support',
+    fromEmail: 'support@1inkonline.com',
+    replyTo: 'support@1inkonline.com',
+    logoUrl: 'https://cdn11.bigcommerce.com/s-9u5u1ss/content/banners/1ink-logo-trademark-invoice.png',
+    color: '#28a745',
+    address: '21200 Oxnard St. #969, Woodland Hills, CA 91367',
+    phone: '1-818-534-2660',
+    website: 'https://www.needink.com'
+  }
+};
 
 // Postgres connection (Render)
 const pool = new Pool({
@@ -84,6 +116,24 @@ async function initDb() {
       searched_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_search_audit_user ON search_audit (username, searched_at);
+  `);
+
+  // Email log table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_log (
+      id SERIAL PRIMARY KEY,
+      store TEXT NOT NULL,
+      order_id BIGINT NOT NULL,
+      email_type TEXT NOT NULL,
+      sent_to TEXT NOT NULL,
+      sent_by TEXT NOT NULL,
+      postmark_message_id TEXT,
+      status TEXT DEFAULT 'sent',
+      error_message TEXT,
+      sent_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_log_order ON email_log (store, order_id);
+    CREATE INDEX IF NOT EXISTS idx_email_log_sent_at ON email_log (sent_at);
   `);
 
   // Clean up old login attempts (older than 24 hours)
@@ -398,7 +448,7 @@ function requireAdmin(req, res, next) {
 }
 
 // BigCommerce API helper
-async function bcApiRequest(store, endpoint, method = 'GET') {
+async function bcApiRequest(store, endpoint, method = 'GET', body = null) {
   const storeConfig = stores[store];
   if (!storeConfig || !storeConfig.hash || !storeConfig.token) {
     throw new Error('Store not configured');
@@ -406,14 +456,20 @@ async function bcApiRequest(store, endpoint, method = 'GET') {
 
   const url = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v2/${endpoint}`;
 
-  const response = await fetch(url, {
+  const fetchOptions = {
     method,
     headers: {
       'X-Auth-Token': storeConfig.token,
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     }
-  });
+  };
+
+  if (body && (method === 'POST' || method === 'PUT')) {
+    fetchOptions.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, fetchOptions);
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -424,6 +480,9 @@ async function bcApiRequest(store, endpoint, method = 'GET') {
     const errorText = await response.text();
     throw new Error(`BC API Error: ${response.status} - ${errorText}`);
   }
+
+  // DELETE returns 204 No Content
+  if (response.status === 204) return { success: true };
 
   return await response.json();
 }
@@ -1284,6 +1343,425 @@ app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
   } catch (error) {
     console.error(`Add note error: ${error.message}`);
     res.status(500).json({ error: 'Failed to add note.' });
+  }
+});
+
+
+// ==================== EMAIL HELPERS (POSTMARK) ====================
+
+// Build tracking URL (same logic as frontend)
+function buildTrackingUrl(carrier, number) {
+  if (!number) return null;
+  const hint = String(carrier || '').toLowerCase();
+  const n = String(number).trim().replace(/\s+/g, '');
+  const digits = /^\d+$/.test(n);
+
+  if (hint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n))
+    return `https://www.ups.com/track?tracknum=${encodeURIComponent(n)}`;
+  if (hint.includes('usps') || /^(94|93|92|95)\d{18,20}$/.test(n))
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(n)}`;
+  if (hint.includes('fedex') || (digits && [12,15,20,22].includes(n.length)))
+    return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`;
+  if (hint.includes('dhl') || /^JD\d+/i.test(n))
+    return `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(n)}`;
+  return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`;
+}
+
+// Log sent email to database
+async function logEmail(store, orderId, emailType, sentTo, sentBy, postmarkMsgId, status, errorMsg) {
+  try {
+    await pool.query(
+      `INSERT INTO email_log (store, order_id, email_type, sent_to, sent_by, postmark_message_id, status, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [store, orderId, emailType, sentTo, sentBy, postmarkMsgId || null, status, errorMsg || null]
+    );
+  } catch (e) {
+    console.error('Failed to log email:', e.message);
+  }
+}
+
+// Build order confirmation HTML email
+function buildConfirmationEmailHtml(order, products, shipping, branding) {
+  const billing = order.billing_address || {};
+  const safe = (v) => v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const money = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
+
+  const orderDate = order.date_created
+    ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    : '';
+
+  const itemRows = products.map(p => {
+    const qty = parseFloat(p.quantity || 0);
+    const unit = parseFloat(p.price_ex_tax ?? p.base_price ?? 0);
+    const total = parseFloat(p.total_ex_tax ?? (unit * qty));
+    return `
+      <tr>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333;">${safe(p.sku || '')}</td>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333;">${safe(p.name)}</td>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333; text-align:center;">${qty}</td>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333; text-align:right;">${money(unit)}</td>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333; text-align:right;">${money(total)}</td>
+      </tr>`;
+  }).join('');
+
+  const shippingAddr = shipping || billing;
+  const couponDiscount = parseFloat(order.coupon_discount || 0);
+  const discountAmount = parseFloat(order.discount_amount || 0);
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:30px 0;">
+    <tr><td align="center">
+      <table width="620" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:${branding.color};padding:24px 32px;text-align:center;">
+            <img src="${branding.logoUrl}" alt="${branding.name}" style="height:48px;width:auto;display:inline-block;">
+          </td>
+        </tr>
+
+        <!-- Title -->
+        <tr>
+          <td style="padding:28px 32px 0;text-align:center;">
+            <h1 style="margin:0;font-size:22px;color:#333;">Order Confirmation</h1>
+            <p style="margin:8px 0 0;font-size:15px;color:#666;">Thank you for your order!</p>
+          </td>
+        </tr>
+
+        <!-- Order meta -->
+        <tr>
+          <td style="padding:20px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#f8f9fa;border-radius:6px;padding:16px 20px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="font-size:14px;color:#666;">Order Number</td>
+                      <td style="font-size:14px;color:#666;">Order Date</td>
+                      <td style="font-size:14px;color:#666;">Payment</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size:16px;font-weight:700;color:#333;padding-top:4px;">#${safe(order.id)}</td>
+                      <td style="font-size:15px;font-weight:600;color:#333;padding-top:4px;">${orderDate}</td>
+                      <td style="font-size:15px;font-weight:600;color:#333;padding-top:4px;">${safe(order.payment_method || '')}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Addresses -->
+        <tr>
+          <td style="padding:0 32px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td width="48%" valign="top" style="background:#f8f9fa;border-radius:6px;padding:16px 20px;">
+                  <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Billing Address</p>
+                  <p style="margin:0;font-size:14px;color:#333;line-height:1.6;">
+                    <strong>${safe(billing.first_name)} ${safe(billing.last_name)}</strong><br>
+                    ${safe(billing.street_1)}${billing.street_2 ? '<br>' + safe(billing.street_2) : ''}<br>
+                    ${safe(billing.city)}, ${safe(billing.state)} ${safe(billing.zip)}
+                  </p>
+                </td>
+                <td width="4%"></td>
+                <td width="48%" valign="top" style="background:#f8f9fa;border-radius:6px;padding:16px 20px;">
+                  <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Shipping Address</p>
+                  <p style="margin:0;font-size:14px;color:#333;line-height:1.6;">
+                    <strong>${safe(shippingAddr.first_name)} ${safe(shippingAddr.last_name)}</strong><br>
+                    ${safe(shippingAddr.street_1)}${shippingAddr.street_2 ? '<br>' + safe(shippingAddr.street_2) : ''}<br>
+                    ${safe(shippingAddr.city)}, ${safe(shippingAddr.state)} ${safe(shippingAddr.zip)}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Items table -->
+        <tr>
+          <td style="padding:0 32px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;">
+              <thead>
+                <tr style="background:#f8f9fa;">
+                  <th style="padding:10px 8px;text-align:left;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.04em;">SKU</th>
+                  <th style="padding:10px 8px;text-align:left;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.04em;">Product</th>
+                  <th style="padding:10px 8px;text-align:center;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.04em;">Qty</th>
+                  <th style="padding:10px 8px;text-align:right;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.04em;">Price</th>
+                  <th style="padding:10px 8px;text-align:right;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.04em;">Total</th>
+                </tr>
+              </thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Totals -->
+        <tr>
+          <td style="padding:0 32px 28px;">
+            <table width="280" cellpadding="0" cellspacing="0" style="margin-left:auto;">
+              <tr>
+                <td style="padding:4px 0;font-size:14px;color:#555;">Subtotal:</td>
+                <td style="padding:4px 0;font-size:14px;color:#333;text-align:right;">${money(order.subtotal_ex_tax)}</td>
+              </tr>
+              ${couponDiscount > 0 ? `<tr>
+                <td style="padding:4px 0;font-size:14px;color:#d32f2f;">Coupon${order.coupon_code ? ' (' + safe(order.coupon_code) + ')' : ''}:</td>
+                <td style="padding:4px 0;font-size:14px;color:#d32f2f;text-align:right;">-${money(couponDiscount)}</td>
+              </tr>` : ''}
+              ${discountAmount > 0 && discountAmount !== couponDiscount ? `<tr>
+                <td style="padding:4px 0;font-size:14px;color:#28a745;">Discount:</td>
+                <td style="padding:4px 0;font-size:14px;color:#28a745;text-align:right;">-${money(discountAmount)}</td>
+              </tr>` : ''}
+              <tr>
+                <td style="padding:4px 0;font-size:14px;color:#555;">Shipping:</td>
+                <td style="padding:4px 0;font-size:14px;color:#333;text-align:right;">${money(order.shipping_cost_ex_tax)}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0;font-size:14px;color:#555;">Tax:</td>
+                <td style="padding:4px 0;font-size:14px;color:#333;text-align:right;">${money(order.total_tax)}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 0 4px;font-size:16px;font-weight:700;color:#333;border-top:2px solid #333;">Order Total:</td>
+                <td style="padding:10px 0 4px;font-size:16px;font-weight:700;color:#333;text-align:right;border-top:2px solid #333;">${money(order.total_inc_tax)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8f9fa;padding:20px 32px;text-align:center;border-top:1px solid #eee;">
+            <p style="margin:0 0 6px;font-size:13px;color:#888;">Questions? Reply to this email or call us at ${branding.phone}</p>
+            <p style="margin:0;font-size:12px;color:#aaa;">${branding.name} &bull; ${branding.address}</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// Build tracking HTML email
+function buildTrackingEmailHtml(order, shipments, shippingAddr, branding) {
+  const billing = order.billing_address || {};
+  const recipientName = (shippingAddr?.first_name || billing.first_name || '').trim();
+  const safe = (v) => v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const trackingRows = shipments.map(s => {
+    const num = s.tracking_number ? String(s.tracking_number).trim() : '';
+    if (!num) return '';
+    const url = buildTrackingUrl(s.tracking_carrier, num);
+    const carrier = s.tracking_carrier || s.shipping_method || 'Carrier';
+    return `
+      <tr>
+        <td style="padding:14px 20px;border-bottom:1px solid #f0f0f0;">
+          <span style="font-size:13px;color:#888;display:block;margin-bottom:4px;">${safe(carrier)}</span>
+          <a href="${url}" style="font-size:18px;font-weight:700;color:${branding.color};text-decoration:none;">${safe(num)}</a>
+        </td>
+        <td style="padding:14px 20px;border-bottom:1px solid #f0f0f0;text-align:right;">
+          <a href="${url}" style="display:inline-block;padding:8px 18px;background:${branding.color};color:#fff;border-radius:5px;text-decoration:none;font-size:14px;font-weight:600;">Track Package</a>
+        </td>
+      </tr>`;
+  }).filter(Boolean).join('');
+
+  const addr = shippingAddr || billing;
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:30px 0;">
+    <tr><td align="center">
+      <table width="620" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:${branding.color};padding:24px 32px;text-align:center;">
+            <img src="${branding.logoUrl}" alt="${branding.name}" style="height:48px;width:auto;display:inline-block;">
+          </td>
+        </tr>
+
+        <!-- Title -->
+        <tr>
+          <td style="padding:28px 32px 20px;text-align:center;">
+            <h1 style="margin:0;font-size:22px;color:#333;">Your Order Has Shipped!</h1>
+            <p style="margin:10px 0 0;font-size:15px;color:#666;">Hi ${safe(recipientName) || 'there'}, your order #${safe(order.id)} is on its way.</p>
+          </td>
+        </tr>
+
+        <!-- Tracking numbers -->
+        <tr>
+          <td style="padding:0 32px 24px;">
+            <p style="margin:0 0 12px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;">Tracking Information</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;">
+              ${trackingRows || '<tr><td style="padding:14px 20px;color:#666;">No tracking number available</td></tr>'}
+            </table>
+          </td>
+        </tr>
+
+        <!-- Shipping address -->
+        <tr>
+          <td style="padding:0 32px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#f8f9fa;border-radius:6px;padding:16px 20px;">
+                  <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Delivering To</p>
+                  <p style="margin:0;font-size:14px;color:#333;line-height:1.6;">
+                    <strong>${safe(addr.first_name)} ${safe(addr.last_name)}</strong><br>
+                    ${safe(addr.street_1)}${addr.street_2 ? '<br>' + safe(addr.street_2) : ''}<br>
+                    ${safe(addr.city)}, ${safe(addr.state)} ${safe(addr.zip)}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8f9fa;padding:20px 32px;text-align:center;border-top:1px solid #eee;">
+            <p style="margin:0 0 6px;font-size:13px;color:#888;">Questions? Reply to this email or call us at ${branding.phone}</p>
+            <p style="margin:0;font-size:12px;color:#aaa;">${branding.name} &bull; ${branding.address}</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ==================== EMAIL API ENDPOINTS ====================
+
+// Resend order confirmation via Postmark
+app.post('/api/order/:store/:orderId/resend-confirmation', requireAuth, async (req, res) => {
+  const { store, orderId } = req.params;
+  const sentBy = req.session.user;
+
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!postmarkClient) return res.status(500).json({ error: 'Email service not configured. Add POSTMARK_SERVER_KEY to environment variables.' });
+
+  try {
+    const branding = storeBranding[store] || storeBranding['1ink'];
+
+    // Fetch all order data needed for the email
+    const order = await bcApiRequest(store, `orders/${orderId}`);
+    const products = await bcApiRequest(store, `orders/${orderId}/products`);
+    let shippingAddresses = [];
+    try { shippingAddresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`); } catch(e) {}
+
+    const billing = order.billing_address || {};
+    const recipientEmail = billing.email;
+    if (!recipientEmail) return res.status(400).json({ error: 'No email address on this order' });
+
+    const shippingAddr = shippingAddresses[0] || billing;
+    const html = buildConfirmationEmailHtml(order, products, shippingAddr, branding);
+    const recipientName = `${billing.first_name || ''} ${billing.last_name || ''}`.trim();
+
+    const result = await postmarkClient.sendEmail({
+      From: `${branding.fromName} <${branding.fromEmail}>`,
+      To: `${recipientName} <${recipientEmail}>`,
+      ReplyTo: branding.replyTo,
+      Subject: `Order Confirmation – Order #${orderId} | ${branding.name}`,
+      HtmlBody: html,
+      TextBody: `Thank you for your order #${orderId} from ${branding.name}. Total: $${parseFloat(order.total_inc_tax || 0).toFixed(2)}. Questions? Email us at ${branding.fromEmail} or call ${branding.phone}.`,
+      MessageStream: 'outbound',
+      Tag: 'order-confirmation'
+    });
+
+    await logEmail(store, orderId, 'confirmation', recipientEmail, sentBy, result.MessageID, 'sent', null);
+    console.log(`[EMAIL] Confirmation resent for order ${orderId} (${store}) to ${recipientEmail} by ${sentBy}`);
+
+    res.json({ success: true, sentTo: recipientEmail, messageId: result.MessageID });
+
+  } catch (err) {
+    console.error(`Resend confirmation error:`, err.message);
+    await logEmail(store, orderId, 'confirmation', 'unknown', sentBy, null, 'failed', err.message);
+    res.status(500).json({ error: err.message || 'Failed to send email' });
+  }
+});
+
+// Resend tracking email via Postmark
+app.post('/api/order/:store/:orderId/resend-tracking', requireAuth, async (req, res) => {
+  const { store, orderId } = req.params;
+  const sentBy = req.session.user;
+
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!postmarkClient) return res.status(500).json({ error: 'Email service not configured. Add POSTMARK_SERVER_KEY to environment variables.' });
+
+  try {
+    const branding = storeBranding[store] || storeBranding['1ink'];
+
+    // Fetch order, shipping addresses, and shipments
+    const order = await bcApiRequest(store, `orders/${orderId}`);
+    let shippingAddresses = [];
+    try { shippingAddresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`); } catch(e) {}
+    let rawShipments = [];
+    try { rawShipments = await bcApiRequest(store, `orders/${orderId}/shipments`); } catch(e) {}
+
+    const billing = order.billing_address || {};
+    const recipientEmail = billing.email;
+    if (!recipientEmail) return res.status(400).json({ error: 'No email address on this order' });
+
+    if (!Array.isArray(rawShipments) || rawShipments.length === 0) {
+      return res.status(400).json({ error: 'This order has no shipments with tracking information yet' });
+    }
+
+    const shipments = rawShipments.map(s => ({
+      tracking_number: s.tracking_number,
+      tracking_carrier: s.tracking_carrier,
+      shipping_method: s.shipping_method
+    }));
+
+    const shippingAddr = shippingAddresses[0] || billing;
+    const html = buildTrackingEmailHtml(order, shipments, shippingAddr, branding);
+    const recipientName = `${billing.first_name || ''} ${billing.last_name || ''}`.trim();
+
+    const trackingNumbers = shipments.map(s => s.tracking_number).filter(Boolean).join(', ');
+
+    const result = await postmarkClient.sendEmail({
+      From: `${branding.fromName} <${branding.fromEmail}>`,
+      To: `${recipientName} <${recipientEmail}>`,
+      ReplyTo: branding.replyTo,
+      Subject: `Your Order #${orderId} Has Shipped | ${branding.name}`,
+      HtmlBody: html,
+      TextBody: `Your order #${orderId} from ${branding.name} has shipped. Tracking: ${trackingNumbers}. Questions? Email us at ${branding.fromEmail} or call ${branding.phone}.`,
+      MessageStream: 'outbound',
+      Tag: 'tracking'
+    });
+
+    await logEmail(store, orderId, 'tracking', recipientEmail, sentBy, result.MessageID, 'sent', null);
+    console.log(`[EMAIL] Tracking resent for order ${orderId} (${store}) to ${recipientEmail} by ${sentBy} | tracking: ${trackingNumbers}`);
+
+    res.json({ success: true, sentTo: recipientEmail, messageId: result.MessageID });
+
+  } catch (err) {
+    console.error(`Resend tracking error:`, err.message);
+    await logEmail(store, orderId, 'tracking', 'unknown', sentBy, null, 'failed', err.message);
+    res.status(500).json({ error: err.message || 'Failed to send email' });
+  }
+});
+
+// Get email log for an order (for showing history in the UI)
+app.get('/api/order/:store/:orderId/email-log', requireAuth, async (req, res) => {
+  const { store, orderId } = req.params;
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  try {
+    const result = await pool.query(
+      `SELECT id, email_type, sent_to, sent_by, status, error_message, sent_at
+       FROM email_log WHERE store = $1 AND order_id = $2 ORDER BY sent_at DESC LIMIT 20`,
+      [store, orderId]
+    );
+    res.json({ success: true, emails: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch email log' });
   }
 });
 
