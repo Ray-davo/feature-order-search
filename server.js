@@ -1276,6 +1276,24 @@ app.post('/api/search', requireAuth, async (req, res) => {
   }
 });
 
+// Debug: test v3 product URL lookup (admin only, remove after confirming it works)
+app.get('/api/debug/product-url/:store/:productId', requireAuth, requireAdmin, async (req, res) => {
+  const { store, productId } = req.params;
+  try {
+    const data = await bcApiV3Request(store, `catalog/products?id:in=${productId}&limit=1`);
+    const product = data?.data?.[0];
+    res.json({
+      raw_custom_url: product?.custom_url || null,
+      built_url: product?.custom_url?.url ? (stores[store].baseUrl + product.custom_url.url) : null,
+      product_id: product?.id || null,
+      store_baseUrl: stores[store]?.baseUrl || null,
+      v3_status: 'ok'
+    });
+  } catch (e) {
+    res.json({ error: e.message, v3_status: 'failed' });
+  }
+});
+
 // Get full order details
 app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
   const { store, orderId } = req.params;
@@ -1302,7 +1320,7 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
             const baseUrl = stores[store].baseUrl || '';
             catalogData.data.forEach(cp => {
               if (cp.custom_url && cp.custom_url.url) {
-                productUrlMap[cp.id] = baseUrl + cp.custom_url.url;
+                productUrlMap[String(cp.id)] = baseUrl + cp.custom_url.url;
               }
             });
           }
@@ -1315,7 +1333,7 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
 
     // Attach URL to each product
     const productsWithUrls = Array.isArray(products)
-      ? products.map(p => ({ ...p, product_url: productUrlMap[p.product_id] || null }))
+      ? products.map(p => ({ ...p, product_url: productUrlMap[String(p.product_id)] || null }))
       : products;
 
     // Get shipping addresses
