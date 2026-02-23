@@ -35,7 +35,7 @@ const storeBranding = {
     fromName: 'NeedInk.com Support',
     fromEmail: 'support@1inkonline.com',
     replyTo: 'support@1inkonline.com',
-    logoUrl: 'https://cdn11.bigcommerce.com/s-9u5u1ss/content/banners/1ink-logo-trademark-invoice.png',
+    logoUrl: 'https://cdn11.bigcommerce.com/s-wyuaqptd/images/stencil/250x68/needink-logo_1571870203__01730.original.png',
     color: '#28a745',
     address: '21200 Oxnard St. #969, Woodland Hills, CA 91367',
     phone: '1-818-534-2660',
@@ -1368,6 +1368,43 @@ app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
   } catch (error) {
     console.error(`Add note error: ${error.message}`);
     res.status(500).json({ error: 'Failed to add note.' });
+  }
+});
+
+// Delete note from order (own notes only; admins can delete any)
+app.delete('/api/order/:store/:orderId/notes/:noteId', requireAuth, async (req, res) => {
+  const { store, orderId, noteId } = req.params;
+  const username = req.session.user;
+  const isAdmin = req.session.isAdmin || false;
+
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  try {
+    // Fetch the note first to check ownership
+    const existing = await pool.query(
+      'SELECT id, username FROM order_notes WHERE id = $1 AND store = $2 AND order_id = $3',
+      [noteId, store, orderId]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    const noteOwner = existing.rows[0].username;
+
+    // Agents can only delete their own notes; admins can delete any
+    if (!isAdmin && noteOwner !== username) {
+      return res.status(403).json({ error: 'You can only delete your own notes' });
+    }
+
+    await pool.query('DELETE FROM order_notes WHERE id = $1', [noteId]);
+
+    console.log(`[${new Date().toISOString()}] Note ${noteId} deleted by ${username} for order ${orderId} (${store})`);
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error(`Delete note error: ${error.message}`);
+    res.status(500).json({ error: 'Failed to delete note.' });
   }
 });
 
