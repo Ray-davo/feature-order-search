@@ -489,27 +489,28 @@ async function bcApiRequest(store, endpoint, method = 'GET', body = null) {
   return await response.json();
 }
 
-// BC v3 API helper (for catalog endpoints)
+// BC v3 REST API helper (catalog endpoints)
 async function bcApiV3Request(store, endpoint) {
   const storeConfig = stores[store];
   if (!storeConfig || !storeConfig.hash || !storeConfig.token) return null;
 
   const url = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v3/${endpoint}`;
 
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-Auth-Token': storeConfig.token,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (e) {
-    return null;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'X-Auth-Token': storeConfig.token,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`v3 API ${response.status}: ${text.slice(0, 200)}`);
   }
+
+  return await response.json();
 }
 
 // Normalize phone number to digits only
@@ -1296,7 +1297,7 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
       if (Array.isArray(products) && products.length > 0) {
         const productIds = [...new Set(products.map(p => p.product_id).filter(Boolean))].join(',');
         if (productIds) {
-          const catalogData = await bcApiV3Request(store, `catalog/products?id:in=${productIds}&include_fields=id,custom_url&limit=250`);
+          const catalogData = await bcApiV3Request(store, `catalog/products?id:in=${productIds}&limit=50`);
           if (catalogData && Array.isArray(catalogData.data)) {
             const baseUrl = stores[store].baseUrl || '';
             catalogData.data.forEach(cp => {
@@ -1305,10 +1306,11 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
               }
             });
           }
+          console.log(`[PRODUCT-URL] store=${store} ids=${productIds} mapped=${Object.keys(productUrlMap).length}`);
         }
       }
     } catch (e) {
-      // Product URLs are non-critical, continue without them
+      console.error(`[PRODUCT-URL] Failed:`, e.message);
     }
 
     // Attach URL to each product
