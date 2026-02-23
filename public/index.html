@@ -338,6 +338,8 @@
     .preview-items-table .sku { font-family: monospace; font-size: 16px; color: #666; }
     .preview-items-table .qty { text-align: center; }
     .preview-items-table .price { text-align: right; }
+    .product-link { color: #333; text-decoration: none; }
+    .product-link:hover { color: #007bff; text-decoration: underline; }
 
     .preview-total {
       margin-top: 10px;
@@ -487,14 +489,14 @@
     .note-delete-btn {
       background: none;
       border: none;
-      color: #aaa;
-      font-size: 18px;
+      color: #bbb;
       line-height: 1;
       cursor: pointer;
-      padding: 0 2px;
+      padding: 2px 3px;
       flex-shrink: 0;
       transition: color 0.15s;
-      font-weight: 700;
+      display: flex;
+      align-items: center;
     }
     .note-delete-btn:hover { color: #dc3545; }
     .note-item:last-child { margin-bottom: 0; }
@@ -798,6 +800,9 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* Product links print as plain black text */
+  .product-link { color: #000 !important; text-decoration: none !important; }
 
   /* Hide session warning if visible */
   .session-warning { display: none !important; }
@@ -1644,7 +1649,7 @@
         html += `
                 <tr>
                   <td class="sku">${p.sku || '-'}</td>
-                  <td>${p.name}</td>
+                  <td>${p.product_url ? `<a href="${p.product_url}" target="_blank" rel="noopener noreferrer" class="product-link">${p.name}</a>` : p.name}</td>
                   <td class="qty">${qty}</td>
                   <td class="price">$${unit.toFixed(2)}</td>
                   <td class="price">$${lineTotal.toFixed(2)}</td>
@@ -1706,15 +1711,25 @@
     function renderNotesList(notes, orderId) {
       if (!notes || notes.length === 0) return '<div class="no-notes">No notes yet</div>';
 
+      const DELETE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
       return notes.map(note => {
         const date = new Date(note.created_at).toLocaleString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric',
           hour: 'numeric', minute: '2-digit'
         });
-        const canDelete = currentUserIsAdmin || note.username === currentUser;
+
+        const noteAge = Date.now() - new Date(note.created_at).getTime();
+        const withinWindow = noteAge <= DELETE_WINDOW_MS;
+        const canDelete = (currentUserIsAdmin || note.username === currentUser) &&
+                          (currentUserIsAdmin || withinWindow);
+
+        const trashIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+
         const deleteBtn = canDelete
-          ? `<button class="note-delete-btn" title="Delete note" onclick="deleteNote(${orderId}, ${note.id}, this)">&times;</button>`
+          ? `<button class="note-delete-btn" title="Delete note (within 15 min)" onclick="deleteNote(${orderId}, ${note.id}, this)">${trashIcon}</button>`
           : '';
+
         return `
           <div class="note-item" id="note-item-${note.id}">
             <div class="note-item-body">
@@ -1905,7 +1920,7 @@
         rows += `
           <tr>
             <td class="sku">${safe(p.sku) || 'N/A'}</td>
-            <td>${safe(p.name) || ''}</td>
+            <td>${p.product_url ? `<a href="${safe(p.product_url)}" target="_blank" rel="noopener noreferrer" class="product-link">${safe(p.name) || ''}</a>` : (safe(p.name) || '')}</td>
             <td class="num">${qty || 0}</td>
             <td class="num">${money(unit)}</td>
             <td class="num">${money(lineTotal)}</td>
