@@ -1375,38 +1375,47 @@ app.post('/api/order/:store/:orderId/notes', requireAuth, async (req, res) => {
 // ==================== EMAIL HELPERS (POSTMARK) ====================
 
 // Build tracking URL (same logic as frontend)
+// Shared carrier detection logic
+function identifyCarrier(hint, n) {
+  const h = String(hint || '').toLowerCase();
+  const isUps  = h.includes('ups')   || /^1Z/i.test(n);  // 1Z prefix = UPS regardless of length
+  const isUsps = h.includes('usps')  || /^(94|93|92|95)\d{18,20}$/.test(n) || /^420\d{5,}$/.test(n);
+  const isFedex = h.includes('fedex') ||
+    (/^\d+$/.test(n) && [12,15,20,22].includes(n.length) &&
+     !/^(94|93|92|95)/.test(n) && !/^1Z/i.test(n));  // exclude 1Z from FedEx length match
+  const isDhl  = h.includes('dhl')   || /^JD\d+/i.test(n);
+
+  if (isUps)   return 'UPS';
+  if (isUsps)  return 'USPS';
+  if (isFedex) return 'FedEx';
+  if (isDhl)   return 'DHL';
+  return null;
+}
+
 // Detect clean carrier name from tracking number pattern + hint
 function detectCarrierName(carrier, number) {
-  const hint = String(carrier || '').toLowerCase();
   const n = String(number || '').trim().replace(/\s+/g, '');
   if (!n) return carrier || '';
 
-  if (hint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n)) return 'UPS';
-  if (hint.includes('usps') || /^(94|93|92|95)\d{18,20}$/.test(n) || /^420\d{5,}\d+$/.test(n)) return 'USPS';
-  if (hint.includes('fedex') || (/^\d+$/.test(n) && [12,15,20,22].includes(n.length) && !/^(94|93|92|95)/.test(n))) return 'FedEx';
-  if (hint.includes('dhl') || /^JD\d+/i.test(n)) return 'DHL';
+  const detected = identifyCarrier(carrier, n);
+  if (detected) return detected;
 
-  // Fallback: return original value only if it looks like a real carrier name, not generic shipping labels
+  // Fallback: return original value only if it's a real carrier name, not a generic shipping label
   const genericTerms = ['shipping', 'standard', 'free', 'ground', 'delivery', 'express', 'priority'];
-  const isGeneric = genericTerms.some(t => hint.includes(t));
-  return isGeneric ? '' : (carrier || '');
+  const hint = String(carrier || '').toLowerCase();
+  return genericTerms.some(t => hint.includes(t)) ? '' : (carrier || '');
 }
 
 function buildTrackingUrl(carrier, number) {
   if (!number) return null;
-  const hint = String(carrier || '').toLowerCase();
   const n = String(number).trim().replace(/\s+/g, '');
-  const digits = /^\d+$/.test(n);
 
-  if (hint.includes('ups') || /^1Z[0-9A-Z]{16}$/i.test(n))
-    return `https://www.ups.com/track?tracknum=${encodeURIComponent(n)}`;
-  if (hint.includes('usps') || /^(94|93|92|95)\d{18,20}$/.test(n))
-    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(n)}`;
-  if (hint.includes('fedex') || (digits && [12,15,20,22].includes(n.length)))
-    return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`;
-  if (hint.includes('dhl') || /^JD\d+/i.test(n))
-    return `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(n)}`;
-  return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`;
+  const detected = identifyCarrier(carrier, n);
+  if (detected === 'UPS')   return `https://www.ups.com/track?tracknum=${encodeURIComponent(n)}`;
+  if (detected === 'USPS')  return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(n)}`;
+  if (detected === 'FedEx') return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`;
+  if (detected === 'DHL')   return `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(n)}`;
+  return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`; // safe fallback
 }
 
 // Log sent email to database
