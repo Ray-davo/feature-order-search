@@ -1434,16 +1434,8 @@ function buildConfirmationEmailHtml(order, products, shipping, branding) {
     ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     : '';
 
-  // Shipping address one-liner for "Items shipped to" line
-  const shipToLine = [
-    shippingAddr.street_1,
-    shippingAddr.street_2,
-    shippingAddr.city,
-    shippingAddr.state,
-    shippingAddr.zip
-  ].filter(Boolean).join(', ');
 
-  // Products - BC style: name bold, SKU small below, qty right, total right (no unit price)
+  // Products - BC style: name bold, SKU small below, qty right, total right
   const itemRows = products.map(p => {
     const qty = parseFloat(p.quantity || 0);
     const unit = parseFloat(p.price_ex_tax ?? p.base_price ?? 0);
@@ -1453,7 +1445,7 @@ function buildConfirmationEmailHtml(order, products, shipping, branding) {
         <th class="products__content" style="padding:12px 0; text-align:left; vertical-align:middle; font-weight:400; font-family:${font};">
           <p style="margin:0 0 3px; font-size:14px; color:#333; font-weight:600;">${safe(p.name)}</p>
           ${p.sku ? `<p style="margin:0; font-size:12px; color:#888; line-height:1.5;">${safe(p.sku)}</p>` : ''}
-          <p style="margin:2px 0 0; font-size:12px; color:#888;">${money(unit)}</p>
+
         </th>
         <th class="products__quantity" style="padding:12px 0 12px 16px; vertical-align:middle; width:65px; white-space:nowrap; font-weight:400; font-family:${font};">
           <p style="margin:0; font-size:14px; color:#333;">Qty: ${qty}</p>
@@ -1543,7 +1535,6 @@ function buildConfirmationEmailHtml(order, products, shipping, branding) {
       <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
         <tr><td>
           <h2 style="margin-bottom:4px; font-family:${font};">Order #${safe(order.id)}</h2>
-          ${shipToLine ? `<p style="margin:0 0 12px; font-size:14px;"><a href="#" style="color:#2199e8;">Items shipped to ${safe(shipToLine)}</a></p>` : ''}
           <table class="products" cellpadding="0" cellspacing="0">
             ${itemRows}
           </table>
@@ -1617,22 +1608,6 @@ function buildConfirmationEmailHtml(order, products, shipping, branding) {
                 </div>
               </td>
             </tr>
-          </table>
-        </td></tr>
-      </table>
-
-      <!-- Yellow shipping notice box (below addresses) -->
-      <table class="container" cellpadding="0" cellspacing="0" style="margin-bottom:40px;">
-        <tr><td>
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff9e5; border:1px solid #e0c96a; border-radius:4px;">
-            <tr><td style="padding:12px 16px; font-family:${font}; font-size:14px; line-height:1.6; color:#333;">
-              <strong>Please note:</strong>
-              We ship all orders within 24 hours to ensure prompt delivery. Orders placed on weekends or holidays will ship the next business day.
-              <br><br>
-              During the holiday season, USPS and UPS may experience delays of 1&ndash;2 extra days in transit.
-              <br><br>
-              We sincerely appreciate your patience and understanding.
-            </td></tr>
           </table>
         </td></tr>
       </table>
