@@ -478,7 +478,25 @@
       padding: 10px;
       margin-bottom: 8px;
       font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
     }
+    .note-item-body { flex: 1; min-width: 0; }
+    .note-delete-btn {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+      flex-shrink: 0;
+      transition: color 0.15s;
+      font-weight: 700;
+    }
+    .note-delete-btn:hover { color: #dc3545; }
     .note-item:last-child { margin-bottom: 0; }
     .note-meta { font-size: 16px; color: #888; margin-bottom: 5px;}
     .note-meta strong { color: #555; }
@@ -1012,6 +1030,8 @@
     let expandedOrders = {};
     let orderDetailsCache = {};
     let currentOrders = [];
+    let currentUser = '';
+    let currentUserIsAdmin = false;
 
     // Session monitoring
     let sessionCheckInterval = null;
@@ -1107,6 +1127,8 @@
         }
 
         document.getElementById('username').textContent = capitalize(data.user);
+        currentUser = data.user;
+        currentUserIsAdmin = data.isAdmin || false;
         
         // Show admin link if user is admin
         if (data.isAdmin) {
@@ -1290,18 +1312,22 @@
       }
     }
 
-    // Update note badge after adding a note
-    function updateNoteBadge(orderId) {
+    // Update note badge after adding (+1) or deleting (-1) a note
+    function updateNoteBadge(orderId, delta = 1) {
       const badge = document.getElementById(`note-badge-${orderId}`);
       if (!badge) return;
 
       const existing = badge.querySelector('.note-badge');
       if (existing) {
         const countText = existing.textContent.replace(/\D/g, '');
-        const newCount = (parseInt(countText) || 0) + 1;
-        existing.title = `${newCount} note${newCount > 1 ? 's' : ''} — click to view`;
-        existing.innerHTML = `Note${newCount > 1 ? ' ' + newCount : ''}`;
-      } else {
+        const newCount = Math.max(0, (parseInt(countText) || 0) + delta);
+        if (newCount === 0) {
+          badge.innerHTML = '';
+        } else {
+          existing.title = `${newCount} note${newCount > 1 ? 's' : ''} — click to view`;
+          existing.innerHTML = `Note${newCount > 1 ? ' ' + newCount : ''}`;
+        }
+      } else if (delta > 0) {
         badge.innerHTML = `<span class="note-badge" title="1 note — click to view" onclick="event.stopPropagation(); openPreviewToNotes(${orderId})">Note</span>`;
       }
     }
@@ -1658,7 +1684,7 @@
         <div class="notes-section">
           <h5>Support Notes</h5>
           <div class="notes-list" id="preview-notes-${orderId}">
-            ${renderNotesList(data.notes || [])}
+            ${renderNotesList(data.notes || [], orderId)}
           </div>
           <div class="note-form">
             <textarea class="note-textarea" id="preview-note-input-${orderId}"
@@ -1677,7 +1703,7 @@
       previewContent.innerHTML = html;
     }
 
-    function renderNotesList(notes) {
+    function renderNotesList(notes, orderId) {
       if (!notes || notes.length === 0) return '<div class="no-notes">No notes yet</div>';
 
       return notes.map(note => {
@@ -1685,10 +1711,17 @@
           month: 'short', day: 'numeric', year: 'numeric',
           hour: 'numeric', minute: '2-digit'
         });
+        const canDelete = currentUserIsAdmin || note.username === currentUser;
+        const deleteBtn = canDelete
+          ? `<button class="note-delete-btn" title="Delete note" onclick="deleteNote(${orderId}, ${note.id}, this)">&times;</button>`
+          : '';
         return `
-          <div class="note-item">
-            <div class="note-meta"><strong>${capitalize(note.username)}</strong> &middot; ${date}</div>
-            <div class="note-text">${escapeHtml(note.note_text)}</div>
+          <div class="note-item" id="note-item-${note.id}">
+            <div class="note-item-body">
+              <div class="note-meta"><strong>${capitalize(note.username)}</strong> &middot; ${date}</div>
+              <div class="note-text">${escapeHtml(note.note_text)}</div>
+            </div>
+            ${deleteBtn}
           </div>
         `;
       }).join('');
@@ -1738,7 +1771,7 @@
         }
 
         const previewNotesList = document.getElementById(`preview-notes-${orderId}`);
-        const notesHtml = renderNotesList(orderDetailsCache[orderId]?.notes || [data.note]);
+        const notesHtml = renderNotesList(orderDetailsCache[orderId]?.notes || [data.note], orderId);
         if (previewNotesList) previewNotesList.innerHTML = notesHtml;
 
         textarea.value = '';
@@ -1750,6 +1783,47 @@
       } finally {
         btn.disabled = false;
         btn.textContent = 'Add Note';
+      }
+    }
+
+    async function deleteNote(orderId, noteId, btnEl) {
+      if (!confirm('Delete this note? This cannot be undone.')) return;
+
+      btnEl.disabled = true;
+
+      try {
+        const response = await fetch(`/api/order/${currentStore}/${orderId}/notes/${noteId}`, {
+          method: 'DELETE'
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to delete note');
+
+        // Remove from cache
+        if (orderDetailsCache[orderId]?.notes) {
+          orderDetailsCache[orderId].notes = orderDetailsCache[orderId].notes.filter(n => n.id !== noteId);
+        }
+
+        // Remove from DOM
+        const noteEl = document.getElementById(`note-item-${noteId}`);
+        if (noteEl) noteEl.remove();
+
+        // If no notes left, show empty state
+        const notesList = document.getElementById(`preview-notes-${orderId}`);
+        if (notesList && notesList.children.length === 0) {
+          notesList.innerHTML = '<div class="no-notes">No notes yet</div>';
+        }
+
+        // Update badge
+        if (orderDetailsCache[orderId]?.notes?.length === 0) {
+          const badge = document.getElementById(`note-badge-${orderId}`);
+          if (badge) badge.innerHTML = '';
+        } else {
+          updateNoteBadge(orderId, -1);
+        }
+
+      } catch (err) {
+        alert(err.message);
+        btnEl.disabled = false;
       }
     }
 
