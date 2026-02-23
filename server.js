@@ -1376,13 +1376,14 @@ app.delete('/api/order/:store/:orderId/notes/:noteId', requireAuth, async (req, 
   const { store, orderId, noteId } = req.params;
   const username = req.session.user;
   const isAdmin = req.session.isAdmin || false;
+  const DELETE_WINDOW_MIN = 15;
 
   if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
 
   try {
-    // Fetch the note first to check ownership
+    // Fetch the note to check ownership and age
     const existing = await pool.query(
-      'SELECT id, username FROM order_notes WHERE id = $1 AND store = $2 AND order_id = $3',
+      'SELECT id, username, created_at FROM order_notes WHERE id = $1 AND store = $2 AND order_id = $3',
       [noteId, store, orderId]
     );
 
@@ -1391,10 +1392,16 @@ app.delete('/api/order/:store/:orderId/notes/:noteId', requireAuth, async (req, 
     }
 
     const noteOwner = existing.rows[0].username;
+    const noteAge = (Date.now() - new Date(existing.rows[0].created_at).getTime()) / 60000; // minutes
 
-    // Agents can only delete their own notes; admins can delete any
+    // Agents can only delete their own notes
     if (!isAdmin && noteOwner !== username) {
       return res.status(403).json({ error: 'You can only delete your own notes' });
+    }
+
+    // Agents can only delete within 15-minute window; admins bypass this
+    if (!isAdmin && noteAge > DELETE_WINDOW_MIN) {
+      return res.status(403).json({ error: `Notes can only be deleted within ${DELETE_WINDOW_MIN} minutes of being added` });
     }
 
     await pool.query('DELETE FROM order_notes WHERE id = $1', [noteId]);
