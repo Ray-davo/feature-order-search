@@ -422,12 +422,14 @@ const stores = {
   '1ink': {
     name: '1ink.com',
     hash: process.env.BC_1INK_STORE_HASH || process.env.BC_STORE_HASH,
-    token: process.env.BC_1INK_ACCESS_TOKEN || process.env.BC_ACCESS_TOKEN
+    token: process.env.BC_1INK_ACCESS_TOKEN || process.env.BC_ACCESS_TOKEN,
+    baseUrl: 'https://www.1ink.com'
   },
   'needink': {
     name: 'needink.com',
     hash: process.env.BC_NEEDINK_STORE_HASH,
-    token: process.env.BC_NEEDINK_ACCESS_TOKEN
+    token: process.env.BC_NEEDINK_ACCESS_TOKEN,
+    baseUrl: 'https://www.needink.com'
   }
 };
 
@@ -485,6 +487,29 @@ async function bcApiRequest(store, endpoint, method = 'GET', body = null) {
   if (response.status === 204) return { success: true };
 
   return await response.json();
+}
+
+// BC v3 API helper (for catalog endpoints)
+async function bcApiV3Request(store, endpoint) {
+  const storeConfig = stores[store];
+  if (!storeConfig || !storeConfig.hash || !storeConfig.token) return null;
+
+  const url = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v3/${endpoint}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Auth-Token': storeConfig.token,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    return null;
+  }
 }
 
 // Normalize phone number to digits only
@@ -1265,6 +1290,32 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
     // Get order products
     const products = await bcApiRequest(store, `orders/${orderId}/products`);
 
+    // Fetch product URLs from v3 catalog API (one batch call)
+    let productUrlMap = {};
+    try {
+      if (Array.isArray(products) && products.length > 0) {
+        const productIds = [...new Set(products.map(p => p.product_id).filter(Boolean))].join(',');
+        if (productIds) {
+          const catalogData = await bcApiV3Request(store, `catalog/products?id:in=${productIds}&include_fields=id,custom_url&limit=250`);
+          if (catalogData && Array.isArray(catalogData.data)) {
+            const baseUrl = stores[store].baseUrl || '';
+            catalogData.data.forEach(cp => {
+              if (cp.custom_url && cp.custom_url.url) {
+                productUrlMap[cp.id] = baseUrl + cp.custom_url.url;
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // Product URLs are non-critical, continue without them
+    }
+
+    // Attach URL to each product
+    const productsWithUrls = Array.isArray(products)
+      ? products.map(p => ({ ...p, product_url: productUrlMap[p.product_id] || null }))
+      : products;
+
     // Get shipping addresses
     let shippingAddresses = [];
     try {
@@ -1290,7 +1341,7 @@ app.get('/api/order/:store/:orderId', requireAuth, async (req, res) => {
     res.json({
       success: true,
       order,
-      products,
+      products: productsWithUrls,
       shippingAddresses,
       shipments: Array.isArray(shipments)
         ? shipments.map(s => ({
