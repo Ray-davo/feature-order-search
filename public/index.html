@@ -584,29 +584,26 @@
 
     .loading { text-align: center; padding: 40px; color: #666; }
 
-    /* Invoice layout — matches BC PrintableInvoice structure */
-    .invoice-wrap { background:#fff; padding:20px; font-size:13px; color:#333; }
-    .invoice-store-addr { float:right; width:33%; font-size:12px; line-height:1.5; color:#333; text-align:right; }
-    .invoice-logo { height:60px; width:auto; display:block; }
-    .invoice-title { clear:both; font-size:17px; font-weight:700; margin:10px 0 12px 0; color:#222; }
-    .invoice-addr-row { display:flex; gap:0; margin-bottom:14px; }
-    .invoice-addr-col { flex:1; padding-right:20px; font-size:12px; line-height:1.6; }
-    .invoice-addr-col:last-child { padding-right:0; }
-    .invoice-heading { font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; color:#444; border-bottom:1px solid #e0e0e0; padding-bottom:3px; }
-    .invoice-details { display:flex; gap:0; margin-bottom:14px; border-top:1px solid #e0e0e0; padding-top:10px; }
-    .invoice-details-col { flex:1; }
-    .invoice-detail-row { display:flex; gap:8px; font-size:12px; margin-bottom:4px; }
-    .invoice-detail-label { font-weight:600; color:#555; white-space:nowrap; }
-    .invoice-detail-value { color:#222; }
-    .invoice-table { width:100%; border-collapse:collapse; margin-top:4px; font-size:12px; }
-    .invoice-table thead th { text-align:left; background:#f0f0f0; border-top:1px solid #ccc; border-bottom:1px solid #ccc; padding:7px 8px; font-size:11px; font-weight:600; color:#444; text-transform:uppercase; letter-spacing:.03em; }
-    .invoice-table tbody td { border-bottom:1px solid #eee; padding:8px 8px; vertical-align:top; }
+    /* Invoice layout (View Full Order) */
+    .invoice-wrap { background:#fff; padding:20px; }
+    .invoice-top { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
+    .invoice-brand img { height:35px; width:auto; display:block; margin-bottom:8px; }
+    .invoice-brand .addr { font-size:12px; color:#333; line-height:1.4; }
+    .invoice-meta { text-align:right; font-size:14px; color:#333; line-height:1.6; }
+    .invoice-meta .inv-title { font-size:16px; font-weight:700; margin-bottom:6px; }
+    .invoice-two { display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:18px; }
+    .invoice-box { border:1px solid #e6e6e6; border-radius:6px; padding:12px; }
+    .invoice-box h4 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; color:#444; }
+    .invoice-box p { font-size:13px; color:#222; line-height:1.4; margin:0; }
+    .invoice-table { width:100%; border-collapse:collapse; margin-top:18px; font-size:13px; table-layout: fixed; }
+    .invoice-table th { text-align:left; border-bottom:1px solid #e6e6e6; padding:10px 8px; font-size:12px; color:#444; }
+    .invoice-table td { border-bottom:1px solid #f0f0f0; padding:10px 8px; vertical-align:top; overflow: visible; }
     .invoice-table .num { text-align:right; white-space:nowrap; }
-    .invoice-table .sku { white-space:nowrap; color:#555; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; }
-    .invoice-table .totals-row td { border-bottom:none; padding:4px 8px; font-size:12px; }
-    .invoice-table .totals-row.grand-row td { border-top:2px solid #ccc; font-weight:700; font-size:13px; padding-top:8px; }
-    .invoice-table .totals-row td:first-child { text-align:right; color:#555; }
-    .invoice-table .totals-row td:last-child { text-align:right; font-weight:600; min-width:80px; }
+    .invoice-table .sku { white-space: normal; overflow-wrap: anywhere; word-break: break-word; color:#333; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .invoice-totals { margin-top:14px; width:320px; margin-left:auto; }
+    .invoice-totals .row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
+    .invoice-totals .row strong { font-size:14px; }
+    .invoice-totals .grand { border-top:1px solid #e6e6e6; margin-top:6px; padding-top:10px; font-weight:700; }
     .product-link { color:#007bff; text-decoration:underline; }
     .product-link:hover { color:#0056b3; }
     .tracking-link { color:#007bff; text-decoration:none; font-weight:600; }
@@ -649,6 +646,14 @@
     zoom: 1 !important;
   }
 
+  .invoice-totals .grand,
+  .invoice-totals .grand span,
+  .invoice-totals .grand strong {
+    font-size: 14pt !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+  }
+
   .header, .container { display: none !important; }
 
   .modal { 
@@ -686,32 +691,113 @@
   .modal-header h2 { font-size: 14pt !important; font-weight: 700 !important; }
   .close-btn, .print-btn { display: none !important; }
 
-  /* Invoice wrapper */
+  /* Invoice wrapper - constrain width */
   .invoice-wrap {
     max-width: 7.5in !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* Force invoice area to inherit the baseline */
+  .invoice-wrap,
+  .invoice-brand .addr,
+  .invoice-brand .addr div,
+  .invoice-meta,
+  .invoice-meta div,
+  .invoice-box,
+  .invoice-box p,
+  .invoice-box p strong,
+  .invoice-box div,
+  .invoice-table,
+  .invoice-table tbody,
+  .invoice-table tr,
+  .invoice-table td,
+  .invoice-totals,
+  .invoice-totals .row,
+  .invoice-totals .row span,
+  .tracking-link {
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Header section with logo — display:block so addr sits below logo */
+  .invoice-brand {
+    display: block !important;
+    margin-bottom: 15pt !important;
+  }
+
+  .invoice-brand .addr {
+    font-size: 10pt !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Logo sizing for print */
+  .invoice-brand img {
+    height: 35pt !important;
+    width: auto !important;
+    max-width: 150pt !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: 0 0 6pt 0 !important;
+  }
+
+  /* Keep hierarchy without making body text small */
+  .invoice-meta .inv-title { font-size: 14pt !important; font-weight: 700 !important; }
+  .invoice-box h4 { font-size: 10pt !important; font-weight: 600 !important; margin-bottom: 5pt !important; }
+
+  /* Address boxes */
+  .invoice-box {
+    flex: 1 !important;
+    padding: 10pt !important;
+    border: 1px solid #ddd !important;
+  }
+  .invoice-box p {
+    margin: 2pt 0 !important;
     font-size: 10pt !important;
   }
 
-  .invoice-store-addr { font-size: 9pt !important; line-height: 1.4 !important; }
-  .invoice-logo { height: 40pt !important; width: auto !important; }
-  .invoice-title { font-size: 13pt !important; margin: 6pt 0 8pt 0 !important; }
-  .invoice-heading { font-size: 9pt !important; }
-  .invoice-addr-col { font-size: 9pt !important; line-height: 1.4 !important; }
-  .invoice-detail-row { font-size: 9pt !important; margin-bottom: 2pt !important; }
-
-  .invoice-table { font-size: 9pt !important; margin-top: 4pt !important; }
-  .invoice-table thead th { font-size: 8pt !important; padding: 5pt 5pt !important; }
-  .invoice-table tbody td { font-size: 9pt !important; padding: 5pt 5pt !important; }
-  .invoice-table .sku { font-size: 8pt !important; }
-
-  .invoice-table .totals-row td { font-size: 9pt !important; padding: 2pt 5pt !important; }
-  .invoice-table .grand-row td { font-size: 10pt !important; padding-top: 5pt !important; }
+  /* Table styling */
+  .invoice-table { 
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 15pt !important;
+    table-layout: fixed !important;
+  }
+  .invoice-table th { 
+    font-size: 9pt !important; 
+    padding: 6pt 5pt !important; 
+    background: #f5f5f5 !important;
+    border-bottom: 1px solid #ccc !important;
+    text-align: left !important;
+  }
+  .invoice-table td { 
+    padding: 6pt 5pt !important;
+    font-size: 10pt !important;
+    border-bottom: 1px solid #eee !important;
+    vertical-align: top !important;
+    overflow: hidden !important;
+  }
 
   /* Product links: plain black in print */
   .product-link { color: #000 !important; text-decoration: none !important; }
+
+  /* Totals section */
+  .invoice-totals {
+    max-width: 250pt !important;
+    margin-left: auto !important;
+  }
+  .invoice-totals .row {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 3pt 0 !important;
+    font-size: 10pt !important;
+  }
+  .invoice-totals .grand {
+    border-top: 1px solid #333 !important;
+    margin-top: 5pt !important;
+    padding-top: 5pt !important;
+  }
 
   * {
     -webkit-print-color-adjust: exact !important;
@@ -1795,7 +1881,7 @@
       }
     }
 
-    // View Full Order — matches BC PrintableInvoice structure
+    // View Full Order (Invoice-style)
     function displayOrderDetail(data) {
       const order = data.order || {};
       const products = data.products || [];
@@ -1810,143 +1896,129 @@
       const safe = (v) => (v == null ? '' : String(v));
       const fullName = (a) => `${safe(a.first_name)} ${safe(a.last_name)}`.trim();
       const money = (v) => `$${(parseFloat(v || 0)).toFixed(2)}`;
-      const addrHtml = (a) => [
-        `<strong>${fullName(a)}</strong>`,
-        safe(a.company),
-        safe(a.street_1),
-        a.street_2 ? safe(a.street_2) : '',
-        [safe(a.city), safe(a.state), safe(a.zip)].filter(Boolean).join(', '),
-        (['united states','us','usa'].includes(safe(a.country).toLowerCase())) ? '' : safe(a.country)
-      ].filter(Boolean).join('<br>');
 
       const orderDate = order.date_created
         ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'2-digit' })
         : 'N/A';
 
-      const subtotal    = parseFloat(order.subtotal_ex_tax || 0);
+      const subtotal = parseFloat(order.subtotal_ex_tax || 0);
       const shippingCost = parseFloat(order.shipping_cost_ex_tax || 0);
-      const tax         = parseFloat(order.total_tax || 0);
-      const coupon      = parseFloat(order.coupon_discount || 0);
-      const grandTotal  = parseFloat(order.total_inc_tax || 0);
+      const tax = parseFloat(order.total_tax || 0);
+      const grandTotal = parseFloat(order.total_inc_tax || 0);
 
       const shippingMethod =
         (shipments[0] && (shipments[0].shipping_method || shipments[0].tracking_carrier)) ||
-        order.shipping_method || 'N/A';
+        order.shipping_method ||
+        'Shipping';
 
-      // Product rows
-      let productRows = '';
+      let rows = '';
       for (const p of products) {
         const qty = parseFloat(p.quantity || 0);
-        const unit = parseFloat(p.price_ex_tax ?? p.base_price ?? 0);
-        const lineTotal = parseFloat(p.total_ex_tax ?? (unit * qty));
+        const unit = parseFloat((p.price_ex_tax ?? p.base_price ?? 0));
+        const lineTotal = parseFloat((p.total_ex_tax ?? (unit * qty)));
         const nameHtml = p.product_url
-          ? `<a href="${safe(p.product_url)}" target="_blank" rel="noopener noreferrer" class="product-link">${safe(p.name)}</a>`
-          : safe(p.name);
-        productRows += `<tr>
-          <td class="sku">${safe(p.sku) || '&mdash;'}</td>
-          <td>${nameHtml}</td>
-          <td class="num">${qty}</td>
-          <td class="num">${money(unit)}</td>
-          <td class="num">${money(lineTotal)}</td>
-        </tr>`;
+          ? `<a href="${safe(p.product_url)}" target="_blank" rel="noopener noreferrer" class="product-link">${safe(p.name) || ''}</a>`
+          : (safe(p.name) || '');
+        rows += `
+          <tr>
+            <td class="sku">${safe(p.sku) || 'N/A'}</td>
+            <td>${nameHtml}</td>
+            <td class="num">${qty || 0}</td>
+            <td class="num">${money(unit)}</td>
+            <td class="num">${money(lineTotal)}</td>
+          </tr>
+        `;
       }
 
-      // Totals as second <tbody> inside same table (BC style)
-      const totalsRows = `
-        <tr class="totals-row"><td colspan="3"></td><td>Subtotal:</td><td>${money(subtotal)}</td></tr>
-        ${coupon > 0 ? `<tr class="totals-row"><td colspan="3"></td><td>Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</td><td style="color:#c00;">-${money(coupon)}</td></tr>` : ''}
-        <tr class="totals-row"><td colspan="3"></td><td>Shipping:</td><td>${money(shippingCost)}</td></tr>
-        <tr class="totals-row"><td colspan="3"></td><td>Tax:</td><td>${money(tax)}</td></tr>
-        <tr class="totals-row grand-row"><td colspan="3"></td><td>Grand Total:</td><td>${money(grandTotal)}</td></tr>
-      `;
-
-      // Tracking
       let trackingHtml = '';
       if (shipments && shipments.length) {
-        const links = shipments.map(sh => {
-          const num = sh.tracking_number ? String(sh.tracking_number).trim() : '';
-          if (!num) return '';
-          const url = getTrackingUrl(sh.tracking_carrier, num) || '';
-          return url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="tracking-link">${num}</a>` : num;
-        }).filter(Boolean).join(', ');
-        if (links) trackingHtml = `<br><strong>Tracking:</strong> ${links}`;
+        trackingHtml = `<div style="margin-top:12px; padding-top:12px; border-top:1px solid #e6e6e6;">
+          <strong>Tracking:</strong><br>
+          ${shipments.map(sh => {
+            const num = sh.tracking_number ? String(sh.tracking_number).trim() : '';
+            if (!num) return 'No tracking';
+            const url = getTrackingUrl(sh.tracking_carrier, num) || '';
+            return url 
+              ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="tracking-link">${num}</a>`
+              : num;
+          }).join('<br>')}
+        </div>`;
       }
 
       const html = `
         <div class="invoice-wrap">
-
-          <!-- Store address floats right, logo left — exact BC structure -->
-          <div class="invoice-store-addr">
-            1ink.com<br>
-            PO BOX 969<br>
-            Woodland Hills, CA 91367-0969<br>
-            Tel: 1-818-534-2660
-          </div>
-          <div style="overflow:hidden;">
-            <img src="${logoUrl}" alt="1ink.com" class="invoice-logo">
-          </div>
-
-          <div class="invoice-title">1ink.com Invoice</div>
-
-          <!-- Bill To / Ship To -->
-          <div class="invoice-addr-row">
-            <div class="invoice-addr-col">
-              <div class="invoice-heading">Bill To</div>
-              ${addrHtml(billing)}
-              ${billing.phone ? `<br>Phone: ${safe(billing.phone)}` : ''}
-              ${billing.email ? `<br>Email: ${safe(billing.email)}` : ''}
+          <div class="invoice-top">
+            <div class="invoice-brand">
+              <img src="${logoUrl}" alt="1ink.com">
+              <div class="addr">
+                <div><strong>1ink.com</strong></div>
+                <div>21200 Oxnard St. #969</div>
+                <div>Woodland Hills, CA 91367-0969</div>
+                <div>Tel: 1-818-534-2660</div>
+              </div>
             </div>
-            <div class="invoice-addr-col">
-              <div class="invoice-heading">Ship To</div>
-              ${addrHtml(shipping)}
+
+            <div class="invoice-meta">
+              <div class="inv-title">Order #${safe(order.id)}</div>
+              <div><strong>Payment Method:</strong> ${safe(order.payment_method) || 'N/A'}</div>
+              <div><strong>Order Date:</strong> ${orderDate}</div>
+              <div><strong>Order Status:</strong> ${safe(order.status) || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="invoice-two">
+            <div class="invoice-box">
+              <h4>Billing Details</h4>
+              <p>
+                <strong>${fullName(billing) || 'N/A'}</strong><br>
+                ${safe(billing.street_1)}${billing.street_2 ? ' ' + safe(billing.street_2) : ''}<br>
+                ${safe(billing.city)}, ${safe(billing.state)} ${safe(billing.zip)}<br>
+                ${safe(billing.country)}<br><br>
+                <strong>Email:</strong> ${safe(billing.email) || 'N/A'}<br>
+                <strong>Phone:</strong> ${safe(billing.phone) || 'N/A'}
+              </p>
+            </div>
+
+            <div class="invoice-box">
+              <h4>Shipping Details</h4>
+              <p>
+                <strong>${fullName(shipping) || 'N/A'}</strong><br>
+                ${safe(shipping.street_1)}${shipping.street_2 ? ' ' + safe(shipping.street_2) : ''}<br>
+                ${safe(shipping.city)}, ${safe(shipping.state)} ${safe(shipping.zip)}<br>
+                ${safe(shipping.country)}
+              </p>
               ${trackingHtml}
             </div>
           </div>
 
-          <!-- Order details 2-column (BC style) -->
-          <div class="invoice-details">
-            <div class="invoice-details-col">
-              <div class="invoice-detail-row">
-                <span class="invoice-detail-label">Order:</span>
-                <span class="invoice-detail-value">#${safe(order.id)}</span>
-              </div>
-              <div class="invoice-detail-row">
-                <span class="invoice-detail-label">Payment Method:</span>
-                <span class="invoice-detail-value">${safe(order.payment_method) || 'N/A'}</span>
-              </div>
-            </div>
-            <div class="invoice-details-col">
-              <div class="invoice-detail-row">
-                <span class="invoice-detail-label">Date of Order:</span>
-                <span class="invoice-detail-value">${orderDate}</span>
-              </div>
-              <div class="invoice-detail-row">
-                <span class="invoice-detail-label">Shipping Method:</span>
-                <span class="invoice-detail-value">${safe(shippingMethod)}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Items + totals in one table (BC style) -->
-          <div class="invoice-heading" style="margin-bottom:4px;">Order Items</div>
           <table class="invoice-table">
+            <colgroup>
+              <col style="width: 12%">
+              <col style="width: 44%">
+              <col style="width: 8%">
+              <col style="width: 18%">
+              <col style="width: 18%">
+            </colgroup>
             <thead>
               <tr>
-                <th width="20%">Code/SKU</th>
-                <th width="48%">Product Name</th>
-                <th width="8%" class="num">Qty</th>
-                <th width="12%" class="num">Price</th>
-                <th width="12%" class="num">Total</th>
+                <th>Code/SKU</th>
+                <th>Product Name</th>
+                <th class="num">Qty</th>
+                <th class="num">Price</th>
+                <th class="num">Total</th>
               </tr>
             </thead>
             <tbody>
-              ${productRows || '<tr><td colspan="5">No items</td></tr>'}
-            </tbody>
-            <tbody>
-              ${totalsRows}
+              ${rows || `<tr><td colspan="5">No items</td></tr>`}
             </tbody>
           </table>
 
+          <div class="invoice-totals">
+            <div class="row"><span>Subtotal:</span><span>${money(subtotal)}</span></div>
+            <div class="row"><span>Shipping:</span><span>${money(shippingCost)}</span></div>
+            <div class="row"><span>Tax:</span><span>${money(tax)}</span></div>
+            <div class="row grand"><span><strong>Grand total:</strong></span><span><strong>${money(grandTotal)}</strong></span></div>
+          </div>
         </div>
       `;
 
