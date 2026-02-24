@@ -330,18 +330,18 @@
 </head>
 <body>
   <div class="header">
-    <h1>ðŸ”§ Admin Panel</h1>
+    <h1>Ã°Admin Panel</h1>
     <div class="header-right">
-      <a href="/" class="back-btn">â† Back to Orders</a>
+      <a href="/" class="back-btn">&larr; Back to Orders</a>
       <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
   </div>
 
   <div class="container">
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('users')">ðŸ‘¥ Users</button>
-      <button class="tab-btn" onclick="showTab('roles')">ðŸ” Roles</button>
-      <button class="tab-btn" onclick="showTab('attempts')">ðŸ“‹ Login Attempts</button>
+      <button class="tab-btn active" onclick="showTab('users')">Users</button>
+      <button class="tab-btn" onclick="showTab('roles')">Roles</button>
+      <button class="tab-btn" onclick="showTab('attempts')">Login Attempts</button>
     </div>
 
     <!-- Users Panel -->
@@ -394,7 +394,7 @@
     <div class="panel" id="panel-attempts">
       <div class="panel-header">
         <h2>Recent Login Attempts</h2>
-        <button class="refresh-btn" onclick="loadLoginAttempts()">â†» Refresh</button>
+        <button class="refresh-btn" onclick="loadLoginAttempts()">&#8635; Refresh</button>
       </div>
       <table class="data-table">
         <thead>
@@ -507,11 +507,6 @@
         if (!data.authenticated || !data.permissions.includes('admin.users.view')) {
           window.location.href = '/';
           return;
-        }
-        window.userPermissions = data.permissions || [];
-        // Hide destructive controls for users who can view but not manage
-        if (!window.userPermissions.includes('admin.users.manage')) {
-          document.querySelectorAll('.requires-manage').forEach(el => el.style.display = 'none');
         }
         loadData();
       } catch (err) {
@@ -632,7 +627,7 @@
           <td>${new Date(a.attempted_at).toLocaleString()}</td>
           <td>${a.username||'unknown'}</td>
           <td><code>${a.ip_address}</code></td>
-          <td class="${a.success?'attempt-success':'attempt-failed'}">${a.success?'âœ“ Success':'âœ— Failed'}</td>
+          <td class="${a.success?'attempt-success':'attempt-failed'}">${a.success?'&#10003; Success':'&#10007; Failed'}</td>
         </tr>`).join('');
       } catch (err) {
         document.getElementById('attemptsTableBody').innerHTML = `<tr><td colspan="4" class="no-data" style="color:#dc3545">${err.message}</td></tr>`;
