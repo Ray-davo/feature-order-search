@@ -66,7 +66,6 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_email ON order_lookup (store, email);
     CREATE INDEX IF NOT EXISTS idx_name  ON order_lookup (store, first_name, last_name);
     CREATE INDEX IF NOT EXISTS idx_phone ON order_lookup (store, phone);
-
     CREATE TABLE IF NOT EXISTS order_notes (
       id SERIAL PRIMARY KEY,
       order_id BIGINT NOT NULL,
@@ -76,7 +75,6 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_order_notes ON order_notes (store, order_id);
-
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
       ip_address TEXT NOT NULL,
@@ -86,7 +84,6 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_login_ip ON login_attempts (ip_address, attempted_at);
     CREATE INDEX IF NOT EXISTS idx_login_user ON login_attempts (username, attempted_at);
-
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -101,7 +98,6 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
   `);
 
-  // ── Search audit ─────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS search_audit (
       id SERIAL PRIMARY KEY,
@@ -115,7 +111,6 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_search_audit_user ON search_audit (username, searched_at);
   `);
 
-  // ── Email log ─────────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_log (
       id SERIAL PRIMARY KEY,
@@ -145,7 +140,7 @@ async function initDb() {
     );
   `);
 
-  // ── Roles — create fresh if not exists ───────────────────────────────────
+  // ── Roles — create if not exists, then migrate schema ────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS roles (
       id          SERIAL PRIMARY KEY,
@@ -155,32 +150,27 @@ async function initDb() {
       created_at  TIMESTAMPTZ DEFAULT NOW()
     );
   `);
-
-  // ── Migrate: add store_hash column to roles if it doesn't exist yet ───────
-  await pool.query(`
-    ALTER TABLE roles ADD COLUMN IF NOT EXISTS store_hash TEXT;
-  `);
-  // Backfill any rows that have NULL store_hash (from old schema)
-  await pool.query(`
-    UPDATE roles SET store_hash = '1ink' WHERE store_hash IS NULL;
-  `);
-  // Now enforce NOT NULL
-  await pool.query(`
-    ALTER TABLE roles ALTER COLUMN store_hash SET NOT NULL;
-  `);
-  // Add unique constraint if not already present
+  // Add store_hash if missing (old schema had no store_hash)
+  await pool.query(`ALTER TABLE roles ADD COLUMN IF NOT EXISTS store_hash TEXT;`);
+  await pool.query(`UPDATE roles SET store_hash = '1ink' WHERE store_hash IS NULL;`);
+  await pool.query(`ALTER TABLE roles ALTER COLUMN store_hash SET NOT NULL;`);
   await pool.query(`
     DO $$ BEGIN
       ALTER TABLE roles ADD CONSTRAINT roles_store_hash_name_key UNIQUE (store_hash, name);
     EXCEPTION WHEN duplicate_table OR duplicate_object THEN NULL;
     END $$;
   `);
-  // Add index if not already present
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_roles_store ON roles (store_hash);
-  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_roles_store ON roles (store_hash);`);
 
-  // ── Role → permission mapping ─────────────────────────────────────────────
+  // ── role_permissions — check schema, drop+recreate if stale ──────────────
+  const rpCheck = await pool.query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'role_permissions' AND column_name = 'permission_code'
+  `);
+  if (rpCheck.rows.length === 0) {
+    console.log('Migrating role_permissions (stale schema — recreating)...');
+    await pool.query(`DROP TABLE IF EXISTS role_permissions CASCADE;`);
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS role_permissions (
       role_id         INT  REFERENCES roles(id) ON DELETE CASCADE,
@@ -189,7 +179,15 @@ async function initDb() {
     );
   `);
 
-  // ── User ↔ Store ↔ Role (multi-tenancy key) ───────────────────────────────
+  // ── user_store_roles — check schema, drop+recreate if stale ──────────────
+  const usrCheck = await pool.query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'user_store_roles' AND column_name = 'store_hash'
+  `);
+  if (usrCheck.rows.length === 0) {
+    console.log('Migrating user_store_roles (stale schema — recreating)...');
+    await pool.query(`DROP TABLE IF EXISTS user_store_roles CASCADE;`);
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_store_roles (
       user_id    INT  REFERENCES users(id) ON DELETE CASCADE,
@@ -202,21 +200,19 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_usr_store ON user_store_roles (store_hash);
   `);
 
-  // ── Seed permissions & default roles (all idempotent) ────────────────────
+  // ── Seed & housekeeping ───────────────────────────────────────────────────
   await seedPermissions();
   for (const storeKey of Object.keys(stores)) {
     await seedDefaultRoles(storeKey);
   }
 
-  // ── Housekeeping ──────────────────────────────────────────────────────────
   await pool.query(`DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours'`);
   await pool.query(`DELETE FROM search_audit   WHERE searched_at  < NOW() - INTERVAL '90 days'`);
 
-  // ── Migrate env-var users (one-time) ──────────────────────────────────────
   await migrateEnvUsers();
-
   console.log('Postgres initialized');
 }
+
 
 // Migrate users from env vars to database (runs once)
 // Also assigns roles via user_store_roles for each configured store
@@ -224,11 +220,9 @@ async function migrateEnvUsers() {
   for (let i = 1; i <= 10; i++) {
     const name = process.env[`USER${i}_NAME`];
     const pass = process.env[`USER${i}_PASS`];
-
     if (name && pass) {
       const userLower = name.toLowerCase();
       const isAdmin   = i === 1;
-
       let userId;
       const existing = await pool.query('SELECT id FROM users WHERE username = $1', [userLower]);
       if (existing.rows.length === 0) {
@@ -242,15 +236,13 @@ async function migrateEnvUsers() {
       } else {
         userId = existing.rows[0].id;
       }
-
-      // Assign role in every store if not already assigned
       const roleName = isAdmin ? 'Admin' : 'Agent';
       for (const storeKey of Object.keys(stores)) {
-        const alreadyAssigned = await pool.query(
+        const already = await pool.query(
           'SELECT 1 FROM user_store_roles WHERE user_id = $1 AND store_hash = $2',
           [userId, storeKey]
         );
-        if (alreadyAssigned.rows.length === 0) {
+        if (already.rows.length === 0) {
           const roleRes = await pool.query(
             'SELECT id FROM roles WHERE store_hash = $1 AND name = $2',
             [storeKey, roleName]
@@ -260,7 +252,7 @@ async function migrateEnvUsers() {
               'INSERT INTO user_store_roles (user_id, store_hash, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
               [userId, storeKey, roleRes.rows[0].id]
             );
-            console.log(`Assigned ${roleName} role to ${userLower} on ${storeKey}`);
+            console.log(`Assigned ${roleName} to ${userLower} on ${storeKey}`);
           }
         }
       }
@@ -268,9 +260,8 @@ async function migrateEnvUsers() {
   }
 }
 
-// ── 26 system permissions ────────────────────────────────────────────────────
+// ── 26 system permissions ─────────────────────────────────────────────────
 const SYSTEM_PERMISSIONS = [
-  // Orders
   { code: 'orders.view',            name: 'View Orders',            description: 'View order details',               category: 'Orders',    risk_level: 1 },
   { code: 'orders.search',          name: 'Search Orders',          description: 'Search for orders',                category: 'Orders',    risk_level: 1 },
   { code: 'orders.notes.add',       name: 'Add Notes',              description: 'Add internal support notes',       category: 'Orders',    risk_level: 1 },
@@ -281,20 +272,16 @@ const SYSTEM_PERMISSIONS = [
   { code: 'orders.cancel',          name: 'Cancel Order',           description: 'Cancel orders',                    category: 'Orders',    risk_level: 3 },
   { code: 'orders.refund',          name: 'Process Refund',         description: 'Issue full or partial refunds',    category: 'Orders',    risk_level: 3 },
   { code: 'orders.export',          name: 'Export Orders',          description: 'Export order data to CSV',         category: 'Orders',    risk_level: 2 },
-  // Customers
   { code: 'customers.view',         name: 'View Customers',         description: 'View customer profiles',           category: 'Customers', risk_level: 1 },
   { code: 'customers.notes',        name: 'Customer Notes',         description: 'Add notes to customer profiles',   category: 'Customers', risk_level: 1 },
   { code: 'customers.merge',        name: 'Merge Duplicates',       description: 'Merge duplicate customer records', category: 'Customers', risk_level: 2 },
   { code: 'customers.export',       name: 'Export Customers',       description: 'Export customer data',             category: 'Customers', risk_level: 2 },
-  // Email
   { code: 'email.view',             name: 'View Emails',            description: 'View email history',               category: 'Email',     risk_level: 1 },
   { code: 'email.reply',            name: 'Reply to Emails',        description: 'Send email replies',               category: 'Email',     risk_level: 2 },
   { code: 'email.templates.use',    name: 'Use Templates',          description: 'Use email templates',              category: 'Email',     risk_level: 1 },
   { code: 'email.templates.manage', name: 'Manage Templates',       description: 'Create and edit email templates',  category: 'Email',     risk_level: 2 },
-  // Reports
   { code: 'reports.view',           name: 'View Reports',           description: 'View analytics and reports',       category: 'Reports',   risk_level: 1 },
   { code: 'reports.export',         name: 'Export Reports',         description: 'Export report data',               category: 'Reports',   risk_level: 2 },
-  // Admin
   { code: 'admin.users.view',       name: 'View Users',             description: 'View user list',                   category: 'Admin',     risk_level: 1 },
   { code: 'admin.users.manage',     name: 'Manage Users',           description: 'Create, edit, delete users',       category: 'Admin',     risk_level: 3 },
   { code: 'admin.roles.manage',     name: 'Manage Roles',           description: 'Create and edit roles',            category: 'Admin',     risk_level: 3 },
@@ -317,58 +304,21 @@ async function seedPermissions() {
 }
 
 const DEFAULT_ROLES = [
-  {
-    name: 'Admin',
-    description: 'Full access to everything',
-    is_system: true,
-    permissions: SYSTEM_PERMISSIONS.map(p => p.code)
-  },
-  {
-    name: 'Senior Manager',
-    description: 'All actions except user/role/settings management',
-    is_system: true,
-    permissions: SYSTEM_PERMISSIONS.map(p => p.code).filter(c =>
-      !['admin.users.manage', 'admin.roles.manage', 'admin.settings'].includes(c)
-    )
-  },
-  {
-    name: 'Manager',
-    description: 'Orders, tracking, shipments, export — no refunds or cancellations',
-    is_system: true,
-    permissions: [
-      'orders.view','orders.search','orders.notes.add','orders.status.update',
-      'orders.tracking.add','orders.ship','orders.export',
-      'customers.view','customers.notes',
-      'email.view','email.reply','email.templates.use',
-      'reports.view',
-      'admin.users.view','admin.audit.view'
-    ]
-  },
-  {
-    name: 'Supervisor',
-    description: 'View, search, notes, status updates',
-    is_system: true,
-    permissions: [
-      'orders.view','orders.search','orders.notes.add','orders.status.update',
-      'customers.view','customers.notes',
-      'email.view','email.templates.use',
-      'admin.users.view'
-    ]
-  },
-  {
-    name: 'Agent',
-    description: 'View and search orders, add notes only',
-    is_system: true,
-    permissions: [
-      'orders.view','orders.search','orders.notes.add',
-      'customers.view',
-      'email.view','email.templates.use'
-    ]
-  }
+  { name: 'Admin', description: 'Full access to everything', is_system: true,
+    permissions: null }, // null = all permissions (filled below)
+  { name: 'Senior Manager', description: 'All actions except user/role/settings management', is_system: true,
+    permissions: ['orders.view','orders.search','orders.notes.add','orders.notes.delete','orders.status.update','orders.tracking.add','orders.ship','orders.cancel','orders.refund','orders.export','customers.view','customers.notes','customers.merge','customers.export','email.view','email.reply','email.templates.use','email.templates.manage','reports.view','reports.export','admin.users.view','admin.labels.manage','admin.audit.view'] },
+  { name: 'Manager', description: 'Orders, tracking, shipments, export', is_system: true,
+    permissions: ['orders.view','orders.search','orders.notes.add','orders.status.update','orders.tracking.add','orders.ship','orders.export','customers.view','customers.notes','email.view','email.reply','email.templates.use','reports.view','admin.users.view','admin.audit.view'] },
+  { name: 'Supervisor', description: 'View, search, notes, status updates', is_system: true,
+    permissions: ['orders.view','orders.search','orders.notes.add','orders.status.update','customers.view','customers.notes','email.view','email.templates.use','admin.users.view'] },
+  { name: 'Agent', description: 'View and search orders, add notes only', is_system: true,
+    permissions: ['orders.view','orders.search','orders.notes.add','customers.view','email.view','email.templates.use'] },
 ];
 
 async function seedDefaultRoles(storeHash) {
   for (const role of DEFAULT_ROLES) {
+    const perms = role.permissions || SYSTEM_PERMISSIONS.map(p => p.code);
     const result = await pool.query(`
       INSERT INTO roles (store_hash, name, description, is_system)
       VALUES ($1, $2, $3, $4)
@@ -376,29 +326,23 @@ async function seedDefaultRoles(storeHash) {
         description = EXCLUDED.description, is_system = EXCLUDED.is_system
       RETURNING id
     `, [storeHash, role.name, role.description, role.is_system]);
-
     const roleId = result.rows[0].id;
     await pool.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
-    for (const code of role.permissions) {
+    for (const code of perms) {
       await pool.query(
         'INSERT INTO role_permissions (role_id, permission_code) VALUES ($1, $2) ON CONFLICT DO NOTHING',
         [roleId, code]
       );
     }
   }
-  console.log(`Default roles seeded for store: ${storeHash}`);
+  console.log(`Default roles seeded for: ${storeHash}`);
 }
-
-// ── Core permission helpers ───────────────────────────────────────────────────
 
 async function hasPermission(userId, storeHash, permissionCode) {
   const result = await pool.query(`
     SELECT 1 FROM user_store_roles usr
     JOIN role_permissions rp ON rp.role_id = usr.role_id
-    WHERE usr.user_id        = $1
-      AND usr.store_hash     = $2
-      AND rp.permission_code = $3
-      AND usr.is_active      = true
+    WHERE usr.user_id = $1 AND usr.store_hash = $2 AND rp.permission_code = $3 AND usr.is_active = true
     LIMIT 1
   `, [userId, storeHash, permissionCode]);
   return result.rows.length > 0;
@@ -408,9 +352,7 @@ async function getUserPermissions(userId, storeHash) {
   const result = await pool.query(`
     SELECT rp.permission_code FROM user_store_roles usr
     JOIN role_permissions rp ON rp.role_id = usr.role_id
-    WHERE usr.user_id    = $1
-      AND usr.store_hash = $2
-      AND usr.is_active  = true
+    WHERE usr.user_id = $1 AND usr.store_hash = $2 AND usr.is_active = true
   `, [userId, storeHash]);
   return result.rows.map(r => r.permission_code);
 }
@@ -684,9 +626,7 @@ function requireAuth(req, res, next) {
 // Permission middleware factory
 function requirePermission(permCode) {
   return async (req, res, next) => {
-    if (!req.session || !req.session.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const perms = req.session.permissions || [];
     if (perms.includes(permCode)) return next();
     const storeHash = req.session.storeHash || Object.keys(stores)[0];
@@ -1006,12 +946,10 @@ app.post('/api/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password_hash);
     
     if (validPassword) {
-      // Update last login
       await pool.query(
         'UPDATE users SET last_login = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = $1',
         [user.id]
       );
-
       const defaultStore  = Object.keys(stores)[0];
       const permissions   = await getUserPermissions(user.id, defaultStore);
       const roleRes       = await pool.query(`
@@ -1020,14 +958,12 @@ app.post('/api/login', async (req, res) => {
         WHERE usr.user_id = $1 AND usr.store_hash = $2 LIMIT 1
       `, [user.id, defaultStore]);
       const roleName = roleRes.rows[0]?.name || 'Agent';
-
       req.session.user        = userLower;
       req.session.userId      = user.id;
       req.session.storeHash   = defaultStore;
       req.session.permissions = permissions;
       req.session.roleName    = roleName;
       req.session.isAdmin     = permissions.includes('admin.users.manage');
-
       await recordSuccessfulLogin(ip, userLower);
       console.log(`[${new Date().toISOString()}] Login success: ${userLower} (${roleName}) from ${ip}`);
       return res.json({ success: true, user: userLower, isAdmin: req.session.isAdmin, roleName, permissions });
@@ -1132,16 +1068,13 @@ app.post('/api/session-extend', requireAuth, (req, res) => {
 
 // ==================== ADMIN API ENDPOINTS ====================
 
-// ── Users ─────────────────────────────────────────────────────────────────
-
 app.get('/api/admin/users', requireAuth, requirePermission('admin.users.view'), async (req, res) => {
   const storeHash = req.session.storeHash || Object.keys(stores)[0];
   try {
     const result = await pool.query(`
       SELECT u.id, u.username, u.is_active, u.created_at, u.last_login,
              u.failed_attempts, u.locked_until,
-             r.id   AS role_id,
-             r.name AS role_name
+             r.id AS role_id, r.name AS role_name
       FROM users u
       LEFT JOIN user_store_roles usr ON usr.user_id = u.id AND usr.store_hash = $1
       LEFT JOIN roles r ON r.id = usr.role_id
@@ -1165,18 +1098,11 @@ app.post('/api/admin/users', requireAuth, requirePermission('admin.users.manage'
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [userLower]);
     if (existing.rows.length > 0) return res.status(400).json({ error: 'Username already exists' });
     const hash    = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const userRes = await pool.query(
-      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id',
-      [userLower, hash]
-    );
+    const userRes = await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id', [userLower, hash]);
     const newUserId = userRes.rows[0].id;
-    await pool.query(
-      'INSERT INTO user_store_roles (user_id, store_hash, role_id) VALUES ($1, $2, $3)',
-      [newUserId, storeHash, roleId]
-    );
+    await pool.query('INSERT INTO user_store_roles (user_id, store_hash, role_id) VALUES ($1, $2, $3)', [newUserId, storeHash, roleId]);
     const adminPerms = await getUserPermissions(newUserId, storeHash);
-    await pool.query('UPDATE users SET is_admin = $1 WHERE id = $2',
-      [adminPerms.includes('admin.users.manage'), newUserId]);
+    await pool.query('UPDATE users SET is_admin = $1 WHERE id = $2', [adminPerms.includes('admin.users.manage'), newUserId]);
     console.log(`[ADMIN] User created: ${userLower} by ${req.session.user}`);
     res.json({ success: true, userId: newUserId });
   } catch (err) {
@@ -1205,9 +1131,7 @@ app.put('/api/admin/users/:id', requireAuth, requirePermission('admin.users.mana
       const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
       updates.push(`password_hash = $${p++}`); values.push(hash);
     }
-    if (isActive !== undefined) {
-      updates.push(`is_active = $${p++}`); values.push(isActive);
-    }
+    if (isActive !== undefined) { updates.push(`is_active = $${p++}`); values.push(isActive); }
     if (updates.length > 0) {
       values.push(id);
       await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${p}`, values);
@@ -1219,8 +1143,7 @@ app.put('/api/admin/users/:id', requireAuth, requirePermission('admin.users.mana
         ON CONFLICT (user_id, store_hash) DO UPDATE SET role_id = EXCLUDED.role_id
       `, [id, storeHash, roleId]);
       const adminPerms = await getUserPermissions(parseInt(id), storeHash);
-      await pool.query('UPDATE users SET is_admin = $1 WHERE id = $2',
-        [adminPerms.includes('admin.users.manage'), id]);
+      await pool.query('UPDATE users SET is_admin = $1 WHERE id = $2', [adminPerms.includes('admin.users.manage'), id]);
     }
     console.log(`[ADMIN] User updated: id=${id} by ${req.session.user}`);
     res.json({ success: true });
@@ -1239,7 +1162,6 @@ app.delete('/api/admin/users/:id', requireAuth, requirePermission('admin.users.m
     console.log(`[ADMIN] User deleted: ${result.rows[0].username} by ${req.session.user}`);
     res.json({ success: true, message: 'User deleted' });
   } catch (err) {
-    console.error('Delete user error:', err.message);
     res.status(500).json({ error: 'Failed to delete user' });
   }
 });
@@ -1247,33 +1169,24 @@ app.delete('/api/admin/users/:id', requireAuth, requirePermission('admin.users.m
 app.post('/api/admin/users/:id/unlock', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query(
-      'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1 RETURNING username', [id]
-    );
+    const result = await pool.query('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1 RETURNING username', [id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     loginAttempts.byUser.delete(result.rows[0].username);
     console.log(`[ADMIN] User unlocked: ${result.rows[0].username} by ${req.session.user}`);
     res.json({ success: true, message: 'User unlocked' });
   } catch (err) {
-    console.error('Unlock user error:', err.message);
     res.status(500).json({ error: 'Failed to unlock user' });
   }
 });
 
-// ── Permissions ────────────────────────────────────────────────────────────
-
 app.get('/api/admin/permissions', requireAuth, requirePermission('admin.roles.manage'), async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT code, name, description, category, risk_level FROM permissions ORDER BY category, risk_level, name'
-    );
+    const result = await pool.query('SELECT code, name, description, category, risk_level FROM permissions ORDER BY category, risk_level, name');
     res.json({ success: true, permissions: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get permissions' });
   }
 });
-
-// ── Roles ──────────────────────────────────────────────────────────────────
 
 app.get('/api/admin/roles', requireAuth, requirePermission('admin.users.view'), async (req, res) => {
   const storeHash = req.session.storeHash || Object.keys(stores)[0];
@@ -1284,8 +1197,7 @@ app.get('/api/admin/roles', requireAuth, requirePermission('admin.users.view'), 
       FROM roles r
       LEFT JOIN role_permissions rp ON rp.role_id = r.id
       WHERE r.store_hash = $1
-      GROUP BY r.id
-      ORDER BY r.is_system DESC, r.name
+      GROUP BY r.id ORDER BY r.is_system DESC, r.name
     `, [storeHash]);
     res.json({ success: true, roles: result.rows });
   } catch (err) {
@@ -1296,14 +1208,9 @@ app.get('/api/admin/roles', requireAuth, requirePermission('admin.users.view'), 
 app.get('/api/admin/roles/:id', requireAuth, requirePermission('admin.roles.manage'), async (req, res) => {
   const storeHash = req.session.storeHash || Object.keys(stores)[0];
   try {
-    const roleRes = await pool.query(
-      'SELECT id, name, description, is_system FROM roles WHERE id = $1 AND store_hash = $2',
-      [req.params.id, storeHash]
-    );
+    const roleRes = await pool.query('SELECT id, name, description, is_system FROM roles WHERE id = $1 AND store_hash = $2', [req.params.id, storeHash]);
     if (roleRes.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
-    const permRes = await pool.query(
-      'SELECT permission_code FROM role_permissions WHERE role_id = $1', [req.params.id]
-    );
+    const permRes = await pool.query('SELECT permission_code FROM role_permissions WHERE role_id = $1', [req.params.id]);
     res.json({ success: true, role: roleRes.rows[0], permissions: permRes.rows.map(r => r.permission_code) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get role' });
@@ -1321,9 +1228,8 @@ app.post('/api/admin/roles', requireAuth, requirePermission('admin.roles.manage'
     );
     const roleId = roleRes.rows[0].id;
     if (Array.isArray(perms)) {
-      for (const code of perms) {
+      for (const code of perms)
         await pool.query('INSERT INTO role_permissions (role_id, permission_code) VALUES ($1, $2) ON CONFLICT DO NOTHING', [roleId, code]);
-      }
     }
     console.log(`[ADMIN] Role created: ${name} by ${req.session.user}`);
     res.json({ success: true, roleId });
@@ -1337,17 +1243,13 @@ app.put('/api/admin/roles/:id', requireAuth, requirePermission('admin.roles.mana
   const { name, description, permissions: perms } = req.body;
   const storeHash = req.session.storeHash || Object.keys(stores)[0];
   try {
-    const roleRes = await pool.query(
-      'SELECT id FROM roles WHERE id = $1 AND store_hash = $2', [req.params.id, storeHash]
-    );
+    const roleRes = await pool.query('SELECT id FROM roles WHERE id = $1 AND store_hash = $2', [req.params.id, storeHash]);
     if (roleRes.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
-    await pool.query('UPDATE roles SET name = $1, description = $2 WHERE id = $3',
-      [name.trim(), description || '', req.params.id]);
+    await pool.query('UPDATE roles SET name = $1, description = $2 WHERE id = $3', [name.trim(), description || '', req.params.id]);
     await pool.query('DELETE FROM role_permissions WHERE role_id = $1', [req.params.id]);
     if (Array.isArray(perms)) {
-      for (const code of perms) {
+      for (const code of perms)
         await pool.query('INSERT INTO role_permissions (role_id, permission_code) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.params.id, code]);
-      }
     }
     console.log(`[ADMIN] Role updated: id=${req.params.id} by ${req.session.user}`);
     res.json({ success: true });
@@ -1359,9 +1261,7 @@ app.put('/api/admin/roles/:id', requireAuth, requirePermission('admin.roles.mana
 app.delete('/api/admin/roles/:id', requireAuth, requirePermission('admin.roles.manage'), async (req, res) => {
   const storeHash = req.session.storeHash || Object.keys(stores)[0];
   try {
-    const roleRes = await pool.query(
-      'SELECT id, name, is_system FROM roles WHERE id = $1 AND store_hash = $2', [req.params.id, storeHash]
-    );
+    const roleRes = await pool.query('SELECT id, name, is_system FROM roles WHERE id = $1 AND store_hash = $2', [req.params.id, storeHash]);
     if (roleRes.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
     if (roleRes.rows[0].is_system)  return res.status(400).json({ error: 'Cannot delete system roles' });
     const inUse = await pool.query('SELECT 1 FROM user_store_roles WHERE role_id = $1 LIMIT 1', [req.params.id]);
@@ -1374,18 +1274,12 @@ app.delete('/api/admin/roles/:id', requireAuth, requirePermission('admin.roles.m
   }
 });
 
-// ── Login attempts & audit ─────────────────────────────────────────────────
-
 app.get('/api/admin/login-attempts', requireAuth, requirePermission('admin.audit.view'), async (req, res) => {
   const { limit = 100 } = req.query;
   try {
-    const result = await pool.query(`
-      SELECT id, ip_address, username, success, attempted_at
-      FROM login_attempts ORDER BY attempted_at DESC LIMIT $1
-    `, [Math.min(parseInt(limit), 500)]);
+    const result = await pool.query('SELECT id, ip_address, username, success, attempted_at FROM login_attempts ORDER BY attempted_at DESC LIMIT $1', [Math.min(parseInt(limit), 500)]);
     res.json({ success: true, attempts: result.rows });
   } catch (err) {
-    console.error('Get login attempts error:', err.message);
     res.status(500).json({ error: 'Failed to get login attempts' });
   }
 });
@@ -1395,21 +1289,19 @@ app.get('/api/admin/search-audit', requireAuth, requirePermission('admin.audit.v
   try {
     let query, params;
     if (username) {
-      query  = `SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit WHERE username = $1 ORDER BY searched_at DESC LIMIT $2`;
+      query  = 'SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit WHERE username = $1 ORDER BY searched_at DESC LIMIT $2';
       params = [username, Math.min(parseInt(limit), 1000)];
     } else {
-      query  = `SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit ORDER BY searched_at DESC LIMIT $1`;
+      query  = 'SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit ORDER BY searched_at DESC LIMIT $1';
       params = [Math.min(parseInt(limit), 1000)];
     }
     const result = await pool.query(query, params);
     res.json({ success: true, searches: result.rows });
   } catch (err) {
-    console.error('Get search audit error:', err.message);
     res.status(500).json({ error: 'Failed to get search audit log' });
   }
 });
 
-// Admin page route
 app.get('/admin', requireAuth, requirePermission('admin.users.view'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
