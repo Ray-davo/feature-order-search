@@ -330,7 +330,7 @@
 </head>
 <body>
   <div class="header">
-    <h1>Ã°Admin Panel</h1>
+    <h1>Admin Panel</h1>
     <div class="header-right">
       <a href="/" class="back-btn">&larr; Back to Orders</a>
       <button class="logout-btn" onclick="logout()">Logout</button>
@@ -394,7 +394,7 @@
     <div class="panel" id="panel-attempts">
       <div class="panel-header">
         <h2>Recent Login Attempts</h2>
-        <button class="refresh-btn" onclick="loadLoginAttempts()">&#8635; Refresh</button>
+        <button class="refresh-btn" onclick="loadLoginAttempts()">Refresh</button>
       </div>
       <table class="data-table">
         <thead>
@@ -507,6 +507,11 @@
         if (!data.authenticated || !data.permissions.includes('admin.users.view')) {
           window.location.href = '/';
           return;
+        }
+        window.userPermissions = data.permissions || [];
+        // Hide destructive controls for users who can view but not manage
+        if (!window.userPermissions.includes('admin.users.manage')) {
+          document.querySelectorAll('.requires-manage').forEach(el => el.style.display = 'none');
         }
         loadData();
       } catch (err) {
