@@ -52,7 +52,7 @@
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -112,33 +112,31 @@
     }
     .btn-primary { background: #007bff; color: white; }
     .btn-primary:hover { background: #0056b3; }
-    .btn-success { background: #28a745; color: white; }
-    .btn-success:hover { background: #218838; }
     .btn-danger { background: #dc3545; color: white; }
     .btn-danger:hover { background: #c82333; }
     .btn-warning { background: #ffc107; color: #000; }
     .btn-warning:hover { background: #e0a800; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover { background: #5a6268; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
 
-    /* Users Table */
-    .users-table {
+    .data-table {
       width: 100%;
       border-collapse: collapse;
     }
-    .users-table th,
-    .users-table td {
+    .data-table th, .data-table td {
       padding: 12px;
       text-align: left;
       border-bottom: 1px solid #eee;
     }
-    .users-table th {
+    .data-table th {
       background: #f8f9fa;
       font-weight: 600;
       color: #555;
       font-size: 13px;
       text-transform: uppercase;
     }
-    .users-table tr:hover { background: #f8f9fa; }
+    .data-table tr:hover { background: #f8f9fa; }
 
     .badge {
       display: inline-block;
@@ -147,38 +145,18 @@
       font-size: 12px;
       font-weight: 600;
     }
-    .badge-admin { background: #007bff; color: white; }
-    .badge-user { background: #6c757d; color: white; }
+    .badge-admin { background: #6f42c1; color: white; }
+    .badge-manager { background: #007bff; color: white; }
+    .badge-supervisor { background: #17a2b8; color: white; }
+    .badge-agent { background: #6c757d; color: white; }
     .badge-active { background: #d4edda; color: #155724; }
     .badge-inactive { background: #f8d7da; color: #721c24; }
     .badge-locked { background: #fff3cd; color: #856404; }
+    .badge-system { background: #e9ecef; color: #495057; }
+    .badge-custom { background: #d1ecf1; color: #0c5460; }
 
     .actions { display: flex; gap: 8px; }
 
-    /* Login Attempts Table */
-    .attempts-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    .attempts-table th,
-    .attempts-table td {
-      padding: 10px 12px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-    }
-    .attempts-table th {
-      background: #f8f9fa;
-      font-weight: 600;
-      color: #555;
-      font-size: 12px;
-      text-transform: uppercase;
-    }
-    .attempts-table tr:hover { background: #f8f9fa; }
-    .attempt-success { color: #28a745; }
-    .attempt-failed { color: #dc3545; }
-
-    /* Modal */
     .modal {
       display: none;
       position: fixed;
@@ -196,7 +174,7 @@
       background: white;
       border-radius: 8px;
       width: 100%;
-      max-width: 450px;
+      max-width: 600px;
       max-height: 90vh;
       overflow-y: auto;
     }
@@ -234,14 +212,16 @@
       color: #333;
     }
     .form-group input[type="text"],
-    .form-group input[type="password"] {
+    .form-group input[type="password"],
+    .form-group select,
+    .form-group textarea {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 15px;
     }
-    .form-group input:focus {
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
       outline: none;
       border-color: #007bff;
     }
@@ -259,6 +239,52 @@
       color: #666;
       margin-top: 4px;
     }
+
+    .permissions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .permission-category {
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 15px;
+    }
+    .permission-category h4 {
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+    .permission-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+    }
+    .permission-item input[type="checkbox"] {
+      margin-top: 3px;
+    }
+    .permission-item label {
+      flex: 1;
+    }
+    .permission-item .perm-name {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .permission-item .perm-desc {
+      font-size: 12px;
+      color: #666;
+    }
+    .risk-indicator {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .risk-indicator.low { background: #d4edda; color: #155724; }
+    .risk-indicator.medium { background: #fff3cd; color: #856404; }
+    .risk-indicator.high { background: #f8d7da; color: #721c24; }
 
     .no-data {
       text-align: center;
@@ -297,22 +323,25 @@
       font-weight: 700;
       color: #333;
     }
+
+    .attempt-success { color: #28a745; }
+    .attempt-failed { color: #dc3545; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>🔧 Admin Panel</h1>
+    <h1>ðŸ”§ Admin Panel</h1>
     <div class="header-right">
-      <a href="/" class="back-btn">← Back to Orders</a>
+      <a href="/" class="back-btn">â† Back to Orders</a>
       <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
   </div>
 
   <div class="container">
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('users')">👥 Users</button>
-      <button class="tab-btn" onclick="showTab('attempts')">📋 Login Attempts</button>
-      <button class="tab-btn" onclick="showTab('searches')">🔍 Search Audit</button>
+      <button class="tab-btn active" onclick="showTab('users')">ðŸ‘¥ Users</button>
+      <button class="tab-btn" onclick="showTab('roles')">ðŸ” Roles</button>
+      <button class="tab-btn" onclick="showTab('attempts')">ðŸ“‹ Login Attempts</button>
     </div>
 
     <!-- Users Panel -->
@@ -321,10 +350,8 @@
         <h2>User Management</h2>
         <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
       </div>
-
       <div class="stats-row" id="userStats"></div>
-
-      <table class="users-table">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Username</th>
@@ -341,14 +368,35 @@
       </table>
     </div>
 
+    <!-- Roles Panel -->
+    <div class="panel" id="panel-roles">
+      <div class="panel-header">
+        <h2>Roles & Permissions</h2>
+        <button class="btn btn-primary" onclick="showAddRoleModal()">+ Create Role</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Role Name</th>
+            <th>Description</th>
+            <th>Type</th>
+            <th>Permissions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rolesTableBody">
+          <tr><td colspan="5" class="no-data">Loading roles...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- Login Attempts Panel -->
     <div class="panel" id="panel-attempts">
       <div class="panel-header">
         <h2>Recent Login Attempts</h2>
-        <button class="refresh-btn" onclick="loadLoginAttempts()">↻ Refresh</button>
+        <button class="refresh-btn" onclick="loadLoginAttempts()">â†» Refresh</button>
       </div>
-
-      <table class="attempts-table">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Time</th>
@@ -362,43 +410,14 @@
         </tbody>
       </table>
     </div>
-    <!-- Search Audit Panel -->
-    <div class="panel" id="panel-searches">
-      <div class="panel-header">
-        <h2>Search Audit Log</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <input type="text" id="auditFilterUser" placeholder="Filter by username..." style="padding:7px 10px; border:1px solid #ddd; border-radius:4px; font-size:14px; width:200px;" onkeypress="if(event.key==='Enter')loadSearchAudit()">
-          <button class="btn btn-primary btn-sm" onclick="loadSearchAudit()">Filter</button>
-          <button class="refresh-btn" onclick="document.getElementById('auditFilterUser').value=''; loadSearchAudit()">Clear</button>
-        </div>
-      </div>
-
-      <div id="auditStats" style="display:flex; gap:15px; margin-bottom:15px;"></div>
-
-      <table class="attempts-table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>User</th>
-            <th>Store</th>
-            <th>Type</th>
-            <th>Query</th>
-            <th>Results</th>
-          </tr>
-        </thead>
-        <tbody id="searchesTableBody">
-          <tr><td colspan="6" class="no-data">Loading...</td></tr>
-        </tbody>
-      </table>
-    </div>
   </div>
 
-  <!-- Add/Edit User Modal -->
+  <!-- User Modal -->
   <div class="modal" id="userModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modalTitle">Add User</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3 id="userModalTitle">Add User</h3>
+        <button class="modal-close" onclick="closeUserModal()">&times;</button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="editUserId">
@@ -412,10 +431,8 @@
           <div class="form-help" id="passwordHelp">Minimum 6 characters</div>
         </div>
         <div class="form-group">
-          <div class="form-check">
-            <input type="checkbox" id="modalIsAdmin">
-            <label for="modalIsAdmin">Administrator</label>
-          </div>
+          <label for="modalRole">Role</label>
+          <select id="modalRole"><option value="">Select a role...</option></select>
         </div>
         <div class="form-group" id="activeGroup" style="display: none;">
           <div class="form-check">
@@ -425,359 +442,376 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
         <button class="btn btn-primary" id="saveUserBtn" onclick="saveUser()">Save</button>
       </div>
     </div>
   </div>
 
-  <!-- Confirm Delete Modal -->
+  <!-- Role Modal -->
+  <div class="modal" id="roleModal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 id="roleModalTitle">Create Role</h3>
+        <button class="modal-close" onclick="closeRoleModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editRoleId">
+        <div class="form-group">
+          <label for="modalRoleName">Role Name</label>
+          <input type="text" id="modalRoleName" placeholder="e.g., Warehouse Staff">
+        </div>
+        <div class="form-group">
+          <label for="modalRoleDesc">Description</label>
+          <textarea id="modalRoleDesc" rows="2" placeholder="Describe what this role can do"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Permissions</label>
+          <div class="permissions-grid" id="permissionsGrid">Loading permissions...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeRoleModal()">Cancel</button>
+        <button class="btn btn-primary" id="saveRoleBtn" onclick="saveRole()">Save Role</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Modal -->
   <div class="modal" id="deleteModal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 400px;">
       <div class="modal-header">
         <h3>Confirm Delete</h3>
         <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p>Are you sure you want to delete user <strong id="deleteUsername"></strong>?</p>
+        <p id="deleteMessage">Are you sure?</p>
         <p style="color: #dc3545; margin-top: 10px;">This action cannot be undone.</p>
-        <input type="hidden" id="deleteUserId">
+        <input type="hidden" id="deleteId">
+        <input type="hidden" id="deleteType">
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
         <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
       </div>
     </div>
   </div>
 
   <script>
-    let users = [];
+    let users = [], roles = [], permissions = [];
 
-    // Check auth on load
     async function checkAuth() {
       try {
         const response = await fetch('/api/auth-check');
         const data = await response.json();
-
-        if (!data.authenticated || !data.isAdmin) {
+        if (!data.authenticated || !data.permissions.includes('admin.users.view')) {
           window.location.href = '/';
           return;
         }
-
-        loadUsers();
+        window.userPermissions = data.permissions || [];
+        // Hide destructive controls for users who can view but not manage
+        if (!window.userPermissions.includes('admin.users.manage')) {
+          document.querySelectorAll('.requires-manage').forEach(el => el.style.display = 'none');
+        }
+        loadData();
       } catch (err) {
         window.location.href = '/login';
       }
     }
 
+    async function loadData() {
+      await Promise.all([loadUsers(), loadRoles(), loadPermissions()]);
+    }
+
     function showTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
-      
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       document.querySelector(`[onclick="showTab('${tab}')"]`).classList.add('active');
       document.getElementById(`panel-${tab}`).classList.add('active');
-
       if (tab === 'attempts') loadLoginAttempts();
-      if (tab === 'searches') loadSearchAudit();
     }
 
     async function loadUsers() {
       try {
-        const response = await fetch('/api/admin/users');
-        const data = await response.json();
-
-        if (!response.ok) throw new Error(data.error);
-
+        const res = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         users = data.users;
         renderUsers();
-        renderStats();
       } catch (err) {
-        document.getElementById('usersTableBody').innerHTML = 
-          `<tr><td colspan="6" class="no-data" style="color: #dc3545;">${err.message}</td></tr>`;
+        document.getElementById('usersTableBody').innerHTML = `<tr><td colspan="6" class="no-data" style="color:#dc3545">${err.message}</td></tr>`;
       }
-    }
-
-    function renderStats() {
-      const total = users.length;
-      const active = users.filter(u => u.is_active).length;
-      const admins = users.filter(u => u.is_admin).length;
-      const locked = users.filter(u => u.locked_until && new Date(u.locked_until) > new Date()).length;
-
-      document.getElementById('userStats').innerHTML = `
-        <div class="stat-card">
-          <h4>Total Users</h4>
-          <div class="number">${total}</div>
-        </div>
-        <div class="stat-card">
-          <h4>Active</h4>
-          <div class="number">${active}</div>
-        </div>
-        <div class="stat-card">
-          <h4>Admins</h4>
-          <div class="number">${admins}</div>
-        </div>
-        <div class="stat-card">
-          <h4>Locked</h4>
-          <div class="number" style="color: ${locked > 0 ? '#dc3545' : '#333'}">${locked}</div>
-        </div>
-      `;
     }
 
     function renderUsers() {
       const tbody = document.getElementById('usersTableBody');
+      const total = users.length, active = users.filter(u => u.is_active).length;
+      const locked = users.filter(u => u.locked_until && new Date(u.locked_until) > new Date()).length;
+      
+      document.getElementById('userStats').innerHTML = `
+        <div class="stat-card"><h4>Total Users</h4><div class="number">${total}</div></div>
+        <div class="stat-card"><h4>Active</h4><div class="number">${active}</div></div>
+        <div class="stat-card"><h4>Locked</h4><div class="number" style="color:${locked>0?'#dc3545':'#333'}">${locked}</div></div>
+      `;
 
       if (users.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="no-data">No users found</td></tr>';
         return;
       }
 
-      tbody.innerHTML = users.map(user => {
-        const isLocked = user.locked_until && new Date(user.locked_until) > new Date();
-        const lastLogin = user.last_login 
-          ? new Date(user.last_login).toLocaleString()
-          : 'Never';
-
-        return `
-          <tr>
-            <td><strong>${user.username}</strong></td>
-            <td>
-              <span class="badge ${user.is_admin ? 'badge-admin' : 'badge-user'}">
-                ${user.is_admin ? 'Admin' : 'User'}
-              </span>
-            </td>
-            <td>
-              ${!user.is_active 
-                ? '<span class="badge badge-inactive">Inactive</span>'
-                : isLocked 
-                  ? '<span class="badge badge-locked">Locked</span>'
-                  : '<span class="badge badge-active">Active</span>'
-              }
-            </td>
-            <td>${lastLogin}</td>
-            <td>${user.failed_attempts || 0}</td>
-            <td class="actions">
-              <button class="btn btn-sm btn-primary" onclick="showEditUserModal(${user.id})">Edit</button>
-              ${isLocked ? `<button class="btn btn-sm btn-warning" onclick="unlockUser(${user.id})">Unlock</button>` : ''}
-              <button class="btn btn-sm btn-danger" onclick="showDeleteModal(${user.id}, '${user.username}')">Delete</button>
-            </td>
-          </tr>
-        `;
+      tbody.innerHTML = users.map(u => {
+        const isLocked = u.locked_until && new Date(u.locked_until) > new Date();
+        const roleBadge = (u.role_name||'').toLowerCase().includes('admin') ? 'badge-admin' :
+                          (u.role_name||'').toLowerCase().includes('manager') ? 'badge-manager' :
+                          (u.role_name||'').toLowerCase().includes('supervisor') ? 'badge-supervisor' : 'badge-agent';
+        return `<tr>
+          <td><strong>${u.username}</strong></td>
+          <td><span class="badge ${roleBadge}">${u.role_name||'No Role'}</span></td>
+          <td>${!u.is_active ? '<span class="badge badge-inactive">Inactive</span>' : isLocked ? '<span class="badge badge-locked">Locked</span>' : '<span class="badge badge-active">Active</span>'}</td>
+          <td>${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
+          <td>${u.failed_attempts||0}</td>
+          <td class="actions">
+            <button class="btn btn-sm btn-primary" onclick="showEditUserModal(${u.id})">Edit</button>
+            ${isLocked ? `<button class="btn btn-sm btn-warning" onclick="unlockUser(${u.id})">Unlock</button>` : ''}
+            <button class="btn btn-sm btn-danger" onclick="showDeleteModal('user',${u.id},'${u.username}')">Delete</button>
+          </td>
+        </tr>`;
       }).join('');
+    }
+
+    async function loadRoles() {
+      try {
+        const res = await fetch('/api/admin/roles');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        roles = data.roles;
+        renderRoles();
+      } catch (err) {
+        document.getElementById('rolesTableBody').innerHTML = `<tr><td colspan="5" class="no-data" style="color:#dc3545">${err.message}</td></tr>`;
+      }
+    }
+
+    function renderRoles() {
+      const tbody = document.getElementById('rolesTableBody');
+      if (roles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="no-data">No roles found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = roles.map(r => `<tr>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.description||'-'}</td>
+        <td><span class="badge ${r.is_system?'badge-system':'badge-custom'}">${r.is_system?'System':'Custom'}</span></td>
+        <td>${r.permission_count} permissions</td>
+        <td class="actions">
+          <button class="btn btn-sm btn-primary" onclick="showEditRoleModal(${r.id})">Edit</button>
+          ${!r.is_system ? `<button class="btn btn-sm btn-danger" onclick="showDeleteModal('role',${r.id},'${r.name}')">Delete</button>` : ''}
+        </td>
+      </tr>`).join('');
+    }
+
+    async function loadPermissions() {
+      try {
+        const res = await fetch('/api/admin/permissions');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        permissions = data.permissions;
+      } catch (err) { console.error('Failed to load permissions:', err); }
     }
 
     async function loadLoginAttempts() {
       try {
-        const response = await fetch('/api/admin/login-attempts?limit=100');
-        const data = await response.json();
-
-        if (!response.ok) throw new Error(data.error);
-
+        const res = await fetch('/api/admin/login-attempts?limit=100');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         const tbody = document.getElementById('attemptsTableBody');
-
         if (data.attempts.length === 0) {
           tbody.innerHTML = '<tr><td colspan="4" class="no-data">No login attempts found</td></tr>';
           return;
         }
-
-        tbody.innerHTML = data.attempts.map(attempt => {
-          const time = new Date(attempt.attempted_at).toLocaleString();
-          return `
-            <tr>
-              <td>${time}</td>
-              <td>${attempt.username || 'unknown'}</td>
-              <td><code>${attempt.ip_address}</code></td>
-              <td class="${attempt.success ? 'attempt-success' : 'attempt-failed'}">
-                ${attempt.success ? '✓ Success' : '✗ Failed'}
-              </td>
-            </tr>
-          `;
-        }).join('');
+        tbody.innerHTML = data.attempts.map(a => `<tr>
+          <td>${new Date(a.attempted_at).toLocaleString()}</td>
+          <td>${a.username||'unknown'}</td>
+          <td><code>${a.ip_address}</code></td>
+          <td class="${a.success?'attempt-success':'attempt-failed'}">${a.success?'âœ“ Success':'âœ— Failed'}</td>
+        </tr>`).join('');
       } catch (err) {
-        document.getElementById('attemptsTableBody').innerHTML = 
-          `<tr><td colspan="4" class="no-data" style="color: #dc3545;">${err.message}</td></tr>`;
+        document.getElementById('attemptsTableBody').innerHTML = `<tr><td colspan="4" class="no-data" style="color:#dc3545">${err.message}</td></tr>`;
       }
     }
 
     function showAddUserModal() {
-      document.getElementById('modalTitle').textContent = 'Add User';
+      document.getElementById('userModalTitle').textContent = 'Add User';
       document.getElementById('editUserId').value = '';
       document.getElementById('modalUsername').value = '';
       document.getElementById('modalPassword').value = '';
-      document.getElementById('modalIsAdmin').checked = false;
+      document.getElementById('modalRole').value = '';
       document.getElementById('modalIsActive').checked = true;
       document.getElementById('activeGroup').style.display = 'none';
       document.getElementById('passwordHelp').textContent = 'Minimum 6 characters';
+      populateRoleDropdown();
       document.getElementById('userModal').classList.add('active');
     }
 
     function showEditUserModal(userId) {
       const user = users.find(u => u.id === userId);
       if (!user) return;
-
-      document.getElementById('modalTitle').textContent = 'Edit User';
+      document.getElementById('userModalTitle').textContent = 'Edit User';
       document.getElementById('editUserId').value = userId;
       document.getElementById('modalUsername').value = user.username;
       document.getElementById('modalPassword').value = '';
-      document.getElementById('modalIsAdmin').checked = user.is_admin;
       document.getElementById('modalIsActive').checked = user.is_active;
       document.getElementById('activeGroup').style.display = 'block';
       document.getElementById('passwordHelp').textContent = 'Leave blank to keep current password';
+      populateRoleDropdown(user.role_id);
       document.getElementById('userModal').classList.add('active');
     }
 
-    function closeModal() {
-      document.getElementById('userModal').classList.remove('active');
+    function populateRoleDropdown(selectedId = null) {
+      document.getElementById('modalRole').innerHTML = '<option value="">Select a role...</option>' +
+        roles.map(r => `<option value="${r.id}" ${r.id===selectedId?'selected':''}>${r.name}</option>`).join('');
     }
+
+    function closeUserModal() { document.getElementById('userModal').classList.remove('active'); }
 
     async function saveUser() {
       const userId = document.getElementById('editUserId').value;
       const username = document.getElementById('modalUsername').value.trim();
       const password = document.getElementById('modalPassword').value;
-      const isAdmin = document.getElementById('modalIsAdmin').checked;
+      const roleId = document.getElementById('modalRole').value;
       const isActive = document.getElementById('modalIsActive').checked;
 
-      if (!username) {
-        alert('Username is required');
-        return;
-      }
-
-      if (!userId && !password) {
-        alert('Password is required for new users');
-        return;
-      }
-
-      if (password && password.length < 6) {
-        alert('Password must be at least 6 characters');
-        return;
-      }
+      if (!username) { alert('Username is required'); return; }
+      if (!userId && !password) { alert('Password is required for new users'); return; }
+      if (password && password.length < 6) { alert('Password must be at least 6 characters'); return; }
+      if (!roleId) { alert('Please select a role'); return; }
 
       const btn = document.getElementById('saveUserBtn');
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
+      btn.disabled = true; btn.textContent = 'Saving...';
 
       try {
-        const body = { username, isAdmin };
+        const body = { username, roleId: parseInt(roleId) };
         if (password) body.password = password;
         if (userId) body.isActive = isActive;
 
-        const response = await fetch(
-          userId ? `/api/admin/users/${userId}` : '/api/admin/users',
-          {
-            method: userId ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) throw new Error(data.error);
-
-        closeModal();
-        loadUsers();
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save';
-      }
-    }
-
-    function showDeleteModal(userId, username) {
-      document.getElementById('deleteUserId').value = userId;
-      document.getElementById('deleteUsername').textContent = username;
-      document.getElementById('deleteModal').classList.add('active');
-    }
-
-    function closeDeleteModal() {
-      document.getElementById('deleteModal').classList.remove('active');
-    }
-
-    async function confirmDelete() {
-      const userId = document.getElementById('deleteUserId').value;
-
-      try {
-        const response = await fetch(`/api/admin/users/${userId}`, {
-          method: 'DELETE'
+        const res = await fetch(userId ? `/api/admin/users/${userId}` : '/api/admin/users', {
+          method: userId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
         });
-
-        const data = await response.json();
-
-        if (!response.ok) throw new Error(data.error);
-
-        closeDeleteModal();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        closeUserModal();
         loadUsers();
-      } catch (err) {
-        alert(err.message);
-      }
+      } catch (err) { alert(err.message); }
+      finally { btn.disabled = false; btn.textContent = 'Save'; }
     }
 
     async function unlockUser(userId) {
       try {
-        const response = await fetch(`/api/admin/users/${userId}/unlock`, {
-          method: 'POST'
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) throw new Error(data.error);
-
+        const res = await fetch(`/api/admin/users/${userId}/unlock`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         loadUsers();
-      } catch (err) {
-        alert(err.message);
-      }
+      } catch (err) { alert(err.message); }
     }
 
-    async function loadSearchAudit() {
-      const filterUser = document.getElementById('auditFilterUser').value.trim();
-      const url = filterUser
-        ? `/api/admin/search-audit?limit=200&username=${encodeURIComponent(filterUser)}`
-        : '/api/admin/search-audit?limit=200';
+    function showAddRoleModal() {
+      document.getElementById('roleModalTitle').textContent = 'Create Role';
+      document.getElementById('editRoleId').value = '';
+      document.getElementById('modalRoleName').value = '';
+      document.getElementById('modalRoleDesc').value = '';
+      renderPermissionsGrid([]);
+      document.getElementById('roleModal').classList.add('active');
+    }
+
+    async function showEditRoleModal(roleId) {
+      try {
+        const res = await fetch(`/api/admin/roles/${roleId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        document.getElementById('roleModalTitle').textContent = 'Edit Role';
+        document.getElementById('editRoleId').value = roleId;
+        document.getElementById('modalRoleName').value = data.role.name;
+        document.getElementById('modalRoleDesc').value = data.role.description || '';
+        renderPermissionsGrid(data.permissions);
+        document.getElementById('roleModal').classList.add('active');
+      } catch (err) { alert(err.message); }
+    }
+
+    function renderPermissionsGrid(selected) {
+      const categories = {};
+      permissions.forEach(p => {
+        if (!categories[p.category]) categories[p.category] = [];
+        categories[p.category].push(p);
+      });
+      const riskLabels = { 1: 'Low', 2: 'Medium', 3: 'High' };
+      const riskClasses = { 1: 'low', 2: 'medium', 3: 'high' };
+
+      document.getElementById('permissionsGrid').innerHTML = Object.entries(categories).map(([cat, perms]) => `
+        <div class="permission-category">
+          <h4>${cat}</h4>
+          ${perms.map(p => `
+            <div class="permission-item">
+              <input type="checkbox" id="perm_${p.code}" value="${p.code}" ${selected.includes(p.code)?'checked':''}>
+              <label for="perm_${p.code}">
+                <div class="perm-name">${p.name}</div>
+                <div class="perm-desc">${p.description}</div>
+              </label>
+              <span class="risk-indicator ${riskClasses[p.risk_level]}">${riskLabels[p.risk_level]}</span>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    function closeRoleModal() { document.getElementById('roleModal').classList.remove('active'); }
+
+    async function saveRole() {
+      const roleId = document.getElementById('editRoleId').value;
+      const name = document.getElementById('modalRoleName').value.trim();
+      const description = document.getElementById('modalRoleDesc').value.trim();
+      const selected = [];
+      document.querySelectorAll('#permissionsGrid input:checked').forEach(cb => selected.push(cb.value));
+
+      if (!name) { alert('Role name is required'); return; }
+
+      const btn = document.getElementById('saveRoleBtn');
+      btn.disabled = true; btn.textContent = 'Saving...';
 
       try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
+        const res = await fetch(roleId ? `/api/admin/roles/${roleId}` : '/api/admin/roles', {
+          method: roleId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description, permissions: selected })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        closeRoleModal();
+        loadRoles();
+      } catch (err) { alert(err.message); }
+      finally { btn.disabled = false; btn.textContent = 'Save Role'; }
+    }
 
-        const searches = data.searches || [];
-        const tbody = document.getElementById('searchesTableBody');
+    function showDeleteModal(type, id, name) {
+      document.getElementById('deleteId').value = id;
+      document.getElementById('deleteType').value = type;
+      document.getElementById('deleteMessage').textContent = `Are you sure you want to delete ${type} "${name}"?`;
+      document.getElementById('deleteModal').classList.add('active');
+    }
 
-        // Stats bar
-        const uniqueUsers = new Set(searches.map(s => s.username)).size;
-        const totalResults = searches.reduce((sum, s) => sum + (s.result_count || 0), 0);
-        document.getElementById('auditStats').innerHTML = `
-          <div class="stat-card"><h4>Searches Shown</h4><div class="number">${searches.length}</div></div>
-          <div class="stat-card"><h4>Unique Users</h4><div class="number">${uniqueUsers}</div></div>
-          <div class="stat-card"><h4>Total Results Returned</h4><div class="number">${totalResults.toLocaleString()}</div></div>
-        `;
+    function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('active'); }
 
-        if (searches.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="no-data">No searches found</td></tr>';
-          return;
-        }
-
-        const typeLabels = { order: 'Order #', email: 'Email', phone: 'Phone', name: 'Name' };
-        const typeColors = { order: '#007bff', email: '#17a2b8', phone: '#6f42c1', name: '#fd7e14' };
-
-        tbody.innerHTML = searches.map(s => {
-          const time = new Date(s.searched_at).toLocaleString();
-          const typeLabel = typeLabels[s.search_type] || s.search_type;
-          const typeColor = typeColors[s.search_type] || '#6c757d';
-          const resultColor = s.result_count === 0 ? '#dc3545' : '#28a745';
-          return `<tr>
-            <td style="white-space:nowrap; font-size:13px;">${time}</td>
-            <td><strong>${s.username}</strong></td>
-            <td>${s.store}</td>
-            <td><span style="background:${typeColor}22; color:${typeColor}; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600;">${typeLabel}</span></td>
-            <td style="font-family:monospace; font-size:13px;">${s.query}</td>
-            <td style="font-weight:600; color:${resultColor};">${s.result_count}</td>
-          </tr>`;
-        }).join('');
-
-      } catch (err) {
-        document.getElementById('searchesTableBody').innerHTML =
-          `<tr><td colspan="6" class="no-data" style="color:#dc3545;">${err.message}</td></tr>`;
-      }
+    async function confirmDelete() {
+      const id = document.getElementById('deleteId').value;
+      const type = document.getElementById('deleteType').value;
+      try {
+        const res = await fetch(`/api/admin/${type}s/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        closeDeleteModal();
+        if (type === 'user') loadUsers();
+        else if (type === 'role') loadRoles();
+      } catch (err) { alert(err.message); }
     }
 
     async function logout() {
@@ -785,7 +819,6 @@
       window.location.href = '/login';
     }
 
-    // Initialize
     checkAuth();
   </script>
 </body>
