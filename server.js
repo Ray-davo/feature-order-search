@@ -2423,7 +2423,9 @@ app.post('/api/order/:store/:orderId/shipment', requireAuth, requirePermission('
 // Get refund quote — returns available payment methods + calculated total
 app.post('/api/order/:store/:orderId/refund-quote', requireAuth, requirePermission('orders.refund'), async (req, res) => {
   const { store, orderId } = req.params;
-  const { amount, items } = req.body;
+  // products: [{ order_product_id, quantity }]
+  // shipping: { order_address_id, amount }  (optional)
+  const { products, shipping, customAmount } = req.body;
   if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
 
   try {
@@ -2431,11 +2433,29 @@ app.post('/api/order/:store/:orderId/refund-quote', requireAuth, requirePermissi
     const baseUrl = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v3/orders/${orderId}`;
     const headers = { 'X-Auth-Token': storeConfig.token, 'Accept': 'application/json', 'Content-Type': 'application/json' };
 
-    // Build quote items
-    let quoteItems = items; // line-item refund: [{ item_type, item_id, quantity? }]
-    if (!quoteItems || quoteItems.length === 0) {
-      // Fallback: order-level custom amount
-      quoteItems = [{ item_type: 'ORDER', item_id: parseInt(orderId), amount: parseFloat(amount) }];
+    // Build BC quote items array
+    const quoteItems = [];
+
+    // Custom order-level amount (from "Apply an order level refund" tab)
+    if (customAmount && customAmount > 0) {
+      quoteItems.push({ item_type: 'ORDER', item_id: parseInt(orderId), amount: parseFloat(customAmount) });
+    } else {
+      // Product line items
+      if (products && products.length > 0) {
+        products.forEach(p => {
+          if (p.quantity > 0) {
+            quoteItems.push({ item_type: 'PRODUCT', item_id: p.order_product_id, quantity: p.quantity });
+          }
+        });
+      }
+      // Shipping line item
+      if (shipping && shipping.amount > 0 && shipping.order_address_id) {
+        quoteItems.push({ item_type: 'SHIPPING', item_id: shipping.order_address_id, amount: parseFloat(shipping.amount) });
+      }
+    }
+
+    if (quoteItems.length === 0) {
+      return res.status(400).json({ error: 'Select at least one item or shipping to refund' });
     }
 
     const quoteRes = await fetch(`${baseUrl}/payment_actions/refund_quotes`, {
@@ -2447,13 +2467,13 @@ app.post('/api/order/:store/:orderId/refund-quote', requireAuth, requirePermissi
     }
     const quote = await quoteRes.json();
 
-    // Return the quote data — total_amount, total_tax, and available payments[]
     res.json({
       success:      true,
       total_amount: quote.data?.total_amount,
       total_tax:    quote.data?.total_tax,
-      payments:     quote.data?.payments || [],  // [{ provider_id, provider_type, amount, offline }]
-      quoteItems:   quoteItems,                   // pass back so execute can use same items
+      items:        quote.data?.items || [],
+      payments:     quote.data?.payments || [],
+      quoteItems:   quoteItems,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

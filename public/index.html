@@ -810,80 +810,124 @@
       background: #5a6268;
     }
     
-    .order-actions { border-top:1px solid #eee; padding:14px 16px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-    .order-actions-label { font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.05em; margin-right:4px; }
-    .action-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:none; border-radius:5px; font-size:13px; font-weight:500; cursor:pointer; transition:filter .15s; }
+    /* ── Order Actions Bar ───────────────────────────────── */
+    .order-actions { border-top:1px solid #eee; padding:12px 16px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .order-actions-label { font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }
+    .action-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 13px; border:none; border-radius:5px; font-size:13px; font-weight:500; cursor:pointer; transition:filter .15s; }
     .action-btn:hover { filter:brightness(.9); } .action-btn:disabled { opacity:.45; cursor:not-allowed; }
-    .action-btn-status { background:#e9ecef; color:#333; }
+    .action-btn-neutral { background:#e9ecef; color:#333; }
     .action-btn-ship   { background:#0065d1; color:#fff; }
     .action-btn-cancel { background:#fff3cd; color:#856404; border:1px solid #ffc107; }
     .action-btn-refund { background:#f8d7da; color:#721c24; border:1px solid #dc3545; }
-    .action-status-select { padding:7px 10px; border:1px solid #ccc; border-radius:5px; font-size:13px; background:#fff; cursor:pointer; max-width:200px; }
+    .action-status-select { padding:7px 10px; border:1px solid #ccc; border-radius:5px; font-size:13px; background:#fff; max-width:200px; }
     .action-status-btn { padding:7px 12px; background:#28a745; color:#fff; border:none; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
     .action-status-btn:hover { background:#218838; }
-    .action-inline-result { font-size:13px; padding:4px 8px; border-radius:4px; }
+    .action-inline-result { font-size:12px; padding:3px 8px; border-radius:4px; }
     .action-inline-result.success { color:#155724; background:#d4edda; }
     .action-inline-result.error   { color:#721c24; background:#f8d7da; }
-    .action-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; align-items:center; justify-content:center; }
-    .action-modal-overlay.active { display:flex; }
-    .action-modal { background:#fff; border-radius:10px; width:100%; max-width:480px; box-shadow:0 10px 40px rgba(0,0,0,.2); }
-    .action-modal-header { padding:18px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; }
-    .action-modal-header h3 { font-size:17px; color:#333; }
-    .action-modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#888; }
-    .action-modal-body { padding:20px; }
-    .action-modal-footer { padding:14px 20px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; }
-    .action-field { margin-bottom:16px; }
-    .action-field label { display:block; font-size:13px; font-weight:600; color:#555; margin-bottom:5px; }
-    .action-field input, .action-field select, .action-field textarea { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; }
-    .action-field input:focus, .action-field select:focus, .action-field textarea:focus { outline:none; border-color:#007bff; }
-    .action-field .field-note { font-size:12px; color:#888; margin-top:4px; }
-    .confirm-danger { background:#fff3f3; border:1px solid #f5c6cb; border-radius:6px; padding:12px 14px; color:#721c24; font-size:13px; margin-bottom:16px; }
-    .action-result { padding:10px 14px; border-radius:5px; font-size:13px; margin-bottom:12px; display:none; }
-    .action-result.success { background:#d4edda; color:#155724; display:block; }
-    .action-result.error   { background:#f8d7da; color:#721c24; display:block; }
-    .item-check-list { max-height:180px; overflow-y:auto; border:1px solid #ddd; border-radius:5px; padding:8px; }
-    .item-check-row { display:flex; align-items:center; gap:8px; padding:5px 2px; font-size:13px; border-bottom:1px solid #f0f0f0; }
+
+    /* ── Shared modal base ───────────────────────────────── */
+    .amodal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.52); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+    .amodal-overlay.active { display:flex; }
+    .amodal { background:#fff; border-radius:10px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,.22); display:flex; flex-direction:column; max-height:90vh; }
+    .amodal-sm { max-width:460px; }
+    .amodal-lg { max-width:780px; }
+    .amodal-hd { padding:16px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+    .amodal-hd h3 { font-size:16px; font-weight:600; color:#222; margin:0; }
+    .amodal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#aaa; line-height:1; }
+    .amodal-close:hover { color:#333; }
+    .amodal-body { padding:20px; overflow-y:auto; flex:1; }
+    .amodal-ft { padding:14px 20px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; flex-shrink:0; }
+    .afield { margin-bottom:15px; }
+    .afield label { display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
+    .afield input, .afield select, .afield textarea { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; box-sizing:border-box; }
+    .afield input:focus, .afield select:focus, .afield textarea:focus { outline:none; border-color:#0065d1; box-shadow:0 0 0 2px rgba(0,101,209,.12); }
+    .afield .anote { font-size:12px; color:#888; margin-top:4px; }
+    .adanger-box { background:#fff3f3; border:1px solid #f5c6cb; border-radius:6px; padding:12px 14px; color:#721c24; font-size:13px; margin-bottom:14px; }
+    .aresult { padding:10px 14px; border-radius:5px; font-size:13px; margin-bottom:12px; display:none; }
+    .aresult.success { background:#d4edda; color:#155724; display:block; }
+    .aresult.error   { background:#f8d7da; color:#721c24; display:block; }
+    .item-check-list { max-height:160px; overflow-y:auto; border:1px solid #ddd; border-radius:5px; padding:6px; }
+    .item-check-row { display:flex; align-items:center; gap:8px; padding:5px 3px; font-size:13px; border-bottom:1px solid #f0f0f0; }
     .item-check-row:last-child { border-bottom:none; }
-    .item-check-row input[type=number] { width:50px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; }
-    .refund-method-option { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px; cursor:pointer; font-size:14px; }
-    .refund-method-option:hover { border-color:#007bff; background:#f0f7ff; }
-    .refund-method-option input[type=radio] { margin-top:2px; flex-shrink:0; width:16px; height:16px; }
-    .refund-quote-total { font-size:13px; font-weight:600; color:#333; padding:8px 12px; background:#f8f9fa; border-radius:5px; margin-bottom:12px; }
-    .bulk-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:3000; align-items:center; justify-content:center; }
-    .bulk-modal-overlay.active { display:flex; }
-    .bulk-modal { background:#fff; border-radius:10px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,.25); }
-    .bulk-modal-header { padding:18px 22px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:1; }
-    .bulk-modal-header h3 { font-size:17px; color:#333; }
-    .bulk-modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#888; }
-    .bulk-modal-body { padding:22px; }
-    .bulk-upload-zone { border:2px dashed #ccc; border-radius:8px; padding:36px 20px; text-align:center; cursor:pointer; background:#fafafa; transition:border-color .2s,background .2s; }
-    .bulk-upload-zone:hover, .bulk-upload-zone.dragover { border-color:#007bff; background:#eaf4ff; }
-    .bulk-upload-zone p { color:#666; font-size:14px; margin-top:8px; }
-    .bulk-upload-icon { font-size:36px; }
-    .bulk-file-name { font-size:14px; font-weight:600; color:#333; margin-top:10px; padding:8px 14px; background:#e9f5e9; border-radius:5px; display:none; }
-    .bulk-store-select { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; margin-top:14px; }
-    .bulk-preview-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:14px; display:none; }
-    .bulk-preview-table th { background:#f8f9fa; padding:8px 10px; text-align:left; color:#666; font-size:12px; text-transform:uppercase; }
+    .item-check-row input[type=number] { width:52px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; text-align:center; }
+
+    /* ── Refund modal specific ───────────────────────────── */
+    .refund-tabs { display:flex; gap:0; border:1px solid #ccc; border-radius:6px; overflow:hidden; margin-bottom:18px; }
+    .rtab { padding:9px 16px; border:none; background:#f8f9fa; font-size:13px; font-weight:500; cursor:pointer; color:#555; flex:1; border-right:1px solid #ccc; transition:background .15s; }
+    .rtab:last-child { border-right:none; }
+    .rtab.active { background:#0065d1; color:#fff; }
+    .rtab:hover:not(.active) { background:#e9ecef; }
+    .refund-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .refund-table th { background:#f8f9fa; padding:9px 8px; text-align:left; font-size:11px; font-weight:700; color:#777; text-transform:uppercase; letter-spacing:.04em; border-bottom:2px solid #eee; }
+    .refund-table th.num, .refund-table td.rtd-num  { text-align:center; }
+    .refund-table th.price, .refund-table td.rtd-price { text-align:right; }
+    .refund-table td { padding:10px 8px; border-bottom:1px solid #f2f2f2; vertical-align:middle; }
+    .refund-table tr:last-child td { border-bottom:none; }
+    .rtd-item { max-width:260px; }
+    .ri-name { font-weight:500; color:#222; line-height:1.3; }
+    .ri-subname { font-size:11px; color:#888; margin-top:2px; }
+    .rtd-sku { font-size:12px; color:#777; white-space:nowrap; }
+    .ri-qty { width:60px; padding:5px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; text-align:center; }
+    .ri-ship { width:74px; }
+    .refund-table-wrap { max-height:260px; overflow-y:auto; border:1px solid #e5e5e5; border-radius:6px; margin-bottom:14px; }
+    .refund-subtotals { display:flex; justify-content:flex-end; padding:10px 8px 4px; }
+    .refund-subtotals table { font-size:13px; }
+    .refund-subtotals td { padding:4px 6px; }
+    .refund-subtotals td:last-child { text-align:right; font-weight:600; min-width:72px; }
+    .refund-total-row td { font-size:15px; font-weight:700; padding-top:8px; border-top:2px solid #eee; }
+    .refund-method-section h4 { font-size:13px; font-weight:700; color:#444; margin:0 0 4px; }
+    .refund-method-section p  { font-size:12px; color:#777; margin:0 0 12px; }
+    .refund-method-card { border:1px solid #ddd; border-radius:7px; margin-bottom:8px; overflow:hidden; transition:border-color .15s; }
+    .refund-method-card.selected { border-color:#0065d1; box-shadow:0 0 0 2px rgba(0,101,209,.15); }
+    .refund-method-row { display:flex; align-items:flex-start; gap:12px; padding:13px 14px; cursor:pointer; }
+    .refund-method-row input[type=radio] { margin-top:2px; flex-shrink:0; width:16px; height:16px; accent-color:#0065d1; }
+    .rm-title { font-size:14px; color:#222; }
+    .rm-desc  { font-size:12px; color:#777; margin-top:2px; }
+    .refund-external-wrap { padding:0 14px 12px 42px; }
+    .refund-external-label { display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+    .refund-external-label input[type=checkbox] { margin-top:2px; flex-shrink:0; }
+    .refund-note { padding:10px 14px; border-radius:5px; font-size:13px; margin-bottom:14px; }
+    .refund-note.warn { background:#fff8e1; border:1px solid #ffe082; color:#7a5800; }
+    .refund-section-title { font-size:16px; font-weight:700; color:#222; margin:0 0 6px; }
+    .refund-section-sub   { font-size:13px; color:#666; margin:0 0 14px; }
+
+    /* ── Bulk tracking modal ─────────────────────────────── */
+    .bulk-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:3000; align-items:center; justify-content:center; padding:16px; }
+    .bulk-overlay.active { display:flex; }
+    .bulk-modal { background:#fff; border-radius:10px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.25); }
+    .bulk-hd { padding:16px 22px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:1; }
+    .bulk-hd h3 { font-size:16px; font-weight:600; color:#222; margin:0; }
+    .bulk-close { background:none; border:none; font-size:22px; cursor:pointer; color:#aaa; }
+    .bulk-body { padding:22px; }
+    .bulk-ft { padding:14px 22px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; position:sticky; bottom:0; background:#fff; }
+    .bulk-drop { border:2px dashed #ccc; border-radius:8px; padding:36px 20px; text-align:center; cursor:pointer; background:#fafafa; transition:border-color .2s,background .2s; }
+    .bulk-drop:hover, .bulk-drop.over { border-color:#0065d1; background:#eaf4ff; }
+    .bulk-drop p { color:#666; font-size:13px; margin-top:8px; }
+    .bulk-drop-icon { font-size:38px; }
+    .bulk-fname { font-size:13px; font-weight:600; color:#333; margin-top:10px; padding:8px 14px; background:#e9f5e9; border-radius:5px; display:none; }
+    .bulk-store-sel { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; margin-top:12px; box-sizing:border-box; }
+    .bulk-preview-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; display:none; }
+    .bulk-preview-table th { background:#f8f9fa; padding:8px 10px; text-align:left; font-size:11px; font-weight:700; color:#777; text-transform:uppercase; }
     .bulk-preview-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; }
-    .bulk-preview-count { font-size:13px; color:#555; margin-top:8px; display:none; }
-    .bulk-progress-wrap { display:none; margin-top:16px; }
-    .bulk-progress-label { font-size:13px; color:#555; margin-bottom:6px; display:flex; justify-content:space-between; }
-    .bulk-progress-bar { height:10px; background:#e9ecef; border-radius:5px; overflow:hidden; }
-    .bulk-progress-fill { height:100%; background:#28a745; border-radius:5px; width:0%; transition:width .3s; }
+    .bulk-preview-count { font-size:13px; color:#555; margin-top:6px; display:none; }
+    .bulk-prog-wrap { display:none; margin-top:16px; }
+    .bulk-prog-lbl { font-size:13px; color:#555; margin-bottom:5px; display:flex; justify-content:space-between; }
+    .bulk-prog-bar { height:10px; background:#e9ecef; border-radius:5px; overflow:hidden; }
+    .bulk-prog-fill { height:100%; background:#28a745; border-radius:5px; width:0%; transition:width .3s; }
     .bulk-results { display:none; margin-top:16px; }
-    .bulk-results-summary { display:flex; gap:12px; margin-bottom:14px; }
-    .bulk-stat { flex:1; text-align:center; padding:12px 8px; border-radius:7px; font-weight:700; }
-    .bulk-stat-num { font-size:26px; display:block; }
-    .bulk-stat-lbl { font-size:12px; font-weight:500; }
-    .bulk-stat.success { background:#d4edda; color:#155724; }
-    .bulk-stat.failed  { background:#f8d7da; color:#721c24; }
-    .bulk-stat.skipped { background:#fff3cd; color:#856404; }
-    .bulk-fail-list { max-height:200px; overflow-y:auto; border:1px solid #f5c6cb; border-radius:5px; background:#fff8f8; }
-    .bulk-fail-row { display:flex; gap:10px; padding:7px 10px; font-size:12px; border-bottom:1px solid #f5e6e6; }
+    .bulk-stats { display:flex; gap:10px; margin-bottom:14px; }
+    .bstat { flex:1; text-align:center; padding:12px 8px; border-radius:7px; font-weight:700; }
+    .bstat-n { font-size:26px; display:block; }
+    .bstat-l { font-size:11px; font-weight:500; }
+    .bstat.ok  { background:#d4edda; color:#155724; }
+    .bstat.fail{ background:#f8d7da; color:#721c24; }
+    .bstat.skip{ background:#fff3cd; color:#856404; }
+    .bulk-fail-list { max-height:180px; overflow-y:auto; border:1px solid #f5c6cb; border-radius:5px; background:#fff8f8; }
+    .bulk-fail-row { display:flex; gap:10px; padding:6px 10px; font-size:12px; border-bottom:1px solid #f5e6e6; }
     .bulk-fail-row:last-child { border-bottom:none; }
-    .bulk-fail-order { font-weight:700; color:#721c24; min-width:72px; }
-    .bulk-fail-reason { color:#555; }
-    .bulk-modal-footer { padding:14px 22px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; position:sticky; bottom:0; background:#fff; }
+    .bulk-fail-ord { font-weight:700; color:#721c24; min-width:68px; }
+    .bulk-fail-rsn { color:#555; }
 </style>
 </head>
 <body>
@@ -901,7 +945,7 @@
     <div class="header-right">
       <span class="user-info">Logged in as: <strong id="username"></strong></span>
       <a href="/admin" class="admin-btn" id="adminLink" style="display: none;">Admin</a>
-      <button class="admin-btn" id="bulkImportBtn" style="display:none; background:#0065d1;" onclick="openBulkImportModal()">&#128230; Bulk Tracking</button>
+      <button class="admin-btn" id="bulkImportBtn" style="display:none;background:#0065d1;" onclick="openBulkImportModal()">&#128230; Bulk Tracking</button>
       <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -2184,113 +2228,189 @@
     checkAuth();
   </script>
 
-  <!-- Order Action Modals -->
-  <div class="action-modal-overlay" id="shipmentModal">
-    <div class="action-modal">
-      <div class="action-modal-header">
+
+  <!-- ── Shipment Modal ─────────────────────────────────────── -->
+  <div class="amodal-overlay" id="shipmentModal">
+    <div class="amodal amodal-sm">
+      <div class="amodal-hd">
         <h3>&#128230; Add Tracking / Create Shipment</h3>
-        <button class="action-modal-close" onclick="closeActionModal('shipmentModal')">&times;</button>
+        <button class="amodal-close" onclick="closeActionModal('shipmentModal')">&times;</button>
       </div>
-      <div class="action-modal-body">
-        <div class="action-result" id="shipment-result"></div>
-        <div class="action-field"><label>Carrier</label>
+      <div class="amodal-body">
+        <div class="aresult" id="shipment-result"></div>
+        <div class="afield"><label>Carrier</label>
           <select id="shipment-carrier">
             <option value="ups">UPS</option><option value="fedex">FedEx</option>
             <option value="usps">USPS</option><option value="dhl">DHL</option><option value="other">Other</option>
           </select>
         </div>
-        <div class="action-field"><label>Tracking Number</label>
+        <div class="afield"><label>Tracking Number</label>
           <input type="text" id="shipment-tracking" placeholder="e.g. 1Z999AA10123456784" autocomplete="off">
         </div>
-        <div class="action-field"><label>Items to Ship</label>
+        <div class="afield"><label>Items in this shipment</label>
           <div class="item-check-list" id="shipment-items-list"></div>
-          <p class="field-note">Select which items are in this shipment</p>
         </div>
       </div>
-      <div class="action-modal-footer">
-        <button class="action-btn action-btn-status" onclick="closeActionModal('shipmentModal')">Cancel</button>
+      <div class="amodal-ft">
+        <button class="action-btn action-btn-neutral" onclick="closeActionModal('shipmentModal')">Cancel</button>
         <button class="action-btn action-btn-ship" id="shipment-submit-btn" onclick="submitShipment()">&#10003; Create Shipment</button>
       </div>
     </div>
   </div>
 
-  <div class="action-modal-overlay" id="cancelModal">
-    <div class="action-modal">
-      <div class="action-modal-header">
+  <!-- ── Cancel Modal ───────────────────────────────────────── -->
+  <div class="amodal-overlay" id="cancelModal">
+    <div class="amodal amodal-sm">
+      <div class="amodal-hd">
         <h3>&#10006; Cancel Order</h3>
-        <button class="action-modal-close" onclick="closeActionModal('cancelModal')">&times;</button>
+        <button class="amodal-close" onclick="closeActionModal('cancelModal')">&times;</button>
       </div>
-      <div class="action-modal-body">
-        <div class="action-result" id="cancel-result"></div>
-        <div class="confirm-danger"><strong>Warning:</strong> This will cancel order <strong id="cancel-order-id"></strong> in BigCommerce. This cannot be undone.</div>
-        <div class="action-field"><label>Reason (optional)</label>
+      <div class="amodal-body">
+        <div class="aresult" id="cancel-result"></div>
+        <div class="adanger-box"><strong>Warning:</strong> This will cancel order <strong id="cancel-order-id"></strong> in BigCommerce. This action cannot be undone.</div>
+        <div class="afield"><label>Reason (optional)</label>
           <textarea id="cancel-reason" rows="2" placeholder="Customer requested cancellation..."></textarea>
         </div>
       </div>
-      <div class="action-modal-footer">
-        <button class="action-btn action-btn-status" onclick="closeActionModal('cancelModal')">Go Back</button>
+      <div class="amodal-ft">
+        <button class="action-btn action-btn-neutral" onclick="closeActionModal('cancelModal')">Go Back</button>
         <button class="action-btn action-btn-cancel" id="cancel-submit-btn" onclick="submitCancel()">Cancel Order</button>
       </div>
     </div>
   </div>
 
-  <!-- Refund modal — 2-step: amount → quote → pick method → execute -->
-  <div class="action-modal-overlay" id="refundModal">
-    <div class="action-modal">
-      <div class="action-modal-header">
-        <h3>&#36; Process Refund</h3>
-        <button class="action-modal-close" onclick="closeActionModal('refundModal')">&times;</button>
+  <!-- ── Refund Modal — BC-style ─────────────────────────────── -->
+  <div class="amodal-overlay" id="refundModal">
+    <div class="amodal amodal-lg">
+      <div class="amodal-hd">
+        <h3>Refund Order <span id="refund-order-num" style="color:#0065d1;"></span></h3>
+        <button class="amodal-close" onclick="closeActionModal('refundModal')">&times;</button>
       </div>
-      <div class="action-modal-body">
-        <div class="action-result" id="refund-result"></div>
+      <div class="amodal-body">
+        <div class="aresult" id="refund-result"></div>
 
-        <!-- Step 1: Enter amount -->
+        <!-- Step 1: Item selection -->
         <div id="refund-step1">
-          <div class="action-field">
-            <label>Refund Amount ($)</label>
-            <input type="number" id="refund-amount" min="0.01" step="0.01" placeholder="0.00">
-            <p class="field-note">Order total: <strong id="refund-order-total"></strong> &nbsp;&bull;&nbsp; Order <strong id="refund-order-id"></strong></p>
+          <!-- Order summary line -->
+          <p style="font-size:13px;color:#666;margin:0 0 14px;">
+            Order total: <strong id="refund-order-total-lbl"></strong>
+          </p>
+
+          <!-- Tabs — mirrors BC exactly -->
+          <div class="refund-tabs">
+            <button class="rtab active" id="rtab-items"  onclick="refundSwitchTab('items')">Refund individual items</button>
+            <button class="rtab"        id="rtab-entire" onclick="refundSwitchTab('entire')">Refund entire order</button>
+            <button class="rtab"        id="rtab-custom" onclick="refundSwitchTab('custom')">Apply an order level refund</button>
           </div>
-          <div class="action-field"><label>Reason (optional)</label>
-            <textarea id="refund-reason" rows="2" placeholder="Defective item, customer return..."></textarea>
+
+          <!-- Tab: Refund individual items -->
+          <div id="refund-tab-items">
+            <div class="refund-table-wrap">
+              <table class="refund-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>SKU</th>
+                    <th class="num">Qty ordered</th>
+                    <th class="price">Unit price</th>
+                    <th class="num">Units to refund</th>
+                    <th class="price">Refund item total</th>
+                  </tr>
+                </thead>
+                <tbody id="refund-items-tbody"></tbody>
+              </table>
+            </div>
+            <div style="text-align:right;font-size:13px;color:#555;padding:0 8px 4px;">
+              Estimated refund: <strong id="refund-items-subtotal">$0.00</strong>
+              <span style="color:#aaa;font-size:11px;"> (tax calculated on continue)</span>
+            </div>
+          </div>
+
+          <!-- Tab: Refund entire order -->
+          <div id="refund-tab-entire" style="display:none;">
+            <div class="refund-note warn">
+              This will refund all items and shipping for the full order amount including tax. Click <strong>Continue</strong> to see the exact amount and choose a payment method.
+            </div>
+          </div>
+
+          <!-- Tab: Apply an order level refund (custom amount) -->
+          <div id="refund-tab-custom" style="display:none;">
+            <div class="afield" style="max-width:220px;">
+              <label>Refund Amount ($)</label>
+              <input type="number" id="refund-custom-amount" min="0.01" step="0.01" placeholder="0.00">
+              <p class="anote">Order total: <strong id="refund-custom-order-total"></strong> — tax-exempt custom amount</p>
+            </div>
+          </div>
+
+          <div class="afield" style="margin-top:14px;">
+            <label>Reason for refund (optional)</label>
+            <textarea id="refund-reason" rows="2" placeholder="Defective item, customer return, wrong item shipped..."></textarea>
           </div>
         </div>
 
-        <!-- Step 2: Choose payment method (shown after quote) -->
+        <!-- Step 2: Summary + payment method -->
         <div id="refund-step2" style="display:none;">
-          <div class="refund-quote-total" id="refund-quote-total"></div>
-          <p style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px;">Select refund method:</p>
-          <div id="refund-payment-methods"></div>
+          <!-- Refund summary table -->
+          <p class="refund-section-title">Refund summary</p>
+          <div class="refund-table-wrap">
+            <table class="refund-table">
+              <thead>
+                <tr>
+                  <th>Item</th><th>SKU</th>
+                  <th class="num">Qty ordered</th><th class="price">Unit price</th>
+                  <th class="num">Units to refund</th><th class="price">Refund item total</th>
+                </tr>
+              </thead>
+              <tbody id="refund-summary-tbody"></tbody>
+            </table>
+          </div>
+          <div class="refund-subtotals">
+            <table>
+              <tr><td>Refund subtotal</td><td id="refund-sum-subtotal">$0.00</td></tr>
+              <tr><td>Tax refund</td><td id="refund-sum-tax">$0.00</td></tr>
+              <tr class="refund-total-row"><td>Refund total</td><td id="refund-sum-total">$0.00</td></tr>
+            </table>
+          </div>
+
+          <!-- Refund method -->
+          <div class="refund-method-section" style="margin-top:18px;">
+            <p class="refund-section-title">Refund method</p>
+            <p class="refund-section-sub">Select one of the methods below to complete your refund</p>
+            <div id="refund-payment-methods"></div>
+          </div>
         </div>
       </div>
-      <div class="action-modal-footer">
-        <button class="action-btn action-btn-status" onclick="closeActionModal('refundModal')">Cancel</button>
-        <button class="action-btn action-btn-status" id="refund-get-quote-btn" onclick="getRefundQuote()">Get Payment Options</button>
-        <button class="action-btn action-btn-refund" id="refund-execute-btn" style="display:none;" onclick="submitRefund()">Process Refund</button>
+
+      <div class="amodal-ft">
+        <button class="action-btn action-btn-neutral" onclick="closeActionModal('refundModal')">Cancel</button>
+        <button class="action-btn action-btn-neutral" id="refund-btn-back"     onclick="refundBack()"     style="display:none;">&#8592; Back</button>
+        <button class="action-btn action-btn-ship"    id="refund-btn-continue" onclick="refundContinue()">Continue</button>
+        <button class="action-btn action-btn-refund"  id="refund-btn-submit"   onclick="submitRefund()"   style="display:none;">Process refund</button>
       </div>
     </div>
   </div>
 
-  <!-- Bulk Tracking Modal -->
-  <div class="bulk-modal-overlay" id="bulkImportModal">
+  <!-- ── Bulk Tracking Modal ──────────────────────────────────── -->
+  <div class="bulk-overlay" id="bulkImportModal">
     <div class="bulk-modal">
-      <div class="bulk-modal-header">
+      <div class="bulk-hd">
         <h3>&#128230; Bulk Tracking Import</h3>
-        <button class="bulk-modal-close" onclick="closeBulkModal()">&times;</button>
+        <button class="bulk-close" onclick="closeBulkModal()">&times;</button>
       </div>
-      <div class="bulk-modal-body">
+      <div class="bulk-body">
         <div id="bulk-step-upload">
-          <div class="bulk-upload-zone" id="bulk-drop-zone"
+          <div class="bulk-drop" id="bulk-drop-zone"
                onclick="document.getElementById('bulk-file-input').click()"
                ondragover="bulkDragOver(event)" ondragleave="bulkDragLeave(event)" ondrop="bulkDrop(event)">
-            <div class="bulk-upload-icon">&#128196;</div>
+            <div class="bulk-drop-icon">&#128196;</div>
             <strong>Click to choose CSV or drag &amp; drop</strong>
-            <p>Format: CustomerPONo, Tracking, carrier</p>
+            <p>Format: Order#, Tracking Number, Carrier</p>
             <input type="file" id="bulk-file-input" accept=".csv" style="display:none" onchange="bulkFileSelected(this.files[0])">
           </div>
-          <div class="bulk-file-name" id="bulk-file-name"></div>
-          <select class="bulk-store-select" id="bulk-store-select">
-            <option value="1ink">1ink.com</option><option value="needink">needink.com</option>
+          <div class="bulk-fname" id="bulk-file-name"></div>
+          <select class="bulk-store-sel" id="bulk-store-select">
+            <option value="1ink">1ink.com</option>
+            <option value="needink">needink.com</option>
           </select>
           <div class="bulk-preview-count" id="bulk-preview-count"></div>
           <table class="bulk-preview-table" id="bulk-preview-table">
@@ -2298,30 +2418,31 @@
             <tbody id="bulk-preview-body"></tbody>
           </table>
         </div>
-        <div class="bulk-progress-wrap" id="bulk-progress-wrap">
-          <div class="bulk-progress-label">
-            <span id="bulk-progress-text">Processing...</span><span id="bulk-progress-pct">0%</span>
+        <div class="bulk-prog-wrap" id="bulk-progress-wrap">
+          <div class="bulk-prog-lbl">
+            <span id="bulk-progress-text">Processing...</span>
+            <span id="bulk-progress-pct">0%</span>
           </div>
-          <div class="bulk-progress-bar"><div class="bulk-progress-fill" id="bulk-progress-fill"></div></div>
+          <div class="bulk-prog-bar"><div class="bulk-prog-fill" id="bulk-progress-fill"></div></div>
         </div>
         <div class="bulk-results" id="bulk-results">
-          <div class="bulk-results-summary">
-            <div class="bulk-stat success"><span class="bulk-stat-num" id="bulk-res-success">0</span><span class="bulk-stat-lbl">Shipped</span></div>
-            <div class="bulk-stat skipped"><span class="bulk-stat-num" id="bulk-res-skipped">0</span><span class="bulk-stat-lbl">Skipped</span></div>
-            <div class="bulk-stat failed"><span class="bulk-stat-num" id="bulk-res-failed">0</span><span class="bulk-stat-lbl">Failed</span></div>
+          <div class="bulk-stats">
+            <div class="bstat ok">  <span class="bstat-n" id="bulk-res-success">0</span><span class="bstat-l">Shipped</span></div>
+            <div class="bstat skip"><span class="bstat-n" id="bulk-res-skipped">0</span><span class="bstat-l">Skipped</span></div>
+            <div class="bstat fail"><span class="bstat-n" id="bulk-res-failed">0</span> <span class="bstat-l">Failed</span></div>
           </div>
           <div id="bulk-fail-section" style="display:none;">
-            <p style="font-size:13px;font-weight:600;color:#721c24;margin-bottom:6px;">Failed Orders:</p>
+            <p style="font-size:12px;font-weight:700;color:#721c24;margin-bottom:5px;">Failed orders:</p>
             <div class="bulk-fail-list" id="bulk-fail-list"></div>
           </div>
           <div id="bulk-skip-section" style="display:none;margin-top:10px;">
-            <p style="font-size:13px;font-weight:600;color:#856404;margin-bottom:6px;">Skipped Orders:</p>
+            <p style="font-size:12px;font-weight:700;color:#856404;margin-bottom:5px;">Skipped orders:</p>
             <div class="bulk-fail-list" id="bulk-skip-list"></div>
           </div>
         </div>
       </div>
-      <div class="bulk-modal-footer">
-        <button class="action-btn action-btn-status" onclick="closeBulkModal()">Close</button>
+      <div class="bulk-ft">
+        <button class="action-btn action-btn-neutral" onclick="closeBulkModal()">Close</button>
         <button class="action-btn action-btn-ship" id="bulk-import-btn" onclick="submitBulkImport()" disabled>&#128230; Import Tracking</button>
       </div>
     </div>
@@ -2409,11 +2530,10 @@ function injectOrderActionsBar(orderId, order, data) {
   }
 
   if (hasRefund) {
-    var total = (order && order.total_inc_tax) ? order.total_inc_tax : 0;
     var btn3 = document.createElement('button');
     btn3.className = 'action-btn action-btn-refund';
     btn3.innerHTML = '&#36; Refund';
-    btn3.onclick = function() { openRefundModal(orderId, total); };
+    btn3.onclick = function() { openRefundModal(orderId, data); };
     bar.appendChild(btn3);
   }
 
@@ -2538,111 +2658,6 @@ async function submitCancel() {
     showModalResult('cancel-result', '\u2717 ' + err.message, 'error');
   } finally {
     btn.disabled = false; btn.textContent = 'Cancel Order';
-  }
-}
-
-// ── Refund modal — proper 2-step flow ────────────────────────────
-var _refundQuoteItems = null;   // items to send in execute step
-var _refundPayments   = [];     // available payment methods from quote
-
-function openRefundModal(orderId, orderTotal) {
-  _actionOrderId    = orderId;
-  _actionStore      = currentStore;
-  _actionOrderTotal = parseFloat(orderTotal) || 0;
-  _refundQuoteItems = null;
-  _refundPayments   = [];
-
-  document.getElementById('refund-order-id').textContent    = '#' + orderId;
-  document.getElementById('refund-order-total').textContent = '$' + _actionOrderTotal.toFixed(2);
-  document.getElementById('refund-amount').value = '';
-  document.getElementById('refund-reason').value = '';
-
-  // Show step 1, hide step 2
-  document.getElementById('refund-step1').style.display = '';
-  document.getElementById('refund-step2').style.display = 'none';
-  document.getElementById('refund-get-quote-btn').disabled = false;
-  document.getElementById('refund-get-quote-btn').textContent = 'Get Payment Options';
-  document.getElementById('refund-execute-btn').style.display = 'none';
-
-  clearModalResult('refund-result');
-  document.getElementById('refundModal').classList.add('active');
-}
-
-async function getRefundQuote() {
-  var amount = parseFloat(document.getElementById('refund-amount').value);
-  if (!amount || amount <= 0) { showModalResult('refund-result', 'Enter a valid refund amount', 'error'); return; }
-  if (amount > _actionOrderTotal && _actionOrderTotal > 0) {
-    showModalResult('refund-result', 'Amount exceeds order total ($' + _actionOrderTotal.toFixed(2) + ')', 'error'); return;
-  }
-
-  var btn = document.getElementById('refund-get-quote-btn');
-  btn.disabled = true; btn.textContent = 'Checking...';
-  clearModalResult('refund-result');
-
-  try {
-    var res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund-quote', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: amount })
-    });
-    var data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Quote failed');
-
-    _refundQuoteItems = data.quoteItems;
-    _refundPayments   = data.payments || [];
-
-    // Populate payment method options
-    var container = document.getElementById('refund-payment-methods');
-    if (_refundPayments.length === 0) {
-      container.innerHTML = '<p style="color:#888;font-size:13px;">No payment methods available for this order.</p>';
-    } else {
-      container.innerHTML = _refundPayments.map(function(p, i) {
-        var label = p.offline ? 'Mark as Refunded Externally' :
-                    p.provider_id === 'storecredit' ? 'Store Credit ($' + parseFloat(p.amount).toFixed(2) + ')' :
-                    (p.provider_id || 'Payment Provider').toUpperCase() + ' \u2014 $' + parseFloat(p.amount).toFixed(2) + ' (back to card)';
-        return '<label class="refund-method-option">' +
-          '<input type="radio" name="refund-payment" value="' + i + '" ' + (i === 0 ? 'checked' : '') + '>' +
-          '<span>' + label + '</span>' +
-          '</label>';
-      }).join('');
-    }
-
-    // Show total including tax
-    document.getElementById('refund-quote-total').textContent = 'Refund total: $' + parseFloat(data.total_amount || amount).toFixed(2) +
-      (data.total_tax ? ' (incl. $' + parseFloat(data.total_tax).toFixed(2) + ' tax)' : '');
-
-    document.getElementById('refund-step2').style.display = '';
-    document.getElementById('refund-execute-btn').style.display = '';
-    document.getElementById('refund-execute-btn').disabled = _refundPayments.length === 0;
-
-  } catch (err) {
-    showModalResult('refund-result', '\u2717 ' + err.message, 'error');
-    btn.disabled = false; btn.textContent = 'Get Payment Options';
-  }
-}
-
-async function submitRefund() {
-  if (!_refundQuoteItems || _refundPayments.length === 0) return;
-  var reason   = document.getElementById('refund-reason').value.trim();
-  var radioEls = document.querySelectorAll('input[name="refund-payment"]');
-  var selectedIdx = 0;
-  radioEls.forEach(function(r) { if (r.checked) selectedIdx = parseInt(r.value); });
-  var selectedPayment = _refundPayments[selectedIdx];
-
-  var btn = document.getElementById('refund-execute-btn');
-  btn.disabled = true; btn.textContent = 'Processing...';
-
-  try {
-    var res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quoteItems: _refundQuoteItems, selectedPayment: selectedPayment, reason: reason })
-    });
-    var data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Refund failed');
-    showModalResult('refund-result', '\u2713 Refund of $' + parseFloat(selectedPayment.amount).toFixed(2) + ' processed successfully', 'success');
-    setTimeout(function() { closeActionModal('refundModal'); }, 2500);
-  } catch (err) {
-    showModalResult('refund-result', '\u2717 ' + err.message, 'error');
-    btn.disabled = false; btn.textContent = 'Process Refund';
   }
 }
 
@@ -2800,6 +2815,340 @@ function setBulkProgress(pct, total) {
 }
 var bulkModalEl = document.getElementById('bulkImportModal');
 if (bulkModalEl) bulkModalEl.addEventListener('click', function(e) { if (e.target === this) closeBulkModal(); });
+// ═══════════════════════════════════════════════════════════════
+// REFUND MODAL — mirrors BigCommerce refund UI exactly
+// Step 1: Select items / method  →  Step 2: Summary + payment
+// ═══════════════════════════════════════════════════════════════
+
+var _ref = {
+  orderId: null, store: null, order: null, products: [],
+  addressId: null, shippingCost: 0, tab: 'items',
+  quoteItems: null, payments: [],
+};
+
+function openRefundModal(orderId, data) {
+  var cache       = orderDetailsCache[orderId] || {};
+  _ref.orderId    = orderId;
+  _ref.store      = currentStore;
+  _ref.order      = (data && data.order)    || cache.order    || null;
+  _ref.products   = (data && data.products) || cache.products || [];
+  var addresses   = (data && data.shippingAddresses) || cache.shippingAddresses || [];
+  _ref.addressId  = addresses.length ? addresses[0].id : null;
+  _ref.shippingCost = parseFloat(
+    (_ref.order && (_ref.order.shipping_cost_inc_tax || _ref.order.shipping_cost_ex_tax)) || 0
+  );
+  _ref.quoteItems = null;
+  _ref.payments   = [];
+
+  var totalStr = '$' + parseFloat((_ref.order && _ref.order.total_inc_tax) || 0).toFixed(2);
+  document.getElementById('refund-order-num').textContent       = '#' + orderId;
+  document.getElementById('refund-order-total-lbl').textContent = totalStr;
+  var custLbl = document.getElementById('refund-custom-order-total');
+  if (custLbl) custLbl.textContent = totalStr;
+
+  refundSwitchTab('items');
+  refundGoStep(1);
+  clearModalResult('refund-result');
+  document.getElementById('refundModal').classList.add('active');
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────
+function refundSwitchTab(tab) {
+  _ref.tab = tab;
+  ['items','entire','custom'].forEach(function(t) {
+    document.getElementById('rtab-' + t).classList.toggle('active', t === tab);
+  });
+  document.getElementById('refund-tab-items').style.display  = tab === 'items'  ? '' : 'none';
+  document.getElementById('refund-tab-entire').style.display = tab === 'entire' ? '' : 'none';
+  document.getElementById('refund-tab-custom').style.display = tab === 'custom' ? '' : 'none';
+  if (tab === 'items') refundBuildItemsTable();
+  clearModalResult('refund-result');
+}
+
+function refundBuildItemsTable() {
+  var tbody = document.getElementById('refund-items-tbody');
+  var rows = _ref.products.map(function(p) {
+    var unit = parseFloat(p.base_price || p.price_inc_tax || 0);
+    return '<tr data-pid="' + p.id + '" data-unit="' + unit + '" data-maxqty="' + p.quantity + '">' +
+      '<td class="rtd-item"><div class="ri-name">' + _esc(p.name) + '</div></td>' +
+      '<td class="rtd-sku">'  + (p.sku ? _esc(p.sku) : '—') + '</td>' +
+      '<td class="rtd-num">'  + p.quantity + '</td>' +
+      '<td class="rtd-price">$' + unit.toFixed(2) + '</td>' +
+      '<td class="rtd-num">' +
+        '<input type="number" class="ri-qty" id="rqty-' + p.id + '" ' +
+          'min="0" max="' + p.quantity + '" value="0" oninput="refundQtyChanged()">' +
+      '</td>' +
+      '<td class="rtd-price ri-linetotal" id="rline-' + p.id + '">$0.00</td>' +
+    '</tr>';
+  });
+  if (_ref.shippingCost > 0 && _ref.addressId) {
+    var addr = (_ref.order && _ref.order.billing_address)
+      ? [_ref.order.billing_address.street_1, _ref.order.billing_address.city,
+         _ref.order.billing_address.state].filter(Boolean).join(', ') : '';
+    rows.push(
+      '<tr id="refund-ship-row">' +
+        '<td class="rtd-item"><div class="ri-name">Shipping cost</div>' +
+          (addr ? '<div class="ri-subname">' + _esc(addr) + '</div>' : '') +
+        '</td>' +
+        '<td class="rtd-sku">—</td>' +
+        '<td class="rtd-num">—</td>' +
+        '<td class="rtd-price">$' + _ref.shippingCost.toFixed(2) + '</td>' +
+        '<td class="rtd-num">' +
+          '<input type="number" id="rship-amt" min="0" max="' + _ref.shippingCost + '" ' +
+            'step="0.01" value="0" class="ri-qty ri-ship" placeholder="0.00" oninput="refundQtyChanged()">' +
+        '</td>' +
+        '<td class="rtd-price ri-linetotal" id="rline-ship">$0.00</td>' +
+      '</tr>'
+    );
+  }
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:14px;text-align:center;color:#888;">No items found</td></tr>';
+  } else {
+    tbody.innerHTML = rows.join('');
+  }
+  refundQtyChanged();
+}
+
+function refundQtyChanged() {
+  var subtotal = 0;
+  _ref.products.forEach(function(p) {
+    var inp  = document.getElementById('rqty-' + p.id);
+    var qty  = inp ? Math.max(0, Math.min(parseInt(inp.value) || 0, p.quantity)) : 0;
+    var unit = parseFloat(p.base_price || p.price_inc_tax || 0);
+    var lt   = qty * unit;
+    subtotal += lt;
+    var cell = document.getElementById('rline-' + p.id);
+    if (cell) cell.textContent = '$' + lt.toFixed(2);
+  });
+  var ship     = document.getElementById('rship-amt');
+  var shipAmt  = ship ? Math.max(0, parseFloat(ship.value) || 0) : 0;
+  var shipCell = document.getElementById('rline-ship');
+  if (shipCell) shipCell.textContent = '$' + shipAmt.toFixed(2);
+  var lbl = document.getElementById('refund-items-subtotal');
+  if (lbl) lbl.textContent = '~$' + (subtotal + shipAmt).toFixed(2);
+}
+
+// ── Step navigation ───────────────────────────────────────────────
+function refundGoStep(n) {
+  document.getElementById('refund-step1').style.display = n === 1 ? '' : 'none';
+  document.getElementById('refund-step2').style.display = n === 2 ? '' : 'none';
+  document.getElementById('refund-btn-continue').style.display = n === 1 ? '' : 'none';
+  document.getElementById('refund-btn-back').style.display     = n === 2 ? '' : 'none';
+  document.getElementById('refund-btn-submit').style.display   = n === 2 ? '' : 'none';
+}
+
+async function refundContinue() {
+  clearModalResult('refund-result');
+  var quoteBody = {};
+
+  if (_ref.tab === 'items') {
+    var products = [];
+    _ref.products.forEach(function(p) {
+      var inp = document.getElementById('rqty-' + p.id);
+      var qty = inp ? Math.max(0, Math.min(parseInt(inp.value) || 0, p.quantity)) : 0;
+      if (qty > 0) products.push({ order_product_id: p.id, quantity: qty });
+    });
+    var shipInp = document.getElementById('rship-amt');
+    var shipAmt = shipInp ? parseFloat(shipInp.value) || 0 : 0;
+    var shipping = (shipAmt > 0 && _ref.addressId)
+      ? { order_address_id: _ref.addressId, amount: shipAmt } : null;
+    if (!products.length && !shipping) {
+      showModalResult('refund-result', 'Select at least one item or a shipping amount to refund', 'error');
+      return;
+    }
+    quoteBody = { products: products, shipping: shipping };
+
+  } else if (_ref.tab === 'entire') {
+    var allProds = _ref.products.map(function(p) {
+      return { order_product_id: p.id, quantity: p.quantity };
+    });
+    if (!allProds.length) {
+      showModalResult('refund-result', 'No items found on this order', 'error'); return;
+    }
+    var allShip = (_ref.shippingCost > 0 && _ref.addressId)
+      ? { order_address_id: _ref.addressId, amount: _ref.shippingCost } : null;
+    quoteBody = { products: allProds, shipping: allShip };
+
+  } else {
+    var amt = parseFloat(document.getElementById('refund-custom-amount').value);
+    if (!amt || amt <= 0) {
+      showModalResult('refund-result', 'Enter a valid refund amount', 'error'); return;
+    }
+    var maxAmt = parseFloat((_ref.order && _ref.order.total_inc_tax) || 0);
+    if (maxAmt > 0 && amt > maxAmt) {
+      showModalResult('refund-result', 'Amount exceeds order total ($' + maxAmt.toFixed(2) + ')', 'error'); return;
+    }
+    quoteBody = { customAmount: amt };
+  }
+
+  var btn = document.getElementById('refund-btn-continue');
+  btn.disabled = true; btn.textContent = 'Calculating…';
+
+  try {
+    var res  = await fetch('/api/order/' + _ref.store + '/' + _ref.orderId + '/refund-quote', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(quoteBody)
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not get refund quote');
+
+    _ref.quoteItems = data.quoteItems;
+    _ref.payments   = data.payments || [];
+
+    // ── Summary table ─────────────────────────────────────────────
+    var sumRows = '';
+    if (_ref.tab !== 'custom') {
+      _ref.products.forEach(function(p) {
+        var qty = _ref.tab === 'entire' ? p.quantity
+          : (function() { var i = document.getElementById('rqty-' + p.id); return i ? parseInt(i.value) || 0 : 0; })();
+        if (qty <= 0) return;
+        var unit = parseFloat(p.base_price || p.price_inc_tax || 0);
+        sumRows += '<tr>' +
+          '<td class="rtd-item"><div class="ri-name">' + _esc(p.name) + '</div></td>' +
+          '<td class="rtd-sku">' + (p.sku ? _esc(p.sku) : '—') + '</td>' +
+          '<td class="rtd-num">' + p.quantity + '</td>' +
+          '<td class="rtd-price">$' + unit.toFixed(2) + '</td>' +
+          '<td class="rtd-num">' + qty + '</td>' +
+          '<td class="rtd-price">$' + (qty * unit).toFixed(2) + '</td>' +
+        '</tr>';
+      });
+      var s2 = document.getElementById('rship-amt');
+      var sA = _ref.tab === 'entire' ? _ref.shippingCost : (s2 ? parseFloat(s2.value) || 0 : 0);
+      if (sA > 0) {
+        sumRows += '<tr>' +
+          '<td class="rtd-item"><div class="ri-name">Shipping cost</div></td>' +
+          '<td class="rtd-sku">—</td><td class="rtd-num">—</td>' +
+          '<td class="rtd-price">$' + _ref.shippingCost.toFixed(2) + '</td>' +
+          '<td class="rtd-num">—</td>' +
+          '<td class="rtd-price">$' + sA.toFixed(2) + '</td>' +
+        '</tr>';
+      }
+    } else {
+      sumRows = '<tr><td colspan="4" style="padding:10px 8px;font-size:13px;">Custom refund</td>' +
+        '<td class="rtd-num">—</td>' +
+        '<td class="rtd-price">$' + parseFloat(document.getElementById('refund-custom-amount').value).toFixed(2) + '</td></tr>';
+    }
+    document.getElementById('refund-summary-tbody').innerHTML = sumRows;
+
+    var tax = parseFloat(data.total_tax || 0);
+    var total = parseFloat(data.total_amount || 0);
+    document.getElementById('refund-sum-subtotal').textContent = '$' + Math.max(0, total - tax).toFixed(2);
+    document.getElementById('refund-sum-tax').textContent      = '$' + tax.toFixed(2);
+    document.getElementById('refund-sum-total').textContent    = '$' + total.toFixed(2);
+
+    // ── Payment methods ───────────────────────────────────────────
+    var methodsHtml = '';
+    var hasOnline = _ref.payments.some(function(p) { return !p.offline && p.provider_id !== 'storecredit'; });
+    if (hasOnline) {
+      methodsHtml += '<div class="refund-note warn">Please note: your online payment provider may have a settlement period before refunds can be processed.</div>';
+    }
+
+    if (_ref.payments.length === 0) {
+      methodsHtml += '<div class="refund-note warn">No payment methods are available. The payment may not have settled yet.</div>';
+    } else {
+      _ref.payments.forEach(function(p, i) {
+        var isCard   = !p.offline && p.provider_id !== 'storecredit';
+        var isCredit = p.provider_id === 'storecredit';
+        var title, desc, extra = '';
+        if (isCredit) {
+          title = 'Store Credit: <strong>$' + parseFloat(p.amount).toFixed(2) + '</strong>';
+          desc  = 'This amount will be credited to customer\'s account.';
+        } else if (p.offline) {
+          title = 'Refund customer through third party provider: <strong>$' + parseFloat(p.amount).toFixed(2) + '</strong>';
+          desc  = 'Refund processed external to BigCommerce.';
+        } else {
+          title = 'Debit / Credit Card: <strong>$' + parseFloat(p.amount).toFixed(2) + '</strong>';
+          desc  = 'Funds will be returned via this payment provider.';
+          extra = '<div class="refund-external-wrap" id="refund-ext-' + i + '" style="display:none;">' +
+            '<label class="refund-external-label">' +
+              '<input type="checkbox" id="refund-extcb-' + i + '" onchange="refundToggleExternal(' + i + ')">' +
+              '<div>' +
+                '<div style="font-size:13px;font-weight:500;">Refund transaction processed external to BigCommerce</div>' +
+                '<div style="font-size:12px;color:#777;margin-top:2px;">BigCommerce will not perform the refund because the amount was refunded directly through the payment provider.</div>' +
+              '</div>' +
+            '</label>' +
+          '</div>';
+        }
+        methodsHtml +=
+          '<div class="refund-method-card" id="rmethod-' + i + '">' +
+            '<label class="refund-method-row">' +
+              '<input type="radio" name="refund-payment" value="' + i + '" ' + (i === 0 ? 'checked' : '') +
+                ' onchange="refundSelectMethod(' + i + ')">' +
+              '<div><div class="rm-title">' + title + '</div><div class="rm-desc">' + desc + '</div></div>' +
+            '</label>' +
+            extra +
+          '</div>';
+      });
+    }
+    document.getElementById('refund-payment-methods').innerHTML = methodsHtml;
+    document.getElementById('refund-btn-submit').disabled = _ref.payments.length === 0;
+
+    if (_ref.payments.length > 0) refundSelectMethod(0);
+    refundGoStep(2);
+  } catch (err) {
+    showModalResult('refund-result', '✗ ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Continue';
+  }
+}
+
+function refundSelectMethod(idx) {
+  _ref.payments.forEach(function(p, i) {
+    var card = document.getElementById('rmethod-' + i);
+    if (card) card.classList.toggle('selected', i === idx);
+    var ext = document.getElementById('refund-ext-' + i);
+    if (ext) ext.style.display = (i === idx) ? '' : 'none';
+  });
+}
+
+function refundToggleExternal(idx) {
+  var cb = document.getElementById('refund-extcb-' + idx);
+  if (cb && _ref.payments[idx]) _ref.payments[idx]._ext = cb.checked;
+}
+
+function refundBack() {
+  refundGoStep(1);
+  clearModalResult('refund-result');
+  var btn = document.getElementById('refund-btn-submit');
+  btn.disabled = false; btn.textContent = 'Process refund';
+}
+
+async function submitRefund() {
+  if (!_ref.quoteItems || !_ref.payments.length) return;
+  var reason = document.getElementById('refund-reason').value.trim();
+  var selIdx = 0;
+  document.querySelectorAll('input[name="refund-payment"]').forEach(function(r) {
+    if (r.checked) selIdx = parseInt(r.value);
+  });
+  var payment = Object.assign({}, _ref.payments[selIdx]);
+  if (payment._ext) { payment.offline = true; }
+  delete payment._ext;
+
+  var btn = document.getElementById('refund-btn-submit');
+  btn.disabled = true; btn.textContent = 'Processing…';
+  clearModalResult('refund-result');
+
+  try {
+    var res  = await fetch('/api/order/' + _ref.store + '/' + _ref.orderId + '/refund', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quoteItems: _ref.quoteItems, selectedPayment: payment, reason: reason })
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Refund failed');
+    showModalResult('refund-result', '✓ Refund of $' + parseFloat(payment.amount).toFixed(2) + ' processed successfully', 'success');
+    setTimeout(function() {
+      closeActionModal('refundModal');
+      delete orderDetailsCache[_ref.orderId];
+    }, 2500);
+  } catch (err) {
+    showModalResult('refund-result', '✗ ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Process refund';
+  }
+}
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
   </script>
 
