@@ -811,7 +811,7 @@
     }
     
     /* ── Order Actions Bar ───────────────────────────────── */
-    .order-actions { border-top:1px solid #eee; padding:12px 16px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .order-actions { border-bottom:1px solid #eee; padding:12px 16px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
     .order-actions-label { font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }
     .action-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 13px; border:none; border-radius:5px; font-size:13px; font-weight:500; cursor:pointer; transition:filter .15s; }
     .action-btn:hover { filter:brightness(.9); } .action-btn:disabled { opacity:.45; cursor:not-allowed; }
@@ -2474,8 +2474,6 @@ function injectOrderActionsBar(orderId, order, data) {
 
   var previewContent = document.getElementById('preview-content-' + orderId);
   if (!previewContent) return;
-  var emailActions = previewContent.querySelector('.email-actions');
-  if (!emailActions) return;
 
   // Remove existing bar if refreshing
   var existing = document.getElementById('order-actions-' + orderId);
@@ -2542,7 +2540,7 @@ function injectOrderActionsBar(orderId, order, data) {
   result.style.fontSize = '13px';
   bar.appendChild(result);
 
-  emailActions.insertAdjacentElement('afterend', bar);
+  previewContent.insertBefore(bar, previewContent.firstChild);
 }
 
 // ── Status update ────────────────────────────────────────────────
