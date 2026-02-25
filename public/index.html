@@ -810,29 +810,22 @@
       background: #5a6268;
     }
     
-    /* ── Order Actions ─────────────────────────────────── */
+    /* ── Order Actions Panel ─────────────────────────── */
     .order-actions {
-      border-top: 1px solid #eee;
-      padding: 14px 16px;
-      background: #f8fafc;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
+      border-top: 1px solid #eee; padding: 14px 16px; background: #f8fafc;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
     }
     .order-actions-label {
       font-size: 12px; font-weight: 600; color: #888;
       text-transform: uppercase; letter-spacing: 0.05em; margin-right: 4px;
     }
     .action-btn {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 7px 14px; border: none; border-radius: 5px;
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
+      display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px;
+      border: none; border-radius: 5px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: filter 0.15s;
     }
-    .action-btn:hover  { filter: brightness(0.92); }
-    .action-btn:active { transform: scale(0.97); }
-    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+    .action-btn:hover  { filter: brightness(0.9); }
+    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .action-btn-status { background: #e9ecef; color: #333; }
     .action-btn-ship   { background: #0065d1; color: #fff; }
     .action-btn-cancel { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
@@ -846,6 +839,13 @@
       border: none; border-radius: 5px; font-size: 13px; font-weight: 600; cursor: pointer;
     }
     .action-status-btn:hover { background: #218838; }
+    .action-inline-result {
+      font-size: 13px; padding: 4px 8px; border-radius: 4px;
+    }
+    .action-inline-result.success { color: #155724; background: #d4edda; }
+    .action-inline-result.error   { color: #721c24; background: #f8d7da; }
+
+    /* ── Action Modals ───────────────────────────────── */
     .action-modal-overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.5); z-index: 2000;
@@ -880,17 +880,15 @@
       background: #fff3f3; border: 1px solid #f5c6cb; border-radius: 6px;
       padding: 12px 14px; color: #721c24; font-size: 13px; margin-bottom: 16px;
     }
-    .action-result {
-      padding: 10px 14px; border-radius: 5px; font-size: 13px; margin-bottom: 12px; display: none;
-    }
+    .action-result { padding: 10px 14px; border-radius: 5px; font-size: 13px; margin-bottom: 12px; display: none; }
     .action-result.success { background: #d4edda; color: #155724; display: block; }
     .action-result.error   { background: #f8d7da; color: #721c24; display: block; }
     .item-check-list { max-height: 180px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; }
     .item-check-row { display: flex; align-items: center; gap: 8px; padding: 5px 2px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
     .item-check-row:last-child { border-bottom: none; }
-    .item-check-row input[type="number"] { width: 55px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+    .item-check-row input[type=number] { width: 50px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
 
-    /* ── Bulk Tracking Import ───────────────────────────── */
+    /* ── Bulk Tracking Modal ─────────────────────────── */
     .bulk-modal-overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.55); z-index: 3000;
@@ -917,10 +915,7 @@
     .bulk-upload-zone:hover, .bulk-upload-zone.dragover { border-color: #007bff; background: #eaf4ff; }
     .bulk-upload-zone p { color: #666; font-size: 14px; margin-top: 8px; }
     .bulk-upload-icon { font-size: 36px; }
-    .bulk-file-name {
-      font-size: 14px; font-weight: 600; color: #333; margin-top: 10px;
-      padding: 8px 14px; background: #e9f5e9; border-radius: 5px; display: none;
-    }
+    .bulk-file-name { font-size: 14px; font-weight: 600; color: #333; margin-top: 10px; padding: 8px 14px; background: #e9f5e9; border-radius: 5px; display: none; }
     .bulk-store-select { width: 100%; padding: 9px 11px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; margin-top: 14px; }
     .bulk-preview-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; display: none; }
     .bulk-preview-table th { background: #f8f9fa; padding: 8px 10px; text-align: left; color: #666; font-size: 12px; text-transform: uppercase; }
@@ -1670,8 +1665,6 @@
           </button>` : ''}
         </div>
 
-        ${buildOrderActionsBar(orderId, order, data.products || [])}
-
         <div class="email-log-section" id="email-log-section-${orderId}" style="display:none;">
           <h5>&#9993; Emails Sent</h5>
           <div id="email-log-list-${orderId}"><span class="no-emails">No emails sent yet</span></div>
@@ -1697,6 +1690,7 @@
       `;
 
       previewContent.innerHTML = html;
+      injectOrderActionsBar(orderId, order, data);
     }
 
     function renderNotesList(notes, orderId) {
@@ -2124,6 +2118,601 @@
 </head>
 <body>
   ${invoiceEl.outerHTML}
+
+  <!-- ── Order Action Modals ──────────────────────────────────── -->
+  <div class="action-modal-overlay" id="shipmentModal">
+    <div class="action-modal">
+      <div class="action-modal-header">
+        <h3>&#128230; Add Tracking / Create Shipment</h3>
+        <button class="action-modal-close" onclick="closeActionModal('shipmentModal')">&times;</button>
+      </div>
+      <div class="action-modal-body">
+        <div class="action-result" id="shipment-result"></div>
+        <div class="action-field">
+          <label>Carrier</label>
+          <select id="shipment-carrier">
+            <option value="ups">UPS</option><option value="fedex">FedEx</option>
+            <option value="usps">USPS</option><option value="dhl">DHL</option><option value="other">Other</option>
+          </select>
+        </div>
+        <div class="action-field">
+          <label>Tracking Number</label>
+          <input type="text" id="shipment-tracking" placeholder="e.g. 1Z999AA10123456784" autocomplete="off">
+        </div>
+        <div class="action-field">
+          <label>Items to Ship</label>
+          <div class="item-check-list" id="shipment-items-list"></div>
+          <p class="field-note">Select which items are in this shipment</p>
+        </div>
+      </div>
+      <div class="action-modal-footer">
+        <button class="action-btn action-btn-status" onclick="closeActionModal('shipmentModal')">Cancel</button>
+        <button class="action-btn action-btn-ship" id="shipment-submit-btn" onclick="submitShipment()">&#10003; Create Shipment</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-modal-overlay" id="cancelModal">
+    <div class="action-modal">
+      <div class="action-modal-header">
+        <h3>&#10006; Cancel Order</h3>
+        <button class="action-modal-close" onclick="closeActionModal('cancelModal')">&times;</button>
+      </div>
+      <div class="action-modal-body">
+        <div class="action-result" id="cancel-result"></div>
+        <div class="confirm-danger"><strong>Warning:</strong> This will cancel order <strong id="cancel-order-id"></strong> in BigCommerce. This cannot be undone.</div>
+        <div class="action-field">
+          <label>Reason (optional)</label>
+          <textarea id="cancel-reason" rows="2" placeholder="Customer requested cancellation..."></textarea>
+        </div>
+      </div>
+      <div class="action-modal-footer">
+        <button class="action-btn action-btn-status" onclick="closeActionModal('cancelModal')">Go Back</button>
+        <button class="action-btn action-btn-cancel" id="cancel-submit-btn" onclick="submitCancel()">Cancel Order</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-modal-overlay" id="refundModal">
+    <div class="action-modal">
+      <div class="action-modal-header">
+        <h3>Process Refund</h3>
+        <button class="action-modal-close" onclick="closeActionModal('refundModal')">&times;</button>
+      </div>
+      <div class="action-modal-body">
+        <div class="action-result" id="refund-result"></div>
+        <div class="confirm-danger"><strong>Warning:</strong> Refunding order <strong id="refund-order-id"></strong>. This charges back the customer's payment method.</div>
+        <div class="action-field">
+          <label>Refund Amount ($)</label>
+          <input type="number" id="refund-amount" min="0.01" step="0.01" placeholder="0.00">
+          <p class="field-note">Order total: <strong id="refund-order-total"></strong></p>
+        </div>
+        <div class="action-field">
+          <label>Reason</label>
+          <textarea id="refund-reason" rows="2" placeholder="Defective item, customer return..."></textarea>
+        </div>
+        <div class="action-field">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="refund-to-original" checked style="width:16px;height:16px;">
+            Refund to original payment method
+          </label>
+        </div>
+      </div>
+      <div class="action-modal-footer">
+        <button class="action-btn action-btn-status" onclick="closeActionModal('refundModal')">Cancel</button>
+        <button class="action-btn action-btn-refund" id="refund-submit-btn" onclick="submitRefund()">Process Refund</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bulk Tracking Import Modal ───────────────────────────── -->
+  <div class="bulk-modal-overlay" id="bulkImportModal">
+    <div class="bulk-modal">
+      <div class="bulk-modal-header">
+        <h3>&#128230; Bulk Tracking Import</h3>
+        <button class="bulk-modal-close" onclick="closeBulkModal()">&times;</button>
+      </div>
+      <div class="bulk-modal-body">
+        <div id="bulk-step-upload">
+          <div class="bulk-upload-zone" id="bulk-drop-zone"
+               onclick="document.getElementById('bulk-file-input').click()"
+               ondragover="bulkDragOver(event)" ondragleave="bulkDragLeave(event)" ondrop="bulkDrop(event)">
+            <div class="bulk-upload-icon">&#128196;</div>
+            <strong>Click to choose CSV or drag &amp; drop</strong>
+            <p>Format: CustomerPONo, Tracking, carrier</p>
+            <input type="file" id="bulk-file-input" accept=".csv" style="display:none" onchange="bulkFileSelected(this.files[0])">
+          </div>
+          <div class="bulk-file-name" id="bulk-file-name"></div>
+          <select class="bulk-store-select" id="bulk-store-select">
+            <option value="1ink">1ink.com</option>
+            <option value="needink">needink.com</option>
+          </select>
+          <div class="bulk-preview-count" id="bulk-preview-count"></div>
+          <table class="bulk-preview-table" id="bulk-preview-table">
+            <thead><tr><th>Order #</th><th>Tracking Number</th><th>Carrier</th></tr></thead>
+            <tbody id="bulk-preview-body"></tbody>
+          </table>
+        </div>
+        <div class="bulk-progress-wrap" id="bulk-progress-wrap">
+          <div class="bulk-progress-label">
+            <span id="bulk-progress-text">Processing...</span>
+            <span id="bulk-progress-pct">0%</span>
+          </div>
+          <div class="bulk-progress-bar"><div class="bulk-progress-fill" id="bulk-progress-fill"></div></div>
+        </div>
+        <div class="bulk-results" id="bulk-results">
+          <div class="bulk-results-summary">
+            <div class="bulk-stat success"><span class="bulk-stat-num" id="bulk-res-success">0</span><span class="bulk-stat-lbl">Shipped</span></div>
+            <div class="bulk-stat skipped"><span class="bulk-stat-num" id="bulk-res-skipped">0</span><span class="bulk-stat-lbl">Skipped</span></div>
+            <div class="bulk-stat failed"><span class="bulk-stat-num" id="bulk-res-failed">0</span><span class="bulk-stat-lbl">Failed</span></div>
+          </div>
+          <div id="bulk-fail-section" style="display:none;">
+            <p style="font-size:13px;font-weight:600;color:#721c24;margin-bottom:6px;">Failed Orders:</p>
+            <div class="bulk-fail-list" id="bulk-fail-list"></div>
+          </div>
+          <div id="bulk-skip-section" style="display:none;margin-top:10px;">
+            <p style="font-size:13px;font-weight:600;color:#856404;margin-bottom:6px;">Skipped Orders:</p>
+            <div class="bulk-fail-list" id="bulk-skip-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="bulk-modal-footer">
+        <button class="action-btn action-btn-status" onclick="closeBulkModal()">Close</button>
+        <button class="action-btn action-btn-ship" id="bulk-import-btn" onclick="submitBulkImport()" disabled>&#128230; Import Tracking</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+// ── Order Actions ────────────────────────────────────────────────
+let _actionOrderId = null, _actionStore = null, _actionProducts = [], _actionOrderTotal = 0;
+
+const ACTION_STATUS_OPTIONS = [
+  { id: 11, label: 'Awaiting Fulfillment', perm: 'orders.status.update' },
+  { id: 9,  label: 'Awaiting Shipment',    perm: 'orders.status.update' },
+  { id: 10, label: 'Completed',            perm: 'orders.status.update' },
+  { id: 2,  label: 'Shipped',              perm: 'orders.ship'          },
+  { id: 3,  label: 'Partially Shipped',    perm: 'orders.ship'          },
+  { id: 5,  label: 'Cancelled',            perm: 'orders.cancel'        },
+  { id: 4,  label: 'Refunded',             perm: 'orders.refund'        },
+  { id: 14, label: 'Partially Refunded',   perm: 'orders.refund'        },
+];
+
+// Called after renderPreviewItems sets innerHTML — injects action bar via DOM, no template literal
+function injectOrderActionsBar(orderId, order, data) {
+  const perms = currentUserPermissions || [];
+  const allowedStatuses = ACTION_STATUS_OPTIONS.filter(s => perms.includes(s.perm));
+  const hasTracking = perms.includes('orders.tracking.add');
+  const hasCancel   = perms.includes('orders.cancel');
+  const hasRefund   = perms.includes('orders.refund');
+
+  if (allowedStatuses.length === 0 && !hasTracking && !hasCancel && !hasRefund) return;
+
+  // Find the email-actions div and insert after it
+  const previewContent = document.getElementById('preview-content-' + orderId);
+  if (!previewContent) return;
+  const emailActions = previewContent.querySelector('.email-actions');
+  if (!emailActions) return;
+
+  const bar = document.createElement('div');
+  bar.className = 'order-actions';
+  bar.id = 'order-actions-' + orderId;
+
+  const label = document.createElement('span');
+  label.className = 'order-actions-label';
+  label.textContent = 'Actions';
+  bar.appendChild(label);
+
+  // Status dropdown
+  if (allowedStatuses.length > 0) {
+    const sel = document.createElement('select');
+    sel.className = 'action-status-select';
+    sel.id = 'status-select-' + orderId;
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '— Update Status —';
+    sel.appendChild(defaultOpt);
+
+    allowedStatuses.forEach(function(s) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.label;
+      sel.appendChild(opt);
+    });
+    bar.appendChild(sel);
+
+    const setBtn = document.createElement('button');
+    setBtn.className = 'action-status-btn';
+    setBtn.textContent = '\u2713 Set';
+    setBtn.onclick = function() { submitStatusUpdate(orderId); };
+    bar.appendChild(setBtn);
+  }
+
+  // Add Tracking button
+  if (hasTracking) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn action-btn-ship';
+    btn.innerHTML = '&#128230; Add Tracking';
+    btn.onclick = function() { openShipmentModal(orderId, data); };
+    bar.appendChild(btn);
+  }
+
+  // Cancel button
+  if (hasCancel) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn action-btn-cancel';
+    btn.innerHTML = '&#10006; Cancel';
+    btn.onclick = function() { openCancelModal(orderId); };
+    bar.appendChild(btn);
+  }
+
+  // Refund button
+  if (hasRefund) {
+    const total = (order && order.total_inc_tax) ? order.total_inc_tax : 0;
+    const btn = document.createElement('button');
+    btn.className = 'action-btn action-btn-refund';
+    btn.innerHTML = '&#36; Refund';
+    btn.onclick = function() { openRefundModal(orderId, total); };
+    bar.appendChild(btn);
+  }
+
+  // Inline result span
+  const result = document.createElement('span');
+  result.id = 'action-result-' + orderId;
+  result.style.fontSize = '13px';
+  bar.appendChild(result);
+
+  emailActions.insertAdjacentElement('afterend', bar);
+}
+
+// ── Status update ────────────────────────────────────────────────
+async function submitStatusUpdate(orderId) {
+  const select   = document.getElementById('status-select-' + orderId);
+  const statusId = parseInt(select && select.value);
+  const resultEl = document.getElementById('action-result-' + orderId);
+  if (!statusId) { showInlineResult(resultEl, 'Please select a status', 'error'); return; }
+
+  const btn = select.nextElementSibling;
+  btn.disabled = true;
+  btn.textContent = 'Updating...';
+
+  try {
+    const res  = await fetch('/api/order/' + currentStore + '/' + orderId + '/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusId: statusId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+    showInlineResult(resultEl, '\u2713 Status set to "' + data.statusLabel + '"', 'success');
+    select.value = '';
+  } catch (err) {
+    showInlineResult(resultEl, '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\u2713 Set';
+  }
+}
+
+// ── Shipment modal ───────────────────────────────────────────────
+function openShipmentModal(orderId, data) {
+  _actionOrderId  = orderId;
+  _actionStore    = currentStore;
+  _actionProducts = (data && data.products) ? data.products : (orderDetailsCache[orderId] && orderDetailsCache[orderId].products ? orderDetailsCache[orderId].products : []);
+
+  const listEl = document.getElementById('shipment-items-list');
+  if (_actionProducts.length === 0) {
+    listEl.innerHTML = '<p style="color:#888;font-size:13px;padding:6px;">No items found.</p>';
+  } else {
+    listEl.innerHTML = _actionProducts.map(function(p) {
+      return '<div class="item-check-row">' +
+        '<input type="checkbox" id="ship-item-' + p.id + '" checked>' +
+        '<input type="number" id="ship-qty-' + p.id + '" min="1" max="' + p.quantity + '" value="' + p.quantity + '">' +
+        '<label for="ship-item-' + p.id + '" style="flex:1;">' + (p.sku ? p.sku + ' \u2014 ' : '') + p.name + '</label>' +
+        '</div>';
+    }).join('');
+  }
+
+  document.getElementById('shipment-tracking').value = '';
+  document.getElementById('shipment-carrier').value  = 'ups';
+  clearModalResult('shipment-result');
+  document.getElementById('shipmentModal').classList.add('active');
+}
+
+async function submitShipment() {
+  const tracking = document.getElementById('shipment-tracking').value.trim();
+  const carrier  = document.getElementById('shipment-carrier').value;
+  if (!tracking) { showModalResult('shipment-result', 'Tracking number is required', 'error'); return; }
+
+  const items = _actionProducts.filter(function(p) {
+    return document.getElementById('ship-item-' + p.id) && document.getElementById('ship-item-' + p.id).checked;
+  }).map(function(p) {
+    const qtyEl = document.getElementById('ship-qty-' + p.id);
+    return { order_product_id: p.id, quantity: parseInt(qtyEl ? qtyEl.value : p.quantity) };
+  });
+
+  if (_actionProducts.length > 0 && items.length === 0) {
+    showModalResult('shipment-result', 'Select at least one item', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('shipment-submit-btn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+
+  try {
+    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/shipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackingNumber: tracking, carrier: carrier, items: items })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    showModalResult('shipment-result', '\u2713 Shipment created! Tracking: ' + tracking, 'success');
+    setTimeout(function() {
+      delete orderDetailsCache[_actionOrderId];
+      closeActionModal('shipmentModal');
+      togglePreview(null, _actionOrderId);
+    }, 1500);
+  } catch (err) {
+    showModalResult('shipment-result', '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '\u2713 Create Shipment';
+  }
+}
+
+// ── Cancel modal ─────────────────────────────────────────────────
+function openCancelModal(orderId) {
+  _actionOrderId = orderId;
+  _actionStore   = currentStore;
+  document.getElementById('cancel-order-id').textContent = '#' + orderId;
+  document.getElementById('cancel-reason').value = '';
+  clearModalResult('cancel-result');
+  document.getElementById('cancelModal').classList.add('active');
+}
+
+async function submitCancel() {
+  const btn = document.getElementById('cancel-submit-btn');
+  btn.disabled = true; btn.textContent = 'Cancelling...';
+  try {
+    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusId: 5 })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    showModalResult('cancel-result', '\u2713 Order #' + _actionOrderId + ' cancelled', 'success');
+    setTimeout(function() { closeActionModal('cancelModal'); }, 2000);
+  } catch (err) {
+    showModalResult('cancel-result', '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Cancel Order';
+  }
+}
+
+// ── Refund modal ─────────────────────────────────────────────────
+function openRefundModal(orderId, orderTotal) {
+  _actionOrderId    = orderId;
+  _actionStore      = currentStore;
+  _actionOrderTotal = parseFloat(orderTotal) || 0;
+  document.getElementById('refund-order-id').textContent    = '#' + orderId;
+  document.getElementById('refund-order-total').textContent = '$' + _actionOrderTotal.toFixed(2);
+  document.getElementById('refund-amount').value = '';
+  document.getElementById('refund-reason').value = '';
+  document.getElementById('refund-to-original').checked = true;
+  clearModalResult('refund-result');
+  document.getElementById('refundModal').classList.add('active');
+}
+
+async function submitRefund() {
+  const amount = parseFloat(document.getElementById('refund-amount').value);
+  const reason = document.getElementById('refund-reason').value.trim();
+  const toOrig = document.getElementById('refund-to-original').checked;
+  if (!amount || amount <= 0) { showModalResult('refund-result', 'Enter a valid refund amount', 'error'); return; }
+  if (amount > _actionOrderTotal) { showModalResult('refund-result', 'Amount exceeds order total ($' + _actionOrderTotal.toFixed(2) + ')', 'error'); return; }
+
+  const btn = document.getElementById('refund-submit-btn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  try {
+    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amount, reason: reason, refundToOriginal: toOrig })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Refund failed');
+    showModalResult('refund-result', '\u2713 Refund of $' + amount.toFixed(2) + ' processed', 'success');
+    setTimeout(function() { closeActionModal('refundModal'); }, 2500);
+  } catch (err) {
+    showModalResult('refund-result', '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Process Refund';
+  }
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────
+function closeActionModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove('active');
+}
+function showModalResult(id, msg, type) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = msg;
+  el.className = 'action-result ' + type;
+}
+function clearModalResult(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  el.className = 'action-result';
+}
+function showInlineResult(el, msg, type) {
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'action-inline-result ' + type;
+}
+
+['shipmentModal','cancelModal','refundModal'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', function(e) { if (e.target === this) closeActionModal(id); });
+});
+
+// ── Bulk Tracking ────────────────────────────────────────────────
+var _bulkFile = null, _bulkRows = [];
+
+function openBulkImportModal() {
+  _bulkFile = null; _bulkRows = [];
+  document.getElementById('bulk-step-upload').style.display = '';
+  document.getElementById('bulk-progress-wrap').style.display = 'none';
+  document.getElementById('bulk-results').style.display = 'none';
+  document.getElementById('bulk-file-name').style.display = 'none';
+  document.getElementById('bulk-preview-table').style.display = 'none';
+  document.getElementById('bulk-preview-count').style.display = 'none';
+  document.getElementById('bulk-preview-body').innerHTML = '';
+  document.getElementById('bulk-fail-section').style.display = 'none';
+  document.getElementById('bulk-skip-section').style.display = 'none';
+  document.getElementById('bulk-import-btn').disabled = true;
+  document.getElementById('bulk-import-btn').textContent = 'Import Tracking';
+  document.getElementById('bulk-import-btn').onclick = submitBulkImport;
+  document.getElementById('bulk-file-input').value = '';
+  document.getElementById('bulk-store-select').value = currentStore || '1ink';
+  document.getElementById('bulkImportModal').classList.add('active');
+}
+
+function closeBulkModal() {
+  document.getElementById('bulkImportModal').classList.remove('active');
+}
+
+function bulkDragOver(e)  { e.preventDefault(); document.getElementById('bulk-drop-zone').classList.add('dragover'); }
+function bulkDragLeave()  { document.getElementById('bulk-drop-zone').classList.remove('dragover'); }
+function bulkDrop(e) {
+  e.preventDefault();
+  document.getElementById('bulk-drop-zone').classList.remove('dragover');
+  var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) bulkFileSelected(f);
+}
+function bulkFileSelected(file) {
+  if (!file || !file.name.endsWith('.csv')) { alert('Please select a CSV file.'); return; }
+  _bulkFile = file;
+  document.getElementById('bulk-file-name').textContent = '\u2705 ' + file.name;
+  document.getElementById('bulk-file-name').style.display = 'block';
+  var reader = new FileReader();
+  reader.onload = function(e) { parseBulkCsvPreview(e.target.result); };
+  reader.readAsText(file);
+}
+
+function parseBulkCsvPreview(text) {
+  var rows = [], headerSkipped = false;
+  var lines = text.split(/\r?\n/);
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    if (!headerSkipped) {
+      var first = line.split(',')[0].replace(/"/g, '').trim();
+      if (isNaN(parseInt(first))) { headerSkipped = true; continue; }
+      headerSkipped = true;
+    }
+    var fields = [], cur = '', inQ = false;
+    for (var j = 0; j < line.length; j++) {
+      var ch = line[j];
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { fields.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    fields.push(cur);
+    var orderId  = (fields[0] || '').trim();
+    var tracking = (fields[1] || '').replace(/[\r\n\s]+/g, '').trim();
+    var carrier  = (fields[2] || '').trim();
+    if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId: orderId, tracking: tracking, carrier: carrier });
+  }
+  _bulkRows = rows;
+
+  var tbody   = document.getElementById('bulk-preview-body');
+  var preview = rows.slice(0, 10);
+  var html    = preview.map(function(r) {
+    return '<tr><td>#' + r.orderId + '</td><td style="font-family:monospace;font-size:12px;">' + r.tracking + '</td><td>' + r.carrier + '</td></tr>';
+  }).join('');
+  if (rows.length > 10) html += '<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and ' + (rows.length - 10) + ' more rows</td></tr>';
+  tbody.innerHTML = html;
+
+  document.getElementById('bulk-preview-table').style.display = rows.length ? 'table' : 'none';
+  document.getElementById('bulk-preview-count').style.display = rows.length ? 'block' : 'none';
+  document.getElementById('bulk-preview-count').textContent   = rows.length + ' orders ready to import';
+  document.getElementById('bulk-import-btn').disabled = rows.length === 0;
+}
+
+async function submitBulkImport() {
+  if (!_bulkFile || _bulkRows.length === 0) return;
+  var store = document.getElementById('bulk-store-select').value;
+
+  document.getElementById('bulk-step-upload').style.display = 'none';
+  document.getElementById('bulk-progress-wrap').style.display = 'block';
+  document.getElementById('bulk-import-btn').disabled = true;
+
+  var fakeP = 0;
+  var interval = setInterval(function() {
+    if (fakeP < 85) { fakeP += Math.random() * 3; setBulkProgress(Math.min(fakeP, 85), _bulkRows.length); }
+  }, 400);
+
+  var fd = new FormData();
+  fd.append('csvFile', _bulkFile);
+  fd.append('store', store);
+
+  try {
+    var res  = await fetch('/api/bulk-tracking', { method: 'POST', body: fd });
+    var data = await res.json();
+    clearInterval(interval);
+    setBulkProgress(100, _bulkRows.length);
+    await new Promise(function(r) { setTimeout(r, 500); });
+    document.getElementById('bulk-progress-wrap').style.display = 'none';
+    if (!res.ok) throw new Error(data.error || 'Import failed');
+
+    var results = data.results;
+    document.getElementById('bulk-res-success').textContent = results.success.length;
+    document.getElementById('bulk-res-skipped').textContent = results.skipped.length;
+    document.getElementById('bulk-res-failed').textContent  = results.failed.length;
+
+    if (results.failed.length > 0) {
+      document.getElementById('bulk-fail-section').style.display = 'block';
+      document.getElementById('bulk-fail-list').innerHTML = results.failed.map(function(f) {
+        return '<div class="bulk-fail-row"><span class="bulk-fail-order">#' + f.orderId + '</span><span class="bulk-fail-reason">' + f.reason + '</span></div>';
+      }).join('');
+    }
+    if (results.skipped.length > 0) {
+      document.getElementById('bulk-skip-section').style.display = 'block';
+      document.getElementById('bulk-skip-list').innerHTML = results.skipped.map(function(f) {
+        return '<div class="bulk-fail-row"><span class="bulk-fail-order">#' + f.orderId + '</span><span class="bulk-fail-reason">' + f.reason + '</span></div>';
+      }).join('');
+    }
+
+    document.getElementById('bulk-results').style.display = 'block';
+    document.getElementById('bulk-import-btn').disabled = false;
+    document.getElementById('bulk-import-btn').textContent = 'Import Another';
+    document.getElementById('bulk-import-btn').onclick = openBulkImportModal;
+
+  } catch (err) {
+    clearInterval(interval);
+    document.getElementById('bulk-progress-wrap').style.display = 'none';
+    document.getElementById('bulk-step-upload').style.display = '';
+    document.getElementById('bulk-import-btn').disabled = false;
+    alert('Import failed: ' + err.message);
+  }
+}
+
+function setBulkProgress(pct, total) {
+  var p = Math.round(pct);
+  document.getElementById('bulk-progress-fill').style.width = p + '%';
+  document.getElementById('bulk-progress-pct').textContent  = p + '%';
+  document.getElementById('bulk-progress-text').textContent = p < 100 ? 'Processing ' + total + ' orders...' : 'Finalizing...';
+}
+
+var bulkModalEl = document.getElementById('bulkImportModal');
+if (bulkModalEl) bulkModalEl.addEventListener('click', function(e) { if (e.target === this) closeBulkModal(); });
+
+  </script>
+
 </body>
 </html>`;
 
@@ -2395,282 +2984,453 @@
   </div>
 
   <script>
-  // ── Order Actions ────────────────────────────────────────────────
-  let _actionOrderId = null, _actionStore = null, _actionProducts = [], _actionOrderTotal = 0;
+// ── Order Actions ────────────────────────────────────────────────
+let _actionOrderId = null, _actionStore = null, _actionProducts = [], _actionOrderTotal = 0;
 
-  function buildOrderActionsBar(orderId, order, products) {
-    const perms = currentUserPermissions;
-    const STATUS_OPTIONS = [
-      { id: 11, label: 'Awaiting Fulfillment', perm: 'orders.status.update' },
-      { id: 9,  label: 'Awaiting Shipment',    perm: 'orders.status.update' },
-      { id: 10, label: 'Completed',            perm: 'orders.status.update' },
-      { id: 2,  label: 'Shipped',              perm: 'orders.ship'          },
-      { id: 3,  label: 'Partially Shipped',    perm: 'orders.ship'          },
-      { id: 5,  label: 'Cancelled',            perm: 'orders.cancel'        },
-      { id: 4,  label: 'Refunded',             perm: 'orders.refund'        },
-      { id: 14, label: 'Partially Refunded',   perm: 'orders.refund'        },
-    ];
-    const allowedStatuses = STATUS_OPTIONS.filter(s => perms.includes(s.perm));
-    const hasTracking = perms.includes('orders.tracking.add');
-    const hasCancel   = perms.includes('orders.cancel');
-    const hasRefund   = perms.includes('orders.refund');
+const ACTION_STATUS_OPTIONS = [
+  { id: 11, label: 'Awaiting Fulfillment', perm: 'orders.status.update' },
+  { id: 9,  label: 'Awaiting Shipment',    perm: 'orders.status.update' },
+  { id: 10, label: 'Completed',            perm: 'orders.status.update' },
+  { id: 2,  label: 'Shipped',              perm: 'orders.ship'          },
+  { id: 3,  label: 'Partially Shipped',    perm: 'orders.ship'          },
+  { id: 5,  label: 'Cancelled',            perm: 'orders.cancel'        },
+  { id: 4,  label: 'Refunded',             perm: 'orders.refund'        },
+  { id: 14, label: 'Partially Refunded',   perm: 'orders.refund'        },
+];
 
-    if (allowedStatuses.length === 0 && !hasTracking && !hasCancel && !hasRefund) return '';
+// Called after renderPreviewItems sets innerHTML — injects action bar via DOM, no template literal
+function injectOrderActionsBar(orderId, order, data) {
+  const perms = currentUserPermissions || [];
+  const allowedStatuses = ACTION_STATUS_OPTIONS.filter(s => perms.includes(s.perm));
+  const hasTracking = perms.includes('orders.tracking.add');
+  const hasCancel   = perms.includes('orders.cancel');
+  const hasRefund   = perms.includes('orders.refund');
 
-    let html = `<div class="order-actions"><span class="order-actions-label">Actions</span>`;
-    if (allowedStatuses.length > 0) {
-      html += `<select class="action-status-select" id="status-select-${orderId}">
-        <option value="">— Update Status —</option>
-        ${allowedStatuses.map(s => `<option value="${s.id}">${s.label}</option>`).join('')}
-      </select>
-      <button class="action-status-btn" onclick="submitStatusUpdate(${orderId})">&#10003; Set</button>`;
-    }
-    if (hasTracking) html += `<button class="action-btn action-btn-ship" onclick="openShipmentModal(${orderId})">&#128230; Add Tracking</button>`;
-    if (hasCancel)   html += `<button class="action-btn action-btn-cancel" onclick="openCancelModal(${orderId})">&#10006; Cancel</button>`;
-    if (hasRefund)   html += `<button class="action-btn action-btn-refund" onclick="openRefundModal(${orderId}, '${order.total_inc_tax || 0}')">&#36; Refund</button>`;
-    html += `<span class="action-result" id="action-result-${orderId}" style="font-size:13px;"></span></div>`;
-    return html;
+  if (allowedStatuses.length === 0 && !hasTracking && !hasCancel && !hasRefund) return;
+
+  // Find the email-actions div and insert after it
+  const previewContent = document.getElementById('preview-content-' + orderId);
+  if (!previewContent) return;
+  const emailActions = previewContent.querySelector('.email-actions');
+  if (!emailActions) return;
+
+  const bar = document.createElement('div');
+  bar.className = 'order-actions';
+  bar.id = 'order-actions-' + orderId;
+
+  const label = document.createElement('span');
+  label.className = 'order-actions-label';
+  label.textContent = 'Actions';
+  bar.appendChild(label);
+
+  // Status dropdown
+  if (allowedStatuses.length > 0) {
+    const sel = document.createElement('select');
+    sel.className = 'action-status-select';
+    sel.id = 'status-select-' + orderId;
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '— Update Status —';
+    sel.appendChild(defaultOpt);
+
+    allowedStatuses.forEach(function(s) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.label;
+      sel.appendChild(opt);
+    });
+    bar.appendChild(sel);
+
+    const setBtn = document.createElement('button');
+    setBtn.className = 'action-status-btn';
+    setBtn.textContent = '\u2713 Set';
+    setBtn.onclick = function() { submitStatusUpdate(orderId); };
+    bar.appendChild(setBtn);
   }
 
-  async function submitStatusUpdate(orderId) {
-    const select = document.getElementById(\`status-select-\${orderId}\`);
-    const statusId = parseInt(select?.value);
-    const resultEl = document.getElementById(\`action-result-\${orderId}\`);
-    if (!statusId) { showActionResult(resultEl, 'Please select a status', 'error'); return; }
-    const btn = select.nextElementSibling;
-    btn.disabled = true; btn.textContent = 'Updating...';
-    clearActionResult(resultEl);
-    try {
-      const res = await fetch(\`/api/order/\${currentStore}/\${orderId}/status\`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statusId })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Update failed');
-      showActionResult(resultEl, \`&#10003; Status set to "\${data.statusLabel}"\`, 'success');
-      select.value = '';
-    } catch (err) { showActionResult(resultEl, '&#10007; ' + err.message, 'error'); }
-    finally { btn.disabled = false; btn.textContent = '\u2713 Set'; }
+  // Add Tracking button
+  if (hasTracking) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn action-btn-ship';
+    btn.innerHTML = '&#128230; Add Tracking';
+    btn.onclick = function() { openShipmentModal(orderId, data); };
+    bar.appendChild(btn);
   }
 
-  function openShipmentModal(orderId) {
-    _actionOrderId = orderId; _actionStore = currentStore;
-    _actionProducts = orderDetailsCache[orderId]?.products || [];
-    document.getElementById('shipment-items-list').innerHTML = _actionProducts.length === 0
-      ? '<p style="color:#888;font-size:13px;padding:6px;">No items found.</p>'
-      : _actionProducts.map(p => \`<div class="item-check-row">
-          <input type="checkbox" id="ship-item-\${p.id}" checked>
-          <input type="number" id="ship-qty-\${p.id}" min="1" max="\${p.quantity}" value="\${p.quantity}">
-          <label for="ship-item-\${p.id}" style="flex:1;">\${p.sku ? p.sku+' — ' : ''}\${p.name}</label>
-        </div>\`).join('');
-    document.getElementById('shipment-tracking').value = '';
-    document.getElementById('shipment-carrier').value = 'ups';
-    clearActionResult(document.getElementById('shipment-result'));
-    document.getElementById('shipmentModal').classList.add('active');
+  // Cancel button
+  if (hasCancel) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn action-btn-cancel';
+    btn.innerHTML = '&#10006; Cancel';
+    btn.onclick = function() { openCancelModal(orderId); };
+    bar.appendChild(btn);
   }
 
-  async function submitShipment() {
-    const tracking = document.getElementById('shipment-tracking').value.trim();
-    const carrier  = document.getElementById('shipment-carrier').value;
-    const resultEl = document.getElementById('shipment-result');
-    if (!tracking) { showActionResult(resultEl, 'Tracking number is required', 'error'); return; }
-    const items = _actionProducts.filter(p => document.getElementById(\`ship-item-\${p.id}\`)?.checked)
-      .map(p => ({ order_product_id: p.id, quantity: parseInt(document.getElementById(\`ship-qty-\${p.id}\`)?.value || p.quantity) }));
-    if (_actionProducts.length > 0 && items.length === 0) { showActionResult(resultEl, 'Select at least one item', 'error'); return; }
-    const btn = document.getElementById('shipment-submit-btn');
-    btn.disabled = true; btn.textContent = 'Creating...';
-    try {
-      const res = await fetch(\`/api/order/\${_actionStore}/\${_actionOrderId}/shipment\`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trackingNumber: tracking, carrier, items })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      showActionResult(resultEl, '&#10003; Shipment created! Tracking: ' + tracking, 'success');
-      setTimeout(() => { delete orderDetailsCache[_actionOrderId]; closeActionModal('shipmentModal'); openPreviewPanel(_actionOrderId); }, 1500);
-    } catch (err) { showActionResult(resultEl, '&#10007; ' + err.message, 'error'); }
-    finally { btn.disabled = false; btn.textContent = '\u2713 Create Shipment'; }
+  // Refund button
+  if (hasRefund) {
+    const total = (order && order.total_inc_tax) ? order.total_inc_tax : 0;
+    const btn = document.createElement('button');
+    btn.className = 'action-btn action-btn-refund';
+    btn.innerHTML = '&#36; Refund';
+    btn.onclick = function() { openRefundModal(orderId, total); };
+    bar.appendChild(btn);
   }
 
-  function openCancelModal(orderId) {
-    _actionOrderId = orderId; _actionStore = currentStore;
-    document.getElementById('cancel-order-id').textContent = '#' + orderId;
-    document.getElementById('cancel-reason').value = '';
-    clearActionResult(document.getElementById('cancel-result'));
-    document.getElementById('cancelModal').classList.add('active');
+  // Inline result span
+  const result = document.createElement('span');
+  result.id = 'action-result-' + orderId;
+  result.style.fontSize = '13px';
+  bar.appendChild(result);
+
+  emailActions.insertAdjacentElement('afterend', bar);
+}
+
+// ── Status update ────────────────────────────────────────────────
+async function submitStatusUpdate(orderId) {
+  const select   = document.getElementById('status-select-' + orderId);
+  const statusId = parseInt(select && select.value);
+  const resultEl = document.getElementById('action-result-' + orderId);
+  if (!statusId) { showInlineResult(resultEl, 'Please select a status', 'error'); return; }
+
+  const btn = select.nextElementSibling;
+  btn.disabled = true;
+  btn.textContent = 'Updating...';
+
+  try {
+    const res  = await fetch('/api/order/' + currentStore + '/' + orderId + '/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusId: statusId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+    showInlineResult(resultEl, '\u2713 Status set to "' + data.statusLabel + '"', 'success');
+    select.value = '';
+  } catch (err) {
+    showInlineResult(resultEl, '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\u2713 Set';
+  }
+}
+
+// ── Shipment modal ───────────────────────────────────────────────
+function openShipmentModal(orderId, data) {
+  _actionOrderId  = orderId;
+  _actionStore    = currentStore;
+  _actionProducts = (data && data.products) ? data.products : (orderDetailsCache[orderId] && orderDetailsCache[orderId].products ? orderDetailsCache[orderId].products : []);
+
+  const listEl = document.getElementById('shipment-items-list');
+  if (_actionProducts.length === 0) {
+    listEl.innerHTML = '<p style="color:#888;font-size:13px;padding:6px;">No items found.</p>';
+  } else {
+    listEl.innerHTML = _actionProducts.map(function(p) {
+      return '<div class="item-check-row">' +
+        '<input type="checkbox" id="ship-item-' + p.id + '" checked>' +
+        '<input type="number" id="ship-qty-' + p.id + '" min="1" max="' + p.quantity + '" value="' + p.quantity + '">' +
+        '<label for="ship-item-' + p.id + '" style="flex:1;">' + (p.sku ? p.sku + ' \u2014 ' : '') + p.name + '</label>' +
+        '</div>';
+    }).join('');
   }
 
-  async function submitCancel() {
-    const resultEl = document.getElementById('cancel-result');
-    const btn = document.getElementById('cancel-submit-btn');
-    btn.disabled = true; btn.textContent = 'Cancelling...';
-    try {
-      const res = await fetch(\`/api/order/\${_actionStore}/\${_actionOrderId}/status\`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statusId: 5 })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      showActionResult(resultEl, '&#10003; Order #' + _actionOrderId + ' cancelled', 'success');
-      setTimeout(() => closeActionModal('cancelModal'), 2000);
-    } catch (err) { showActionResult(resultEl, '&#10007; ' + err.message, 'error'); }
-    finally { btn.disabled = false; btn.textContent = 'Cancel Order'; }
-  }
+  document.getElementById('shipment-tracking').value = '';
+  document.getElementById('shipment-carrier').value  = 'ups';
+  clearModalResult('shipment-result');
+  document.getElementById('shipmentModal').classList.add('active');
+}
 
-  function openRefundModal(orderId, orderTotal) {
-    _actionOrderId = orderId; _actionStore = currentStore;
-    _actionOrderTotal = parseFloat(orderTotal) || 0;
-    document.getElementById('refund-order-id').textContent    = '#' + orderId;
-    document.getElementById('refund-order-total').textContent = '$' + _actionOrderTotal.toFixed(2);
-    document.getElementById('refund-amount').value = '';
-    document.getElementById('refund-reason').value = '';
-    document.getElementById('refund-to-original').checked = true;
-    clearActionResult(document.getElementById('refund-result'));
-    document.getElementById('refundModal').classList.add('active');
-  }
+async function submitShipment() {
+  const tracking = document.getElementById('shipment-tracking').value.trim();
+  const carrier  = document.getElementById('shipment-carrier').value;
+  if (!tracking) { showModalResult('shipment-result', 'Tracking number is required', 'error'); return; }
 
-  async function submitRefund() {
-    const amount = parseFloat(document.getElementById('refund-amount').value);
-    const reason = document.getElementById('refund-reason').value.trim();
-    const toOrig = document.getElementById('refund-to-original').checked;
-    const resultEl = document.getElementById('refund-result');
-    if (!amount || amount <= 0) { showActionResult(resultEl, 'Enter a valid refund amount', 'error'); return; }
-    if (amount > _actionOrderTotal) { showActionResult(resultEl, \`Amount exceeds order total ($\${_actionOrderTotal.toFixed(2)})\`, 'error'); return; }
-    const btn = document.getElementById('refund-submit-btn');
-    btn.disabled = true; btn.textContent = 'Processing...';
-    try {
-      const res = await fetch(\`/api/order/\${_actionStore}/\${_actionOrderId}/refund\`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, reason, refundToOriginal: toOrig })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Refund failed');
-      showActionResult(resultEl, \`&#10003; Refund of $\${amount.toFixed(2)} processed\`, 'success');
-      setTimeout(() => closeActionModal('refundModal'), 2500);
-    } catch (err) { showActionResult(resultEl, '&#10007; ' + err.message, 'error'); }
-    finally { btn.disabled = false; btn.textContent = 'Process Refund'; }
-  }
-
-  function closeActionModal(id) { document.getElementById(id).classList.remove('active'); }
-  function showActionResult(el, msg, type) { if (!el) return; el.innerHTML = msg; el.className = 'action-result ' + type; el.style.display = 'block'; }
-  function clearActionResult(el) { if (!el) return; el.innerHTML = ''; el.className = 'action-result'; el.style.display = 'none'; }
-  ['shipmentModal','cancelModal','refundModal'].forEach(id => {
-    document.getElementById(id)?.addEventListener('click', function(e) { if (e.target === this) closeActionModal(id); });
+  const items = _actionProducts.filter(function(p) {
+    return document.getElementById('ship-item-' + p.id) && document.getElementById('ship-item-' + p.id).checked;
+  }).map(function(p) {
+    const qtyEl = document.getElementById('ship-qty-' + p.id);
+    return { order_product_id: p.id, quantity: parseInt(qtyEl ? qtyEl.value : p.quantity) };
   });
 
-  // ── Bulk Tracking ────────────────────────────────────────────────
-  let _bulkFile = null, _bulkRows = [];
+  if (_actionProducts.length > 0 && items.length === 0) {
+    showModalResult('shipment-result', 'Select at least one item', 'error');
+    return;
+  }
 
-  function openBulkImportModal() {
-    _bulkFile = null; _bulkRows = [];
-    document.getElementById('bulk-step-upload').style.display = '';
+  const btn = document.getElementById('shipment-submit-btn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+
+  try {
+    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/shipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackingNumber: tracking, carrier: carrier, items: items })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    showModalResult('shipment-result', '\u2713 Shipment created! Tracking: ' + tracking, 'success');
+    setTimeout(function() {
+      delete orderDetailsCache[_actionOrderId];
+      closeActionModal('shipmentModal');
+      togglePreview(null, _actionOrderId);
+    }, 1500);
+  } catch (err) {
+    showModalResult('shipment-result', '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '\u2713 Create Shipment';
+  }
+}
+
+// ── Cancel modal ─────────────────────────────────────────────────
+function openCancelModal(orderId) {
+  _actionOrderId = orderId;
+  _actionStore   = currentStore;
+  document.getElementById('cancel-order-id').textContent = '#' + orderId;
+  document.getElementById('cancel-reason').value = '';
+  clearModalResult('cancel-result');
+  document.getElementById('cancelModal').classList.add('active');
+}
+
+async function submitCancel() {
+  const btn = document.getElementById('cancel-submit-btn');
+  btn.disabled = true; btn.textContent = 'Cancelling...';
+  try {
+    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusId: 5 })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    showModalResult('cancel-result', '\u2713 Order #' + _actionOrderId + ' cancelled', 'success');
+    setTimeout(function() { closeActionModal('cancelModal'); }, 2000);
+  } catch (err) {
+    showModalResult('cancel-result', '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Cancel Order';
+  }
+}
+
+// ── Refund modal ─────────────────────────────────────────────────
+function openRefundModal(orderId, orderTotal) {
+  _actionOrderId    = orderId;
+  _actionStore      = currentStore;
+  _actionOrderTotal = parseFloat(orderTotal) || 0;
+  document.getElementById('refund-order-id').textContent    = '#' + orderId;
+  document.getElementById('refund-order-total').textContent = '$' + _actionOrderTotal.toFixed(2);
+  document.getElementById('refund-amount').value = '';
+  document.getElementById('refund-reason').value = '';
+  document.getElementById('refund-to-original').checked = true;
+  clearModalResult('refund-result');
+  document.getElementById('refundModal').classList.add('active');
+}
+
+async function submitRefund() {
+  const amount = parseFloat(document.getElementById('refund-amount').value);
+  const reason = document.getElementById('refund-reason').value.trim();
+  const toOrig = document.getElementById('refund-to-original').checked;
+  if (!amount || amount <= 0) { showModalResult('refund-result', 'Enter a valid refund amount', 'error'); return; }
+  if (amount > _actionOrderTotal) { showModalResult('refund-result', 'Amount exceeds order total ($' + _actionOrderTotal.toFixed(2) + ')', 'error'); return; }
+
+  const btn = document.getElementById('refund-submit-btn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  try {
+    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amount, reason: reason, refundToOriginal: toOrig })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Refund failed');
+    showModalResult('refund-result', '\u2713 Refund of $' + amount.toFixed(2) + ' processed', 'success');
+    setTimeout(function() { closeActionModal('refundModal'); }, 2500);
+  } catch (err) {
+    showModalResult('refund-result', '\u2717 ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Process Refund';
+  }
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────
+function closeActionModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove('active');
+}
+function showModalResult(id, msg, type) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = msg;
+  el.className = 'action-result ' + type;
+}
+function clearModalResult(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  el.className = 'action-result';
+}
+function showInlineResult(el, msg, type) {
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'action-inline-result ' + type;
+}
+
+['shipmentModal','cancelModal','refundModal'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', function(e) { if (e.target === this) closeActionModal(id); });
+});
+
+// ── Bulk Tracking ────────────────────────────────────────────────
+var _bulkFile = null, _bulkRows = [];
+
+function openBulkImportModal() {
+  _bulkFile = null; _bulkRows = [];
+  document.getElementById('bulk-step-upload').style.display = '';
+  document.getElementById('bulk-progress-wrap').style.display = 'none';
+  document.getElementById('bulk-results').style.display = 'none';
+  document.getElementById('bulk-file-name').style.display = 'none';
+  document.getElementById('bulk-preview-table').style.display = 'none';
+  document.getElementById('bulk-preview-count').style.display = 'none';
+  document.getElementById('bulk-preview-body').innerHTML = '';
+  document.getElementById('bulk-fail-section').style.display = 'none';
+  document.getElementById('bulk-skip-section').style.display = 'none';
+  document.getElementById('bulk-import-btn').disabled = true;
+  document.getElementById('bulk-import-btn').textContent = 'Import Tracking';
+  document.getElementById('bulk-import-btn').onclick = submitBulkImport;
+  document.getElementById('bulk-file-input').value = '';
+  document.getElementById('bulk-store-select').value = currentStore || '1ink';
+  document.getElementById('bulkImportModal').classList.add('active');
+}
+
+function closeBulkModal() {
+  document.getElementById('bulkImportModal').classList.remove('active');
+}
+
+function bulkDragOver(e)  { e.preventDefault(); document.getElementById('bulk-drop-zone').classList.add('dragover'); }
+function bulkDragLeave()  { document.getElementById('bulk-drop-zone').classList.remove('dragover'); }
+function bulkDrop(e) {
+  e.preventDefault();
+  document.getElementById('bulk-drop-zone').classList.remove('dragover');
+  var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) bulkFileSelected(f);
+}
+function bulkFileSelected(file) {
+  if (!file || !file.name.endsWith('.csv')) { alert('Please select a CSV file.'); return; }
+  _bulkFile = file;
+  document.getElementById('bulk-file-name').textContent = '\u2705 ' + file.name;
+  document.getElementById('bulk-file-name').style.display = 'block';
+  var reader = new FileReader();
+  reader.onload = function(e) { parseBulkCsvPreview(e.target.result); };
+  reader.readAsText(file);
+}
+
+function parseBulkCsvPreview(text) {
+  var rows = [], headerSkipped = false;
+  var lines = text.split(/\r?\n/);
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    if (!headerSkipped) {
+      var first = line.split(',')[0].replace(/"/g, '').trim();
+      if (isNaN(parseInt(first))) { headerSkipped = true; continue; }
+      headerSkipped = true;
+    }
+    var fields = [], cur = '', inQ = false;
+    for (var j = 0; j < line.length; j++) {
+      var ch = line[j];
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { fields.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    fields.push(cur);
+    var orderId  = (fields[0] || '').trim();
+    var tracking = (fields[1] || '').replace(/[\r\n\s]+/g, '').trim();
+    var carrier  = (fields[2] || '').trim();
+    if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId: orderId, tracking: tracking, carrier: carrier });
+  }
+  _bulkRows = rows;
+
+  var tbody   = document.getElementById('bulk-preview-body');
+  var preview = rows.slice(0, 10);
+  var html    = preview.map(function(r) {
+    return '<tr><td>#' + r.orderId + '</td><td style="font-family:monospace;font-size:12px;">' + r.tracking + '</td><td>' + r.carrier + '</td></tr>';
+  }).join('');
+  if (rows.length > 10) html += '<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and ' + (rows.length - 10) + ' more rows</td></tr>';
+  tbody.innerHTML = html;
+
+  document.getElementById('bulk-preview-table').style.display = rows.length ? 'table' : 'none';
+  document.getElementById('bulk-preview-count').style.display = rows.length ? 'block' : 'none';
+  document.getElementById('bulk-preview-count').textContent   = rows.length + ' orders ready to import';
+  document.getElementById('bulk-import-btn').disabled = rows.length === 0;
+}
+
+async function submitBulkImport() {
+  if (!_bulkFile || _bulkRows.length === 0) return;
+  var store = document.getElementById('bulk-store-select').value;
+
+  document.getElementById('bulk-step-upload').style.display = 'none';
+  document.getElementById('bulk-progress-wrap').style.display = 'block';
+  document.getElementById('bulk-import-btn').disabled = true;
+
+  var fakeP = 0;
+  var interval = setInterval(function() {
+    if (fakeP < 85) { fakeP += Math.random() * 3; setBulkProgress(Math.min(fakeP, 85), _bulkRows.length); }
+  }, 400);
+
+  var fd = new FormData();
+  fd.append('csvFile', _bulkFile);
+  fd.append('store', store);
+
+  try {
+    var res  = await fetch('/api/bulk-tracking', { method: 'POST', body: fd });
+    var data = await res.json();
+    clearInterval(interval);
+    setBulkProgress(100, _bulkRows.length);
+    await new Promise(function(r) { setTimeout(r, 500); });
     document.getElementById('bulk-progress-wrap').style.display = 'none';
-    document.getElementById('bulk-results').style.display = 'none';
-    document.getElementById('bulk-file-name').style.display = 'none';
-    document.getElementById('bulk-preview-table').style.display = 'none';
-    document.getElementById('bulk-preview-count').style.display = 'none';
-    document.getElementById('bulk-preview-body').innerHTML = '';
-    document.getElementById('bulk-fail-section').style.display = 'none';
-    document.getElementById('bulk-skip-section').style.display = 'none';
-    document.getElementById('bulk-import-btn').disabled = true;
-    document.getElementById('bulk-import-btn').textContent = '\u{1F4E6} Import Tracking';
-    document.getElementById('bulk-import-btn').onclick = submitBulkImport;
-    document.getElementById('bulk-file-input').value = '';
-    document.getElementById('bulk-store-select').value = currentStore || '1ink';
-    document.getElementById('bulkImportModal').classList.add('active');
-  }
-  function closeBulkModal() { document.getElementById('bulkImportModal').classList.remove('active'); }
-  function bulkDragOver(e)  { e.preventDefault(); document.getElementById('bulk-drop-zone').classList.add('dragover'); }
-  function bulkDragLeave()  { document.getElementById('bulk-drop-zone').classList.remove('dragover'); }
-  function bulkDrop(e) {
-    e.preventDefault(); document.getElementById('bulk-drop-zone').classList.remove('dragover');
-    const f = e.dataTransfer?.files?.[0]; if (f) bulkFileSelected(f);
-  }
-  function bulkFileSelected(file) {
-    if (!file?.name.endsWith('.csv')) { alert('Please select a CSV file.'); return; }
-    _bulkFile = file;
-    document.getElementById('bulk-file-name').textContent = '\u2705 ' + file.name;
-    document.getElementById('bulk-file-name').style.display = 'block';
-    const reader = new FileReader();
-    reader.onload = e => parseBulkCsvPreview(e.target.result);
-    reader.readAsText(file);
-  }
-  function parseBulkCsvPreview(text) {
-    const rows = []; let headerSkipped = false;
-    for (const rawLine of text.split(/\r?\n/)) {
-      const line = rawLine.trim(); if (!line) continue;
-      if (!headerSkipped) {
-        const first = line.split(',')[0].replace(/"/g,'').trim();
-        if (isNaN(parseInt(first))) { headerSkipped = true; continue; }
-        headerSkipped = true;
-      }
-      const fields = []; let cur = '', inQ = false;
-      for (const ch of line) {
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { fields.push(cur); cur = ''; continue; }
-        cur += ch;
-      }
-      fields.push(cur);
-      const orderId  = (fields[0]||'').trim();
-      const tracking = (fields[1]||'').replace(/[\r\n\s]+/g,'').trim();
-      const carrier  = (fields[2]||'').trim();
-      if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId, tracking, carrier });
+    if (!res.ok) throw new Error(data.error || 'Import failed');
+
+    var results = data.results;
+    document.getElementById('bulk-res-success').textContent = results.success.length;
+    document.getElementById('bulk-res-skipped').textContent = results.skipped.length;
+    document.getElementById('bulk-res-failed').textContent  = results.failed.length;
+
+    if (results.failed.length > 0) {
+      document.getElementById('bulk-fail-section').style.display = 'block';
+      document.getElementById('bulk-fail-list').innerHTML = results.failed.map(function(f) {
+        return '<div class="bulk-fail-row"><span class="bulk-fail-order">#' + f.orderId + '</span><span class="bulk-fail-reason">' + f.reason + '</span></div>';
+      }).join('');
     }
-    _bulkRows = rows;
-    const tbody = document.getElementById('bulk-preview-body');
-    tbody.innerHTML = rows.slice(0,10).map(r =>
-      \`<tr><td>#\${r.orderId}</td><td style="font-family:monospace;font-size:12px;">\${r.tracking}</td><td>\${r.carrier}</td></tr>\`
-    ).join('') + (rows.length > 10 ? \`<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and \${rows.length-10} more rows</td></tr>\` : '');
-    document.getElementById('bulk-preview-table').style.display = rows.length ? 'table' : 'none';
-    document.getElementById('bulk-preview-count').style.display = rows.length ? 'block' : 'none';
-    document.getElementById('bulk-preview-count').textContent   = rows.length + ' orders ready to import';
-    document.getElementById('bulk-import-btn').disabled = rows.length === 0;
-  }
-  async function submitBulkImport() {
-    if (!_bulkFile || _bulkRows.length === 0) return;
-    const store = document.getElementById('bulk-store-select').value;
-    document.getElementById('bulk-step-upload').style.display = 'none';
-    document.getElementById('bulk-progress-wrap').style.display = 'block';
-    document.getElementById('bulk-import-btn').disabled = true;
-    let fakeP = 0;
-    const interval = setInterval(() => { if (fakeP < 85) { fakeP += Math.random()*3; setProgress(Math.min(fakeP,85), _bulkRows.length); } }, 400);
-    const fd = new FormData(); fd.append('csvFile', _bulkFile); fd.append('store', store);
-    try {
-      const res = await fetch('/api/bulk-tracking', { method: 'POST', body: fd });
-      const data = await res.json();
-      clearInterval(interval); setProgress(100, _bulkRows.length);
-      await new Promise(r => setTimeout(r, 500));
-      document.getElementById('bulk-progress-wrap').style.display = 'none';
-      if (!res.ok) throw new Error(data.error || 'Import failed');
-      const { results } = data;
-      document.getElementById('bulk-res-success').textContent = results.success.length;
-      document.getElementById('bulk-res-skipped').textContent = results.skipped.length;
-      document.getElementById('bulk-res-failed').textContent  = results.failed.length;
-      if (results.failed.length > 0) {
-        document.getElementById('bulk-fail-section').style.display = 'block';
-        document.getElementById('bulk-fail-list').innerHTML = results.failed.map(f =>
-          \`<div class="bulk-fail-row"><span class="bulk-fail-order">#\${f.orderId}</span><span class="bulk-fail-reason">\${f.reason}</span></div>\`).join('');
-      }
-      if (results.skipped.length > 0) {
-        document.getElementById('bulk-skip-section').style.display = 'block';
-        document.getElementById('bulk-skip-list').innerHTML = results.skipped.map(f =>
-          \`<div class="bulk-fail-row"><span class="bulk-fail-order">#\${f.orderId}</span><span class="bulk-fail-reason">\${f.reason}</span></div>\`).join('');
-      }
-      document.getElementById('bulk-results').style.display = 'block';
-      document.getElementById('bulk-import-btn').disabled = false;
-      document.getElementById('bulk-import-btn').textContent = 'Import Another';
-      document.getElementById('bulk-import-btn').onclick = openBulkImportModal;
-    } catch (err) {
-      clearInterval(interval);
-      document.getElementById('bulk-progress-wrap').style.display = 'none';
-      document.getElementById('bulk-step-upload').style.display = '';
-      document.getElementById('bulk-import-btn').disabled = false;
-      alert('Import failed: ' + err.message);
+    if (results.skipped.length > 0) {
+      document.getElementById('bulk-skip-section').style.display = 'block';
+      document.getElementById('bulk-skip-list').innerHTML = results.skipped.map(function(f) {
+        return '<div class="bulk-fail-row"><span class="bulk-fail-order">#' + f.orderId + '</span><span class="bulk-fail-reason">' + f.reason + '</span></div>';
+      }).join('');
     }
+
+    document.getElementById('bulk-results').style.display = 'block';
+    document.getElementById('bulk-import-btn').disabled = false;
+    document.getElementById('bulk-import-btn').textContent = 'Import Another';
+    document.getElementById('bulk-import-btn').onclick = openBulkImportModal;
+
+  } catch (err) {
+    clearInterval(interval);
+    document.getElementById('bulk-progress-wrap').style.display = 'none';
+    document.getElementById('bulk-step-upload').style.display = '';
+    document.getElementById('bulk-import-btn').disabled = false;
+    alert('Import failed: ' + err.message);
   }
-  function setProgress(pct, total) {
-    const p = Math.round(pct);
-    document.getElementById('bulk-progress-fill').style.width = p + '%';
-    document.getElementById('bulk-progress-pct').textContent  = p + '%';
-    document.getElementById('bulk-progress-text').textContent = p < 100 ? \`Processing \${total} orders...\` : 'Finalizing...';
-  }
-  document.getElementById('bulkImportModal')?.addEventListener('click', function(e) { if (e.target === this) closeBulkModal(); });
+}
+
+function setBulkProgress(pct, total) {
+  var p = Math.round(pct);
+  document.getElementById('bulk-progress-fill').style.width = p + '%';
+  document.getElementById('bulk-progress-pct').textContent  = p + '%';
+  document.getElementById('bulk-progress-text').textContent = p < 100 ? 'Processing ' + total + ' orders...' : 'Finalizing...';
+}
+
+var bulkModalEl = document.getElementById('bulkImportModal');
+if (bulkModalEl) bulkModalEl.addEventListener('click', function(e) { if (e.target === this) closeBulkModal(); });
+
   </script>
 
 </body>
