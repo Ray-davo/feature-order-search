@@ -810,12 +810,10 @@
       background: #5a6268;
     }
     
-    /* ── Order Actions Panel ─────────────────────────── */
     .order-actions { border-top:1px solid #eee; padding:14px 16px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     .order-actions-label { font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.05em; margin-right:4px; }
     .action-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:none; border-radius:5px; font-size:13px; font-weight:500; cursor:pointer; transition:filter .15s; }
-    .action-btn:hover { filter:brightness(.9); }
-    .action-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .action-btn:hover { filter:brightness(.9); } .action-btn:disabled { opacity:.45; cursor:not-allowed; }
     .action-btn-status { background:#e9ecef; color:#333; }
     .action-btn-ship   { background:#0065d1; color:#fff; }
     .action-btn-cancel { background:#fff3cd; color:#856404; border:1px solid #ffc107; }
@@ -837,7 +835,7 @@
     .action-field { margin-bottom:16px; }
     .action-field label { display:block; font-size:13px; font-weight:600; color:#555; margin-bottom:5px; }
     .action-field input, .action-field select, .action-field textarea { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; }
-    .action-field input:focus, .action-field select:focus, .action-field textarea:focus { outline:none; border-color:#007bff; box-shadow:0 0 0 2px rgba(0,123,255,.1); }
+    .action-field input:focus, .action-field select:focus, .action-field textarea:focus { outline:none; border-color:#007bff; }
     .action-field .field-note { font-size:12px; color:#888; margin-top:4px; }
     .confirm-danger { background:#fff3f3; border:1px solid #f5c6cb; border-radius:6px; padding:12px 14px; color:#721c24; font-size:13px; margin-bottom:16px; }
     .action-result { padding:10px 14px; border-radius:5px; font-size:13px; margin-bottom:12px; display:none; }
@@ -847,6 +845,10 @@
     .item-check-row { display:flex; align-items:center; gap:8px; padding:5px 2px; font-size:13px; border-bottom:1px solid #f0f0f0; }
     .item-check-row:last-child { border-bottom:none; }
     .item-check-row input[type=number] { width:50px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; }
+    .refund-method-option { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px; cursor:pointer; font-size:14px; }
+    .refund-method-option:hover { border-color:#007bff; background:#f0f7ff; }
+    .refund-method-option input[type=radio] { margin-top:2px; flex-shrink:0; width:16px; height:16px; }
+    .refund-quote-total { font-size:13px; font-weight:600; color:#333; padding:8px 12px; background:#f8f9fa; border-radius:5px; margin-bottom:12px; }
     .bulk-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:3000; align-items:center; justify-content:center; }
     .bulk-modal-overlay.active { display:flex; }
     .bulk-modal { background:#fff; border-radius:10px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,.25); }
@@ -1055,7 +1057,6 @@
         currentUser = data.user;
         currentUserIsAdmin = data.isAdmin || false;
         currentUserPermissions = data.permissions || [];
-
         if (data.isAdmin || (data.permissions && data.permissions.includes('admin.users.view'))) {
           document.getElementById('adminLink').style.display = 'inline-block';
         }
@@ -2212,6 +2213,7 @@
       </div>
     </div>
   </div>
+
   <div class="action-modal-overlay" id="cancelModal">
     <div class="action-modal">
       <div class="action-modal-header">
@@ -2231,35 +2233,44 @@
       </div>
     </div>
   </div>
+
+  <!-- Refund modal — 2-step: amount → quote → pick method → execute -->
   <div class="action-modal-overlay" id="refundModal">
     <div class="action-modal">
       <div class="action-modal-header">
-        <h3>Process Refund</h3>
+        <h3>&#36; Process Refund</h3>
         <button class="action-modal-close" onclick="closeActionModal('refundModal')">&times;</button>
       </div>
       <div class="action-modal-body">
         <div class="action-result" id="refund-result"></div>
-        <div class="confirm-danger"><strong>Warning:</strong> Refunding order <strong id="refund-order-id"></strong>. This charges back the customer's payment method.</div>
-        <div class="action-field"><label>Refund Amount ($)</label>
-          <input type="number" id="refund-amount" min="0.01" step="0.01" placeholder="0.00">
-          <p class="field-note">Order total: <strong id="refund-order-total"></strong></p>
+
+        <!-- Step 1: Enter amount -->
+        <div id="refund-step1">
+          <div class="action-field">
+            <label>Refund Amount ($)</label>
+            <input type="number" id="refund-amount" min="0.01" step="0.01" placeholder="0.00">
+            <p class="field-note">Order total: <strong id="refund-order-total"></strong> &nbsp;&bull;&nbsp; Order <strong id="refund-order-id"></strong></p>
+          </div>
+          <div class="action-field"><label>Reason (optional)</label>
+            <textarea id="refund-reason" rows="2" placeholder="Defective item, customer return..."></textarea>
+          </div>
         </div>
-        <div class="action-field"><label>Reason</label>
-          <textarea id="refund-reason" rows="2" placeholder="Defective item, customer return..."></textarea>
-        </div>
-        <div class="action-field">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="refund-to-original" checked style="width:16px;height:16px;">
-            Refund to original payment method
-          </label>
+
+        <!-- Step 2: Choose payment method (shown after quote) -->
+        <div id="refund-step2" style="display:none;">
+          <div class="refund-quote-total" id="refund-quote-total"></div>
+          <p style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px;">Select refund method:</p>
+          <div id="refund-payment-methods"></div>
         </div>
       </div>
       <div class="action-modal-footer">
         <button class="action-btn action-btn-status" onclick="closeActionModal('refundModal')">Cancel</button>
-        <button class="action-btn action-btn-refund" id="refund-submit-btn" onclick="submitRefund()">Process Refund</button>
+        <button class="action-btn action-btn-status" id="refund-get-quote-btn" onclick="getRefundQuote()">Get Payment Options</button>
+        <button class="action-btn action-btn-refund" id="refund-execute-btn" style="display:none;" onclick="submitRefund()">Process Refund</button>
       </div>
     </div>
   </div>
+
   <!-- Bulk Tracking Modal -->
   <div class="bulk-modal-overlay" id="bulkImportModal">
     <div class="bulk-modal">
@@ -2315,6 +2326,7 @@
       </div>
     </div>
   </div>
+
   <script>
 // ── Order Actions ────────────────────────────────────────────────
 let _actionOrderId = null, _actionStore = null, _actionProducts = [], _actionOrderTotal = 0;
@@ -2330,87 +2342,82 @@ const ACTION_STATUS_OPTIONS = [
   { id: 14, label: 'Partially Refunded',   perm: 'orders.refund'        },
 ];
 
-// Called after renderPreviewItems sets innerHTML — injects action bar via DOM, no template literal
 function injectOrderActionsBar(orderId, order, data) {
-  const perms = currentUserPermissions || [];
-  const allowedStatuses = ACTION_STATUS_OPTIONS.filter(s => perms.includes(s.perm));
-  const hasTracking = perms.includes('orders.tracking.add');
-  const hasCancel   = perms.includes('orders.cancel');
-  const hasRefund   = perms.includes('orders.refund');
+  var perms = currentUserPermissions || [];
+  var allowedStatuses = ACTION_STATUS_OPTIONS.filter(function(s) { return perms.includes(s.perm); });
+  var hasTracking = perms.includes('orders.tracking.add');
+  var hasCancel   = perms.includes('orders.cancel');
+  var hasRefund   = perms.includes('orders.refund');
 
   if (allowedStatuses.length === 0 && !hasTracking && !hasCancel && !hasRefund) return;
 
-  // Find the email-actions div and insert after it
-  const previewContent = document.getElementById('preview-content-' + orderId);
+  var previewContent = document.getElementById('preview-content-' + orderId);
   if (!previewContent) return;
-  const emailActions = previewContent.querySelector('.email-actions');
+  var emailActions = previewContent.querySelector('.email-actions');
   if (!emailActions) return;
 
-  const bar = document.createElement('div');
+  // Remove existing bar if refreshing
+  var existing = document.getElementById('order-actions-' + orderId);
+  if (existing) existing.remove();
+
+  var bar = document.createElement('div');
   bar.className = 'order-actions';
   bar.id = 'order-actions-' + orderId;
 
-  const label = document.createElement('span');
+  var label = document.createElement('span');
   label.className = 'order-actions-label';
   label.textContent = 'Actions';
   bar.appendChild(label);
 
-  // Status dropdown
   if (allowedStatuses.length > 0) {
-    const sel = document.createElement('select');
+    var sel = document.createElement('select');
     sel.className = 'action-status-select';
     sel.id = 'status-select-' + orderId;
-
-    const defaultOpt = document.createElement('option');
+    var defaultOpt = document.createElement('option');
     defaultOpt.value = '';
-    defaultOpt.textContent = '— Update Status —';
+    defaultOpt.textContent = '\u2014 Update Status \u2014';
     sel.appendChild(defaultOpt);
-
     allowedStatuses.forEach(function(s) {
-      const opt = document.createElement('option');
+      var opt = document.createElement('option');
       opt.value = s.id;
       opt.textContent = s.label;
       sel.appendChild(opt);
     });
     bar.appendChild(sel);
 
-    const setBtn = document.createElement('button');
+    var setBtn = document.createElement('button');
     setBtn.className = 'action-status-btn';
     setBtn.textContent = '\u2713 Set';
     setBtn.onclick = function() { submitStatusUpdate(orderId); };
     bar.appendChild(setBtn);
   }
 
-  // Add Tracking button
   if (hasTracking) {
-    const btn = document.createElement('button');
+    var btn = document.createElement('button');
     btn.className = 'action-btn action-btn-ship';
     btn.innerHTML = '&#128230; Add Tracking';
     btn.onclick = function() { openShipmentModal(orderId, data); };
     bar.appendChild(btn);
   }
 
-  // Cancel button
   if (hasCancel) {
-    const btn = document.createElement('button');
-    btn.className = 'action-btn action-btn-cancel';
-    btn.innerHTML = '&#10006; Cancel';
-    btn.onclick = function() { openCancelModal(orderId); };
-    bar.appendChild(btn);
+    var btn2 = document.createElement('button');
+    btn2.className = 'action-btn action-btn-cancel';
+    btn2.innerHTML = '&#10006; Cancel';
+    btn2.onclick = function() { openCancelModal(orderId); };
+    bar.appendChild(btn2);
   }
 
-  // Refund button
   if (hasRefund) {
-    const total = (order && order.total_inc_tax) ? order.total_inc_tax : 0;
-    const btn = document.createElement('button');
-    btn.className = 'action-btn action-btn-refund';
-    btn.innerHTML = '&#36; Refund';
-    btn.onclick = function() { openRefundModal(orderId, total); };
-    bar.appendChild(btn);
+    var total = (order && order.total_inc_tax) ? order.total_inc_tax : 0;
+    var btn3 = document.createElement('button');
+    btn3.className = 'action-btn action-btn-refund';
+    btn3.innerHTML = '&#36; Refund';
+    btn3.onclick = function() { openRefundModal(orderId, total); };
+    bar.appendChild(btn3);
   }
 
-  // Inline result span
-  const result = document.createElement('span');
+  var result = document.createElement('span');
   result.id = 'action-result-' + orderId;
   result.style.fontSize = '13px';
   bar.appendChild(result);
@@ -2420,30 +2427,25 @@ function injectOrderActionsBar(orderId, order, data) {
 
 // ── Status update ────────────────────────────────────────────────
 async function submitStatusUpdate(orderId) {
-  const select   = document.getElementById('status-select-' + orderId);
-  const statusId = parseInt(select && select.value);
-  const resultEl = document.getElementById('action-result-' + orderId);
+  var select   = document.getElementById('status-select-' + orderId);
+  var statusId = parseInt(select && select.value);
+  var resultEl = document.getElementById('action-result-' + orderId);
   if (!statusId) { showInlineResult(resultEl, 'Please select a status', 'error'); return; }
-
-  const btn = select.nextElementSibling;
-  btn.disabled = true;
-  btn.textContent = 'Updating...';
-
+  var btn = select.nextElementSibling;
+  btn.disabled = true; btn.textContent = 'Updating...';
   try {
-    const res  = await fetch('/api/order/' + currentStore + '/' + orderId + '/status', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+    var res  = await fetch('/api/order/' + currentStore + '/' + orderId + '/status', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ statusId: statusId })
     });
-    const data = await res.json();
+    var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Update failed');
     showInlineResult(resultEl, '\u2713 Status set to "' + data.statusLabel + '"', 'success');
     select.value = '';
   } catch (err) {
     showInlineResult(resultEl, '\u2717 ' + err.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = '\u2713 Set';
+    btn.disabled = false; btn.textContent = '\u2713 Set';
   }
 }
 
@@ -2451,9 +2453,10 @@ async function submitStatusUpdate(orderId) {
 function openShipmentModal(orderId, data) {
   _actionOrderId  = orderId;
   _actionStore    = currentStore;
-  _actionProducts = (data && data.products) ? data.products : (orderDetailsCache[orderId] && orderDetailsCache[orderId].products ? orderDetailsCache[orderId].products : []);
+  _actionProducts = (data && data.products) ? data.products :
+                    (orderDetailsCache[orderId] && orderDetailsCache[orderId].products ? orderDetailsCache[orderId].products : []);
 
-  const listEl = document.getElementById('shipment-items-list');
+  var listEl = document.getElementById('shipment-items-list');
   if (_actionProducts.length === 0) {
     listEl.innerHTML = '<p style="color:#888;font-size:13px;padding:6px;">No items found.</p>';
   } else {
@@ -2465,7 +2468,6 @@ function openShipmentModal(orderId, data) {
         '</div>';
     }).join('');
   }
-
   document.getElementById('shipment-tracking').value = '';
   document.getElementById('shipment-carrier').value  = 'ups';
   clearModalResult('shipment-result');
@@ -2473,32 +2475,29 @@ function openShipmentModal(orderId, data) {
 }
 
 async function submitShipment() {
-  const tracking = document.getElementById('shipment-tracking').value.trim();
-  const carrier  = document.getElementById('shipment-carrier').value;
+  var tracking = document.getElementById('shipment-tracking').value.trim();
+  var carrier  = document.getElementById('shipment-carrier').value;
   if (!tracking) { showModalResult('shipment-result', 'Tracking number is required', 'error'); return; }
 
-  const items = _actionProducts.filter(function(p) {
-    return document.getElementById('ship-item-' + p.id) && document.getElementById('ship-item-' + p.id).checked;
+  var items = _actionProducts.filter(function(p) {
+    var cb = document.getElementById('ship-item-' + p.id);
+    return cb && cb.checked;
   }).map(function(p) {
-    const qtyEl = document.getElementById('ship-qty-' + p.id);
+    var qtyEl = document.getElementById('ship-qty-' + p.id);
     return { order_product_id: p.id, quantity: parseInt(qtyEl ? qtyEl.value : p.quantity) };
   });
-
   if (_actionProducts.length > 0 && items.length === 0) {
-    showModalResult('shipment-result', 'Select at least one item', 'error');
-    return;
+    showModalResult('shipment-result', 'Select at least one item', 'error'); return;
   }
 
-  const btn = document.getElementById('shipment-submit-btn');
+  var btn = document.getElementById('shipment-submit-btn');
   btn.disabled = true; btn.textContent = 'Creating...';
-
   try {
-    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/shipment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    var res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/shipment', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trackingNumber: tracking, carrier: carrier, items: items })
     });
-    const data = await res.json();
+    var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
     showModalResult('shipment-result', '\u2713 Shipment created! Tracking: ' + tracking, 'success');
     setTimeout(function() {
@@ -2524,15 +2523,14 @@ function openCancelModal(orderId) {
 }
 
 async function submitCancel() {
-  const btn = document.getElementById('cancel-submit-btn');
+  var btn = document.getElementById('cancel-submit-btn');
   btn.disabled = true; btn.textContent = 'Cancelling...';
   try {
-    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/status', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+    var res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/status', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ statusId: 5 })
     });
-    const data = await res.json();
+    var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed');
     showModalResult('cancel-result', '\u2713 Order #' + _actionOrderId + ' cancelled', 'success');
     setTimeout(function() { closeActionModal('cancelModal'); }, 2000);
@@ -2543,42 +2541,107 @@ async function submitCancel() {
   }
 }
 
-// ── Refund modal ─────────────────────────────────────────────────
+// ── Refund modal — proper 2-step flow ────────────────────────────
+var _refundQuoteItems = null;   // items to send in execute step
+var _refundPayments   = [];     // available payment methods from quote
+
 function openRefundModal(orderId, orderTotal) {
   _actionOrderId    = orderId;
   _actionStore      = currentStore;
   _actionOrderTotal = parseFloat(orderTotal) || 0;
+  _refundQuoteItems = null;
+  _refundPayments   = [];
+
   document.getElementById('refund-order-id').textContent    = '#' + orderId;
   document.getElementById('refund-order-total').textContent = '$' + _actionOrderTotal.toFixed(2);
   document.getElementById('refund-amount').value = '';
   document.getElementById('refund-reason').value = '';
-  document.getElementById('refund-to-original').checked = true;
+
+  // Show step 1, hide step 2
+  document.getElementById('refund-step1').style.display = '';
+  document.getElementById('refund-step2').style.display = 'none';
+  document.getElementById('refund-get-quote-btn').disabled = false;
+  document.getElementById('refund-get-quote-btn').textContent = 'Get Payment Options';
+  document.getElementById('refund-execute-btn').style.display = 'none';
+
   clearModalResult('refund-result');
   document.getElementById('refundModal').classList.add('active');
 }
 
-async function submitRefund() {
-  const amount = parseFloat(document.getElementById('refund-amount').value);
-  const reason = document.getElementById('refund-reason').value.trim();
-  const toOrig = document.getElementById('refund-to-original').checked;
+async function getRefundQuote() {
+  var amount = parseFloat(document.getElementById('refund-amount').value);
   if (!amount || amount <= 0) { showModalResult('refund-result', 'Enter a valid refund amount', 'error'); return; }
-  if (amount > _actionOrderTotal) { showModalResult('refund-result', 'Amount exceeds order total ($' + _actionOrderTotal.toFixed(2) + ')', 'error'); return; }
+  if (amount > _actionOrderTotal && _actionOrderTotal > 0) {
+    showModalResult('refund-result', 'Amount exceeds order total ($' + _actionOrderTotal.toFixed(2) + ')', 'error'); return;
+  }
 
-  const btn = document.getElementById('refund-submit-btn');
-  btn.disabled = true; btn.textContent = 'Processing...';
+  var btn = document.getElementById('refund-get-quote-btn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  clearModalResult('refund-result');
+
   try {
-    const res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: amount, reason: reason, refundToOriginal: toOrig })
+    var res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund-quote', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amount })
     });
-    const data = await res.json();
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Quote failed');
+
+    _refundQuoteItems = data.quoteItems;
+    _refundPayments   = data.payments || [];
+
+    // Populate payment method options
+    var container = document.getElementById('refund-payment-methods');
+    if (_refundPayments.length === 0) {
+      container.innerHTML = '<p style="color:#888;font-size:13px;">No payment methods available for this order.</p>';
+    } else {
+      container.innerHTML = _refundPayments.map(function(p, i) {
+        var label = p.offline ? 'Mark as Refunded Externally' :
+                    p.provider_id === 'storecredit' ? 'Store Credit ($' + parseFloat(p.amount).toFixed(2) + ')' :
+                    (p.provider_id || 'Payment Provider').toUpperCase() + ' \u2014 $' + parseFloat(p.amount).toFixed(2) + ' (back to card)';
+        return '<label class="refund-method-option">' +
+          '<input type="radio" name="refund-payment" value="' + i + '" ' + (i === 0 ? 'checked' : '') + '>' +
+          '<span>' + label + '</span>' +
+          '</label>';
+      }).join('');
+    }
+
+    // Show total including tax
+    document.getElementById('refund-quote-total').textContent = 'Refund total: $' + parseFloat(data.total_amount || amount).toFixed(2) +
+      (data.total_tax ? ' (incl. $' + parseFloat(data.total_tax).toFixed(2) + ' tax)' : '');
+
+    document.getElementById('refund-step2').style.display = '';
+    document.getElementById('refund-execute-btn').style.display = '';
+    document.getElementById('refund-execute-btn').disabled = _refundPayments.length === 0;
+
+  } catch (err) {
+    showModalResult('refund-result', '\u2717 ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Get Payment Options';
+  }
+}
+
+async function submitRefund() {
+  if (!_refundQuoteItems || _refundPayments.length === 0) return;
+  var reason   = document.getElementById('refund-reason').value.trim();
+  var radioEls = document.querySelectorAll('input[name="refund-payment"]');
+  var selectedIdx = 0;
+  radioEls.forEach(function(r) { if (r.checked) selectedIdx = parseInt(r.value); });
+  var selectedPayment = _refundPayments[selectedIdx];
+
+  var btn = document.getElementById('refund-execute-btn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+
+  try {
+    var res  = await fetch('/api/order/' + _actionStore + '/' + _actionOrderId + '/refund', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quoteItems: _refundQuoteItems, selectedPayment: selectedPayment, reason: reason })
+    });
+    var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Refund failed');
-    showModalResult('refund-result', '\u2713 Refund of $' + amount.toFixed(2) + ' processed', 'success');
+    showModalResult('refund-result', '\u2713 Refund of $' + parseFloat(selectedPayment.amount).toFixed(2) + ' processed successfully', 'success');
     setTimeout(function() { closeActionModal('refundModal'); }, 2500);
   } catch (err) {
     showModalResult('refund-result', '\u2717 ' + err.message, 'error');
-  } finally {
     btn.disabled = false; btn.textContent = 'Process Refund';
   }
 }
@@ -2591,19 +2654,16 @@ function closeActionModal(id) {
 function showModalResult(id, msg, type) {
   var el = document.getElementById(id);
   if (!el) return;
-  el.innerHTML = msg;
-  el.className = 'action-result ' + type;
+  el.innerHTML = msg; el.className = 'action-result ' + type;
 }
 function clearModalResult(id) {
   var el = document.getElementById(id);
   if (!el) return;
-  el.innerHTML = '';
-  el.className = 'action-result';
+  el.innerHTML = ''; el.className = 'action-result';
 }
 function showInlineResult(el, msg, type) {
   if (!el) return;
-  el.textContent = msg;
-  el.className = 'action-inline-result ' + type;
+  el.textContent = msg; el.className = 'action-inline-result ' + type;
 }
 
 ['shipmentModal','cancelModal','refundModal'].forEach(function(id) {
@@ -2632,16 +2692,11 @@ function openBulkImportModal() {
   document.getElementById('bulk-store-select').value = currentStore || '1ink';
   document.getElementById('bulkImportModal').classList.add('active');
 }
-
-function closeBulkModal() {
-  document.getElementById('bulkImportModal').classList.remove('active');
-}
-
+function closeBulkModal() { document.getElementById('bulkImportModal').classList.remove('active'); }
 function bulkDragOver(e)  { e.preventDefault(); document.getElementById('bulk-drop-zone').classList.add('dragover'); }
 function bulkDragLeave()  { document.getElementById('bulk-drop-zone').classList.remove('dragover'); }
 function bulkDrop(e) {
-  e.preventDefault();
-  document.getElementById('bulk-drop-zone').classList.remove('dragover');
+  e.preventDefault(); document.getElementById('bulk-drop-zone').classList.remove('dragover');
   var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (f) bulkFileSelected(f);
 }
@@ -2654,15 +2709,13 @@ function bulkFileSelected(file) {
   reader.onload = function(e) { parseBulkCsvPreview(e.target.result); };
   reader.readAsText(file);
 }
-
 function parseBulkCsvPreview(text) {
   var rows = [], headerSkipped = false;
   var lines = text.split(/\r?\n/);
   for (var i = 0; i < lines.length; i++) {
-    var line = lines[i].trim();
-    if (!line) continue;
+    var line = lines[i].trim(); if (!line) continue;
     if (!headerSkipped) {
-      var first = line.split(',')[0].replace(/"/g, '').trim();
+      var first = line.split(',')[0].replace(/"/g,'').trim();
       if (isNaN(parseInt(first))) { headerSkipped = true; continue; }
       headerSkipped = true;
     }
@@ -2674,58 +2727,47 @@ function parseBulkCsvPreview(text) {
       cur += ch;
     }
     fields.push(cur);
-    var orderId  = (fields[0] || '').trim();
-    var tracking = (fields[1] || '').replace(/[\r\n\s]+/g, '').trim();
-    var carrier  = (fields[2] || '').trim();
-    if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId: orderId, tracking: tracking, carrier: carrier });
+    var orderId  = (fields[0]||'').replace(/[\r\n\s]+/g,'').trim();
+    var tracking = (fields[1]||'').replace(/[\r\n\s]+/g,'').trim();
+    var carrier  = (fields[2]||'').trim();
+    if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId, tracking, carrier });
   }
   _bulkRows = rows;
-
-  var tbody   = document.getElementById('bulk-preview-body');
-  var preview = rows.slice(0, 10);
-  var html    = preview.map(function(r) {
+  var tbody = document.getElementById('bulk-preview-body');
+  var html  = rows.slice(0,10).map(function(r) {
     return '<tr><td>#' + r.orderId + '</td><td style="font-family:monospace;font-size:12px;">' + r.tracking + '</td><td>' + r.carrier + '</td></tr>';
   }).join('');
-  if (rows.length > 10) html += '<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and ' + (rows.length - 10) + ' more rows</td></tr>';
+  if (rows.length > 10) html += '<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and ' + (rows.length-10) + ' more rows</td></tr>';
   tbody.innerHTML = html;
-
   document.getElementById('bulk-preview-table').style.display = rows.length ? 'table' : 'none';
   document.getElementById('bulk-preview-count').style.display = rows.length ? 'block' : 'none';
   document.getElementById('bulk-preview-count').textContent   = rows.length + ' orders ready to import';
   document.getElementById('bulk-import-btn').disabled = rows.length === 0;
 }
-
 async function submitBulkImport() {
   if (!_bulkFile || _bulkRows.length === 0) return;
   var store = document.getElementById('bulk-store-select').value;
-
   document.getElementById('bulk-step-upload').style.display = 'none';
   document.getElementById('bulk-progress-wrap').style.display = 'block';
   document.getElementById('bulk-import-btn').disabled = true;
-
   var fakeP = 0;
   var interval = setInterval(function() {
-    if (fakeP < 85) { fakeP += Math.random() * 3; setBulkProgress(Math.min(fakeP, 85), _bulkRows.length); }
+    if (fakeP < 85) { fakeP += Math.random() * 3; setBulkProgress(Math.min(fakeP,85), _bulkRows.length); }
   }, 400);
-
   var fd = new FormData();
   fd.append('csvFile', _bulkFile);
   fd.append('store', store);
-
   try {
     var res  = await fetch('/api/bulk-tracking', { method: 'POST', body: fd });
     var data = await res.json();
-    clearInterval(interval);
-    setBulkProgress(100, _bulkRows.length);
+    clearInterval(interval); setBulkProgress(100, _bulkRows.length);
     await new Promise(function(r) { setTimeout(r, 500); });
     document.getElementById('bulk-progress-wrap').style.display = 'none';
     if (!res.ok) throw new Error(data.error || 'Import failed');
-
     var results = data.results;
     document.getElementById('bulk-res-success').textContent = results.success.length;
     document.getElementById('bulk-res-skipped').textContent = results.skipped.length;
     document.getElementById('bulk-res-failed').textContent  = results.failed.length;
-
     if (results.failed.length > 0) {
       document.getElementById('bulk-fail-section').style.display = 'block';
       document.getElementById('bulk-fail-list').innerHTML = results.failed.map(function(f) {
@@ -2738,12 +2780,10 @@ async function submitBulkImport() {
         return '<div class="bulk-fail-row"><span class="bulk-fail-order">#' + f.orderId + '</span><span class="bulk-fail-reason">' + f.reason + '</span></div>';
       }).join('');
     }
-
     document.getElementById('bulk-results').style.display = 'block';
     document.getElementById('bulk-import-btn').disabled = false;
     document.getElementById('bulk-import-btn').textContent = 'Import Another';
     document.getElementById('bulk-import-btn').onclick = openBulkImportModal;
-
   } catch (err) {
     clearInterval(interval);
     document.getElementById('bulk-progress-wrap').style.display = 'none';
@@ -2752,14 +2792,12 @@ async function submitBulkImport() {
     alert('Import failed: ' + err.message);
   }
 }
-
 function setBulkProgress(pct, total) {
   var p = Math.round(pct);
   document.getElementById('bulk-progress-fill').style.width = p + '%';
   document.getElementById('bulk-progress-pct').textContent  = p + '%';
   document.getElementById('bulk-progress-text').textContent = p < 100 ? 'Processing ' + total + ' orders...' : 'Finalizing...';
 }
-
 var bulkModalEl = document.getElementById('bulkImportModal');
 if (bulkModalEl) bulkModalEl.addEventListener('click', function(e) { if (e.target === this) closeBulkModal(); });
 

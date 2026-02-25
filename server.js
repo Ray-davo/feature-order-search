@@ -6,8 +6,6 @@ const path = require('path');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const postmark = require('postmark');
-const multer  = require('multer');
-const upload  = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const app = express();
 app.set('trust proxy', 1);
@@ -2306,196 +2304,6 @@ app.get('/api/order/:store/:orderId/email-log', requireAuth, async (req, res) =>
   }
 });
 
-
-// ==================== ORDER ACTIONS ====================
-
-const BC_STATUSES = [
-  { id: 11, label: 'Awaiting Fulfillment', permission: 'orders.status.update' },
-  { id: 9,  label: 'Awaiting Shipment',    permission: 'orders.status.update' },
-  { id: 10, label: 'Completed',            permission: 'orders.status.update' },
-  { id: 2,  label: 'Shipped',              permission: 'orders.ship'          },
-  { id: 3,  label: 'Partially Shipped',    permission: 'orders.ship'          },
-  { id: 5,  label: 'Cancelled',            permission: 'orders.cancel'        },
-  { id: 4,  label: 'Refunded',             permission: 'orders.refund'        },
-  { id: 14, label: 'Partially Refunded',   permission: 'orders.refund'        },
-];
-
-// Update order status
-app.put('/api/order/:store/:orderId/status', requireAuth, async (req, res) => {
-  const { store, orderId } = req.params;
-  const { statusId } = req.body;
-  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
-
-  const statusDef = BC_STATUSES.find(s => s.id === parseInt(statusId));
-  if (!statusDef) return res.status(400).json({ error: 'Invalid status' });
-
-  const perms = req.session.permissions || [];
-  if (!perms.includes(statusDef.permission)) {
-    return res.status(403).json({ error: `Permission denied — requires ${statusDef.permission}` });
-  }
-
-  try {
-    await bcApiRequest(store, `orders/${orderId}`, 'PUT', { status_id: statusId });
-    console.log(`[ORDER] Status updated: order #${orderId} → ${statusDef.label} by ${req.session.user}`);
-    res.json({ success: true, statusLabel: statusDef.label });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to update order status' });
-  }
-});
-
-// Add tracking / create shipment
-app.post('/api/order/:store/:orderId/shipment', requireAuth, requirePermission('orders.tracking.add'), async (req, res) => {
-  const { store, orderId } = req.params;
-  const { trackingNumber, carrier, items } = req.body;
-  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
-  if (!trackingNumber?.trim()) return res.status(400).json({ error: 'Tracking number is required' });
-  if (!items || items.length === 0) return res.status(400).json({ error: 'At least one item is required' });
-
-  const CARRIER_MAP = { ups: 'UPS', fedex: 'FedEx', usps: 'USPS', dhl: 'DHL', other: '' };
-  const shippingProvider = CARRIER_MAP[carrier?.toLowerCase()] ?? '';
-
-  try {
-    const result = await bcApiRequest(store, `orders/${orderId}/shipments`, 'POST', {
-      tracking_number:   trackingNumber.trim(),
-      shipping_provider: shippingProvider,
-      items: items.map(i => ({ order_product_id: parseInt(i.order_product_id), quantity: parseInt(i.quantity) })),
-    });
-    console.log(`[ORDER] Shipment created: order #${orderId} tracking=${trackingNumber} by ${req.session.user}`);
-    res.json({ success: true, shipmentId: result.id });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to create shipment' });
-  }
-});
-
-// Process refund
-app.post('/api/order/:store/:orderId/refund', requireAuth, requirePermission('orders.refund'), async (req, res) => {
-  const { store, orderId } = req.params;
-  const { amount, reason, refundToOriginal } = req.body;
-  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
-
-  const refundAmount = parseFloat(amount);
-  if (!refundAmount || refundAmount <= 0) return res.status(400).json({ error: 'Valid refund amount is required' });
-
-  try {
-    const storeConfig = stores[store];
-    const baseUrl = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v3/orders/${orderId}`;
-    const headers = { 'X-Auth-Token': storeConfig.token, 'Accept': 'application/json', 'Content-Type': 'application/json' };
-
-    const quoteBody = { items: [{ item_type: 'CUSTOM_AMOUNT', amount: refundAmount, reason: reason || 'Customer refund' }] };
-    const quoteRes  = await fetch(`${baseUrl}/payment_actions/refund_quotes`, { method: 'POST', headers, body: JSON.stringify(quoteBody) });
-    if (!quoteRes.ok) { const t = await quoteRes.text(); throw new Error(`Refund quote failed: ${quoteRes.status} — ${t.slice(0,200)}`); }
-    const quote = await quoteRes.json();
-
-    const refundRes = await fetch(`${baseUrl}/payment_actions/refunds`, {
-      method: 'POST', headers,
-      body: JSON.stringify({
-        items:    quoteBody.items,
-        payments: quote.data?.payments?.map(p => ({ provider_id: p.provider_id, provider_type: p.provider_type, amount: p.amount, offline: refundToOriginal === false })) || [],
-      }),
-    });
-    if (!refundRes.ok) { const t = await refundRes.text(); throw new Error(`Refund failed: ${refundRes.status} — ${t.slice(0,200)}`); }
-    const result = await refundRes.json();
-    console.log(`[ORDER] Refund processed: order #${orderId} $${refundAmount} by ${req.session.user}`);
-    res.json({ success: true, refundId: result.data?.id });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to process refund' });
-  }
-});
-
-// Get available statuses for current user permissions
-app.get('/api/order-statuses', requireAuth, (req, res) => {
-  const perms = req.session.permissions || [];
-  res.json({ success: true, statuses: BC_STATUSES.filter(s => perms.includes(s.permission)) });
-});
-
-// ==================== BULK TRACKING IMPORT ====================
-
-function parseTrackingCsv(buffer) {
-  const text  = buffer.toString('utf8');
-  const lines = text.split(/\r?\n/);
-  const rows  = [];
-  let headerSkipped = false;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
-
-    if (!headerSkipped) {
-      const first = line.split(',')[0].replace(/"/g, '').trim();
-      if (isNaN(parseInt(first))) { headerSkipped = true; continue; }
-      headerSkipped = true;
-    }
-
-    const fields = [];
-    let cur = '', inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQuote = !inQuote; continue; }
-      if (ch === ',' && !inQuote) { fields.push(cur); cur = ''; continue; }
-      cur += ch;
-    }
-    fields.push(cur);
-
-    const orderId  = (fields[0] || '').trim();
-    const tracking = (fields[1] || '').replace(/[\r\n\s]+/g, '').trim();
-    const carrier  = (fields[2] || '').trim();
-
-    if (orderId && tracking && !isNaN(parseInt(orderId))) {
-      rows.push({ orderId, tracking, carrier });
-    }
-  }
-  return rows;
-}
-
-app.post('/api/bulk-tracking',
-  requireAuth,
-  requirePermission('orders.tracking.add'),
-  upload.single('csvFile'),
-  async (req, res) => {
-    const store = req.body.store;
-    if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
-    if (!req.file)      return res.status(400).json({ error: 'No CSV file uploaded' });
-
-    const rows = parseTrackingCsv(req.file.buffer);
-    if (rows.length === 0) return res.status(400).json({ error: 'No valid rows found in CSV' });
-
-    console.log(`[BULK-TRACKING] Starting: ${rows.length} rows for ${store} by ${req.session.user}`);
-
-    const CARRIER_MAP = { ups: 'UPS', fedex: 'FedEx', usps: 'USPS', dhl: 'DHL' };
-    const results = { success: [], failed: [], skipped: [] };
-    const BATCH = 5;
-
-    for (let i = 0; i < rows.length; i += BATCH) {
-      await Promise.all(rows.slice(i, i + BATCH).map(async ({ orderId, tracking, carrier }) => {
-        try {
-          const orderData = await bcApiRequest(store, `orders/${orderId}/products`);
-          const products  = Array.isArray(orderData) ? orderData : [];
-          if (products.length === 0) { results.skipped.push({ orderId, tracking, reason: 'No products found' }); return; }
-
-          await bcApiRequest(store, `orders/${orderId}/shipments`, 'POST', {
-            tracking_number:   tracking,
-            shipping_provider: CARRIER_MAP[carrier.toLowerCase()] ?? carrier,
-            items: products.map(p => ({ order_product_id: p.id, quantity: p.quantity })),
-          });
-          await bcApiRequest(store, `orders/${orderId}`, 'PUT', { status_id: 2 });
-          results.success.push({ orderId, tracking, carrier });
-        } catch (err) {
-          const msg = err.message || 'Unknown error';
-          if (msg.includes('already') || msg.includes('409')) {
-            results.skipped.push({ orderId, tracking, reason: 'Already has shipment' });
-          } else {
-            results.failed.push({ orderId, tracking, reason: msg.slice(0, 120) });
-          }
-        }
-      }));
-      if (i + BATCH < rows.length) await new Promise(r => setTimeout(r, 300));
-    }
-
-    console.log(`[BULK-TRACKING] Done: ${results.success.length} ok, ${results.failed.length} failed, ${results.skipped.length} skipped`);
-    res.json({ success: true, total: rows.length, results });
-  }
-);
-
 // Main app - redirect to login if not authenticated
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -2532,4 +2340,224 @@ app.listen(PORT, async () => {
       }
     }
   }, 30 * 60 * 1000);
+});
+
+// ==================== ORDER ACTIONS ====================
+
+const BC_STATUS_PERMISSIONS = {
+  11: 'orders.status.update', // Awaiting Fulfillment
+  9:  'orders.status.update', // Awaiting Shipment
+  10: 'orders.status.update', // Completed
+  2:  'orders.ship',          // Shipped
+  3:  'orders.ship',          // Partially Shipped
+  5:  'orders.cancel',        // Cancelled
+  4:  'orders.refund',        // Refunded
+  14: 'orders.refund',        // Partially Refunded
+};
+const BC_STATUS_LABELS = {
+  11:'Awaiting Fulfillment', 9:'Awaiting Shipment', 10:'Completed',
+  2:'Shipped', 3:'Partially Shipped', 5:'Cancelled', 4:'Refunded', 14:'Partially Refunded'
+};
+
+// Update order status
+app.put('/api/order/:store/:orderId/status', requireAuth, async (req, res) => {
+  const { store, orderId } = req.params;
+  const { statusId } = req.body;
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  const requiredPerm = BC_STATUS_PERMISSIONS[parseInt(statusId)];
+  if (!requiredPerm) return res.status(400).json({ error: 'Invalid status' });
+
+  const userPerms = req.session.permissions || [];
+  if (!userPerms.includes(requiredPerm) && !userPerms.includes('*')) {
+    return res.status(403).json({ error: 'Permission denied for this status' });
+  }
+
+  try {
+    const result = await bcApiRequest(store, `orders/${orderId}`, 'PUT', { status_id: parseInt(statusId) });
+    console.log(`[ORDER] Status update: #${orderId} → ${BC_STATUS_LABELS[statusId]} by ${req.session.user}`);
+    res.json({ success: true, statusLabel: BC_STATUS_LABELS[statusId] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create shipment with tracking
+app.post('/api/order/:store/:orderId/shipment', requireAuth, requirePermission('orders.tracking.add'), async (req, res) => {
+  const { store, orderId } = req.params;
+  const { trackingNumber, carrier, items } = req.body;
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!trackingNumber) return res.status(400).json({ error: 'Tracking number is required' });
+
+  const CARRIER_MAP = { ups:'ups', fedex:'fedex', usps:'usps', dhl:'dhl', other:'' };
+
+  try {
+    // Fetch order products if no items passed
+    let shipItems = items;
+    if (!shipItems || shipItems.length === 0) {
+      const products = await bcApiRequest(store, `orders/${orderId}/products`);
+      shipItems = products.map(p => ({ order_product_id: p.id, quantity: p.quantity }));
+    }
+
+    // Get shipping address ID
+    const addresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`);
+    const addressId = addresses && addresses[0] ? addresses[0].id : undefined;
+
+    const payload = {
+      tracking_number:   trackingNumber,
+      shipping_provider: CARRIER_MAP[carrier] || '',
+      items:             shipItems,
+    };
+    if (addressId) payload.order_address_id = addressId;
+
+    const result = await bcApiRequest(store, `orders/${orderId}/shipments`, 'POST', payload);
+    // Also update order status to Shipped
+    await bcApiRequest(store, `orders/${orderId}`, 'PUT', { status_id: 2 }).catch(() => {});
+    console.log(`[ORDER] Shipment created: #${orderId} tracking ${trackingNumber} by ${req.session.user}`);
+    res.json({ success: true, shipmentId: result.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get refund quote — returns available payment methods + calculated total
+app.post('/api/order/:store/:orderId/refund-quote', requireAuth, requirePermission('orders.refund'), async (req, res) => {
+  const { store, orderId } = req.params;
+  const { amount, items } = req.body;
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  try {
+    const storeConfig = stores[store];
+    const baseUrl = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v3/orders/${orderId}`;
+    const headers = { 'X-Auth-Token': storeConfig.token, 'Accept': 'application/json', 'Content-Type': 'application/json' };
+
+    // Build quote items
+    let quoteItems = items; // line-item refund: [{ item_type, item_id, quantity? }]
+    if (!quoteItems || quoteItems.length === 0) {
+      // Fallback: order-level custom amount
+      quoteItems = [{ item_type: 'ORDER', item_id: parseInt(orderId), amount: parseFloat(amount) }];
+    }
+
+    const quoteRes = await fetch(`${baseUrl}/payment_actions/refund_quotes`, {
+      method: 'POST', headers, body: JSON.stringify({ items: quoteItems })
+    });
+    if (!quoteRes.ok) {
+      const t = await quoteRes.text();
+      throw new Error(`BC API Error: ${quoteRes.status} - ${t.slice(0, 300)}`);
+    }
+    const quote = await quoteRes.json();
+
+    // Return the quote data — total_amount, total_tax, and available payments[]
+    res.json({
+      success:      true,
+      total_amount: quote.data?.total_amount,
+      total_tax:    quote.data?.total_tax,
+      payments:     quote.data?.payments || [],  // [{ provider_id, provider_type, amount, offline }]
+      quoteItems:   quoteItems,                   // pass back so execute can use same items
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Execute refund — uses provider selected by agent
+app.post('/api/order/:store/:orderId/refund', requireAuth, requirePermission('orders.refund'), async (req, res) => {
+  const { store, orderId } = req.params;
+  const { quoteItems, selectedPayment, reason } = req.body;
+  // selectedPayment: { provider_id, provider_type, amount, offline }
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!quoteItems || !selectedPayment) return res.status(400).json({ error: 'Missing quote data' });
+
+  try {
+    const storeConfig = stores[store];
+    const baseUrl = `https://api.bigcommerce.com/stores/${storeConfig.hash}/v3/orders/${orderId}`;
+    const headers = { 'X-Auth-Token': storeConfig.token, 'Accept': 'application/json', 'Content-Type': 'application/json' };
+
+    // Add reason to items if provided
+    const itemsWithReason = quoteItems.map(item => reason ? { ...item, reason } : item);
+
+    const refundRes = await fetch(`${baseUrl}/payment_actions/refunds`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        items:    itemsWithReason,
+        payments: [selectedPayment],
+      }),
+    });
+    if (!refundRes.ok) {
+      const t = await refundRes.text();
+      throw new Error(`BC API Error: ${refundRes.status} - ${t.slice(0, 300)}`);
+    }
+    const result = await refundRes.json();
+    console.log(`[ORDER] Refund processed: #${orderId} $${selectedPayment.amount} via ${selectedPayment.provider_id} by ${req.session.user}`);
+    res.json({ success: true, refundId: result.data?.id, amount: selectedPayment.amount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk tracking import
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+function parseTrackingCsv(buffer) {
+  const text = buffer.toString('utf8');
+  const rows = [];
+  let headerSkipped = false;
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const fields = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { fields.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    fields.push(cur);
+    const orderId  = fields[0] ? fields[0].replace(/[\r\n\s"]+/g, '').trim() : '';
+    const tracking = fields[1] ? fields[1].replace(/[\r\n\s"]+/g, '').trim() : '';
+    const carrier  = fields[2] ? fields[2].replace(/[\r\n\s"]+/g, '').trim() : '';
+    if (!headerSkipped) { headerSkipped = true; if (isNaN(parseInt(orderId))) continue; }
+    if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId, tracking, carrier });
+  }
+  return rows;
+}
+
+app.post('/api/bulk-tracking', requireAuth, requirePermission('orders.tracking.add'), upload.single('csvFile'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded' });
+  const store = req.body.store || '1ink';
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  const rows = parseTrackingCsv(req.file.buffer);
+  if (rows.length === 0) return res.status(400).json({ error: 'No valid rows found in CSV' });
+
+  const results = { success: [], failed: [], skipped: [] };
+  const CARRIER_MAP = { ups:'ups', fedex:'fedex', usps:'usps', dhl:'dhl' };
+  const BATCH = 5;
+
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
+    await Promise.all(batch.map(async ({ orderId, tracking, carrier }) => {
+      try {
+        const existing = await bcApiRequest(store, `orders/${orderId}/shipments`).catch(() => []);
+        if (existing && existing.some(s => s.tracking_number === tracking)) {
+          results.skipped.push({ orderId, reason: 'Tracking already exists' }); return;
+        }
+        const products  = await bcApiRequest(store, `orders/${orderId}/products`);
+        const addresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`);
+        const items     = products.map(p => ({ order_product_id: p.id, quantity: p.quantity }));
+        const payload   = { tracking_number: tracking, shipping_provider: CARRIER_MAP[carrier.toLowerCase()] || '', items };
+        if (addresses && addresses[0]) payload.order_address_id = addresses[0].id;
+        await bcApiRequest(store, `orders/${orderId}/shipments`, 'POST', payload);
+        await bcApiRequest(store, `orders/${orderId}`, 'PUT', { status_id: 2 }).catch(() => {});
+        results.success.push({ orderId, tracking });
+      } catch (err) {
+        results.failed.push({ orderId, reason: err.message });
+      }
+    }));
+    if (i + BATCH < rows.length) await new Promise(r => setTimeout(r, 300));
+  }
+
+  console.log(`[BULK] Tracking import by ${req.session.user}: ${results.success.length} ok, ${results.failed.length} failed, ${results.skipped.length} skipped`);
+  res.json({ success: true, results });
 });
