@@ -703,15 +703,10 @@ async function bcApiV3Request(store, endpoint) {
   return await response.json();
 }
 
-// Normalize phone number to digits only, strip leading country code
+// Normalize phone number to digits only
 function normalizePhone(phone) {
   if (!phone) return '';
-  let digits = phone.replace(/\D/g, '');
-  // Strip leading US country code: +1 or 1 prefix on 11-digit numbers
-  if (digits.length === 11 && digits.startsWith('1')) {
-    digits = digits.slice(1);
-  }
-  return digits;
+  return phone.replace(/\D/g, '');
 }
 
 // Sync orders from BigCommerce to Postgres index
@@ -861,23 +856,29 @@ async function searchByName(store, query) {
 
 // Search local database for emails by phone
 async function searchByPhone(store, query) {
-  let digits = normalizePhone(query);
+  let digits = query.replace(/\D/g, '');
 
-  // Strip leading country code: +1 or 1 prefix on 11-digit numbers
+  // Build all variants to search - whatever the customer typed, we find it
+  const variants = new Set();
+  variants.add(digits); // exactly as stored
+
   if (digits.length === 11 && digits.startsWith('1')) {
-    digits = digits.slice(1);
+    variants.add(digits.slice(1)); // also try without country code
+  } else if (digits.length === 10) {
+    variants.add('1' + digits); // also try with country code
   }
 
-  // Require exactly 10 digits - no partial matching allowed
-  if (digits.length !== 10) return [];
+  // Must be 10 or 11 digits to be a valid phone
+  if (digits.length < 10 || digits.length > 11) return [];
 
+  const variantList = Array.from(variants);
   const { rows } = await pool.query(
     `SELECT DISTINCT email FROM order_lookup
      WHERE store = $1
-     AND phone = $2
+     AND phone = ANY($2)
      AND email IS NOT NULL AND email <> ''
      LIMIT 20`,
-    [store, digits]
+    [store, variantList]
   );
 
   return rows.map(r => r.email);
