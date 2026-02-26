@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Search</title>
     <link rel="stylesheet" href="/style.css">
-  <style>
-    
-    
+  <style>   
 
     
     .header-left { width: 210px; }
@@ -912,6 +910,9 @@
     .bulk-preview-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; }
     .bulk-preview-count { font-size:13px; color:#555; margin-top:6px; display:none; }
     .bulk-prog-wrap { display:none; margin-top:16px; }
+    .bulk-map-row { display:flex; align-items:center; padding:10px 14px; border:1px solid #e0e0e0; border-radius:6px; margin-bottom:8px; background:#fff; }
+    .bulk-map-label { flex:1; font-size:13px; color:#444; }
+    .bulk-map-sel { width:220px; padding:7px 10px; border:1px solid #ccc; border-radius:5px; font-size:13px; }
     .bulk-prog-lbl { font-size:13px; color:#555; margin-bottom:5px; display:flex; justify-content:space-between; }
     .bulk-prog-bar { height:10px; background:#e9ecef; border-radius:5px; overflow:hidden; }
     .bulk-prog-fill { height:100%; background:#28a745; border-radius:5px; width:0%; transition:width .3s; }
@@ -2394,20 +2395,42 @@
   <div class="bulk-overlay" id="bulkImportModal">
     <div class="bulk-modal">
       <div class="bulk-hd">
-        <h3>&#128230; Bulk Tracking Import</h3>
+        <h3>&#128230; Import Tracking Numbers</h3>
         <button class="bulk-close" onclick="closeBulkModal()">&times;</button>
       </div>
       <div class="bulk-body">
+
+        <!-- STEP 1: Upload CSV -->
         <div id="bulk-step-upload">
           <div class="bulk-drop" id="bulk-drop-zone"
                onclick="document.getElementById('bulk-file-input').click()"
                ondragover="bulkDragOver(event)" ondragleave="bulkDragLeave(event)" ondrop="bulkDrop(event)">
             <div class="bulk-drop-icon">&#128196;</div>
             <strong>Click to choose CSV or drag &amp; drop</strong>
-            <p>Format: Order#, Tracking Number, Carrier</p>
+            <p>Any CSV format — you'll map the columns in the next step</p>
             <input type="file" id="bulk-file-input" accept=".csv" style="display:none" onchange="bulkFileSelected(this.files[0])">
           </div>
           <div class="bulk-fname" id="bulk-file-name"></div>
+        </div>
+
+        <!-- STEP 2: Map fields -->
+        <div id="bulk-step-map" style="display:none;">
+          <div style="margin-bottom:16px;">
+            <p style="font-size:13px;color:#555;margin:0 0 14px 0;">Use the form below to define which import fields should map to which tracking number fields.</p>
+            <p style="font-size:13px;font-weight:700;color:#333;margin:0 0 12px 0;">Link import fields</p>
+            <div class="bulk-map-row">
+              <label class="bulk-map-label">Match "Order number" with:</label>
+              <select class="bulk-map-sel" id="bulk-col-order"></select>
+            </div>
+            <div class="bulk-map-row">
+              <label class="bulk-map-label">Match "Tracking number" with:</label>
+              <select class="bulk-map-sel" id="bulk-col-tracking"></select>
+            </div>
+            <div class="bulk-map-row">
+              <label class="bulk-map-label">Match "Tracking carrier" with:</label>
+              <select class="bulk-map-sel" id="bulk-col-carrier"></select>
+            </div>
+          </div>
           <select class="bulk-store-sel" id="bulk-store-select">
             <option value="1ink">1ink.com</option>
             <option value="needink">needink.com</option>
@@ -2418,6 +2441,8 @@
             <tbody id="bulk-preview-body"></tbody>
           </table>
         </div>
+
+        <!-- STEP 3: Progress -->
         <div class="bulk-prog-wrap" id="bulk-progress-wrap">
           <div class="bulk-prog-lbl">
             <span id="bulk-progress-text">Processing...</span>
@@ -2425,6 +2450,8 @@
           </div>
           <div class="bulk-prog-bar"><div class="bulk-prog-fill" id="bulk-progress-fill"></div></div>
         </div>
+
+        <!-- STEP 4: Results -->
         <div class="bulk-results" id="bulk-results">
           <div class="bulk-stats">
             <div class="bstat ok">  <span class="bstat-n" id="bulk-res-success">0</span><span class="bstat-l">Shipped</span></div>
@@ -2442,6 +2469,7 @@
         </div>
       </div>
       <div class="bulk-ft">
+        <button class="action-btn action-btn-neutral" id="bulk-back-btn" onclick="bulkGoBack()" style="display:none;">&#8592; Back</button>
         <button class="action-btn action-btn-neutral" onclick="closeBulkModal()">Close</button>
         <button class="action-btn action-btn-ship" id="bulk-import-btn" onclick="submitBulkImport()" disabled>&#128230; Import Tracking</button>
       </div>
@@ -2685,11 +2713,12 @@ function showInlineResult(el, msg, type) {
 });
 
 // ── Bulk Tracking ────────────────────────────────────────────────
-var _bulkFile = null, _bulkRows = [];
+var _bulkFile = null, _bulkRows = [], _bulkHeaders = [], _bulkCsvText = '';
 
 function openBulkImportModal() {
-  _bulkFile = null; _bulkRows = [];
+  _bulkFile = null; _bulkRows = []; _bulkHeaders = [];
   document.getElementById('bulk-step-upload').style.display = '';
+  document.getElementById('bulk-step-map').style.display = 'none';
   document.getElementById('bulk-progress-wrap').style.display = 'none';
   document.getElementById('bulk-results').style.display = 'none';
   document.getElementById('bulk-file-name').style.display = 'none';
@@ -2699,13 +2728,20 @@ function openBulkImportModal() {
   document.getElementById('bulk-fail-section').style.display = 'none';
   document.getElementById('bulk-skip-section').style.display = 'none';
   document.getElementById('bulk-import-btn').disabled = true;
-  document.getElementById('bulk-import-btn').textContent = 'Import Tracking';
+  document.getElementById('bulk-import-btn').textContent = '⬆ Import Tracking';
   document.getElementById('bulk-import-btn').onclick = submitBulkImport;
+  document.getElementById('bulk-back-btn').style.display = 'none';
   document.getElementById('bulk-file-input').value = '';
   document.getElementById('bulk-store-select').value = currentStore || '1ink';
   document.getElementById('bulkImportModal').classList.add('active');
 }
 function closeBulkModal() { document.getElementById('bulkImportModal').classList.remove('active'); }
+function bulkGoBack() {
+  document.getElementById('bulk-step-upload').style.display = '';
+  document.getElementById('bulk-step-map').style.display = 'none';
+  document.getElementById('bulk-back-btn').style.display = 'none';
+  document.getElementById('bulk-import-btn').disabled = true;
+}
 function bulkDragOver(e)  { e.preventDefault(); document.getElementById('bulk-drop-zone').classList.add('dragover'); }
 function bulkDragLeave()  { document.getElementById('bulk-drop-zone').classList.remove('dragover'); }
 function bulkDrop(e) {
@@ -2714,24 +2750,70 @@ function bulkDrop(e) {
   if (f) bulkFileSelected(f);
 }
 function bulkFileSelected(file) {
-  if (!file || !file.name.endsWith('.csv')) { alert('Please select a CSV file.'); return; }
+  if (!file || !file.name.toLowerCase().endsWith('.csv')) { alert('Please select a CSV file.'); return; }
   _bulkFile = file;
   document.getElementById('bulk-file-name').textContent = '\u2705 ' + file.name;
   document.getElementById('bulk-file-name').style.display = 'block';
   var reader = new FileReader();
-  reader.onload = function(e) { parseBulkCsvPreview(e.target.result); };
+  reader.onload = function(e) { bulkReadHeaders(e.target.result); };
   reader.readAsText(file);
 }
-function parseBulkCsvPreview(text) {
-  var rows = [], headerSkipped = false;
+
+// Parse CSV headers and move to step 2
+function bulkReadHeaders(text) {
   var lines = text.split(/\r?\n/);
+  var firstLine = '';
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].trim()) { firstLine = lines[i]; break; }
+  }
+  // Parse header columns
+  var headers = [], cur = '', inQ = false;
+  for (var j = 0; j < firstLine.length; j++) {
+    var ch = firstLine[j];
+    if (ch === '"') { inQ = !inQ; continue; }
+    if (ch === ',' && !inQ) { headers.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  headers.push(cur.trim());
+  _bulkHeaders = headers;
+  _bulkCsvText = text;
+
+  // Build dropdown options — "Ignore" + each column with its header name
+  var ignoreOpt = '<option value="-1">-- Ignore --</option>';
+  var opts = ignoreOpt + headers.map(function(h, i) {
+    return '<option value="' + i + '">' + (h || 'Column ' + (i+1)) + '</option>';
+  }).join('');
+
+  document.getElementById('bulk-col-order').innerHTML = opts;
+  document.getElementById('bulk-col-tracking').innerHTML = opts;
+  document.getElementById('bulk-col-carrier').innerHTML = opts;
+
+  // Auto-detect columns by common header names
+  headers.forEach(function(h, i) {
+    var hl = h.toLowerCase().replace(/[\s_#]/g,'');
+    if (/order|ordernumber|orderid|order#/.test(hl))   document.getElementById('bulk-col-order').value = i;
+    if (/track|trackingnumber|trackingnumbers|tracking#/.test(hl)) document.getElementById('bulk-col-tracking').value = i;
+    if (/carrier|shippingcarrier|courier|shipper/.test(hl)) document.getElementById('bulk-col-carrier').value = i;
+  });
+
+  // Wire dropdowns to update preview live
+  ['bulk-col-order','bulk-col-tracking','bulk-col-carrier'].forEach(function(id) {
+    document.getElementById(id).onchange = bulkUpdatePreview;
+  });
+
+  // Show step 2
+  document.getElementById('bulk-step-upload').style.display = 'none';
+  document.getElementById('bulk-step-map').style.display = '';
+  document.getElementById('bulk-back-btn').style.display = '';
+  bulkUpdatePreview();
+}
+
+function bulkParseCsv(text) {
+  var lines = text.split(/\r?\n/);
+  var result = [];
+  var headerSkipped = false;
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim(); if (!line) continue;
-    if (!headerSkipped) {
-      var first = line.split(',')[0].replace(/"/g,'').trim();
-      if (isNaN(parseInt(first))) { headerSkipped = true; continue; }
-      headerSkipped = true;
-    }
     var fields = [], cur = '', inQ = false;
     for (var j = 0; j < line.length; j++) {
       var ch = line[j];
@@ -2740,27 +2822,55 @@ function parseBulkCsvPreview(text) {
       cur += ch;
     }
     fields.push(cur);
-    var orderId  = (fields[0]||'').replace(/[\r\n\s]+/g,'').trim();
-    var tracking = (fields[1]||'').replace(/[\r\n\s]+/g,'').trim();
-    var carrier  = (fields[2]||'').trim();
-    if (orderId && tracking && !isNaN(parseInt(orderId))) rows.push({ orderId, tracking, carrier });
+    if (!headerSkipped) { headerSkipped = true; result.push(fields); continue; } // first row = headers
+    result.push(fields);
   }
+  return result; // first element is header row
+}
+
+function bulkUpdatePreview() {
+  var orderCol    = parseInt(document.getElementById('bulk-col-order').value);
+  var trackingCol = parseInt(document.getElementById('bulk-col-tracking').value);
+  var carrierCol  = parseInt(document.getElementById('bulk-col-carrier').value);
+
+  if (orderCol < 0 || trackingCol < 0) {
+    document.getElementById('bulk-preview-table').style.display = 'none';
+    document.getElementById('bulk-preview-count').style.display = 'none';
+    document.getElementById('bulk-import-btn').disabled = true;
+    return;
+  }
+
+  var allRows = bulkParseCsv(_bulkCsvText);
+  var dataRows = allRows.slice(1); // skip header row
+  var rows = [];
+  dataRows.forEach(function(fields) {
+    var orderId  = (fields[orderCol]    || '').replace(/[\r\n\s"#]+/g,'').trim();
+    var tracking = (fields[trackingCol] || '').replace(/[\r\n\s"]+/g,'').trim();
+    var carrier  = carrierCol >= 0 ? (fields[carrierCol] || '').trim() : '';
+    if (orderId && tracking && /^\d+$/.test(orderId)) rows.push({ orderId, tracking, carrier });
+  });
   _bulkRows = rows;
+
   var tbody = document.getElementById('bulk-preview-body');
-  var html  = rows.slice(0,10).map(function(r) {
-    return '<tr><td>#' + r.orderId + '</td><td style="font-family:monospace;font-size:12px;">' + r.tracking + '</td><td>' + r.carrier + '</td></tr>';
+  var html = rows.slice(0,10).map(function(r) {
+    return '<tr><td>#' + r.orderId + '</td><td style="font-family:monospace;font-size:12px;">' + r.tracking + '</td><td>' + (r.carrier || '—') + '</td></tr>';
   }).join('');
   if (rows.length > 10) html += '<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and ' + (rows.length-10) + ' more rows</td></tr>';
   tbody.innerHTML = html;
   document.getElementById('bulk-preview-table').style.display = rows.length ? 'table' : 'none';
   document.getElementById('bulk-preview-count').style.display = rows.length ? 'block' : 'none';
-  document.getElementById('bulk-preview-count').textContent   = rows.length + ' orders ready to import';
+  document.getElementById('bulk-preview-count').textContent = rows.length + ' orders ready to import';
   document.getElementById('bulk-import-btn').disabled = rows.length === 0;
 }
+
 async function submitBulkImport() {
   if (!_bulkFile || _bulkRows.length === 0) return;
   var store = document.getElementById('bulk-store-select').value;
-  document.getElementById('bulk-step-upload').style.display = 'none';
+  var orderCol    = document.getElementById('bulk-col-order').value;
+  var trackingCol = document.getElementById('bulk-col-tracking').value;
+  var carrierCol  = document.getElementById('bulk-col-carrier').value;
+  document.getElementById('bulk-step-map').style.display = 'none';
+  document.getElementById('bulk-back-btn').style.display = 'none';
   document.getElementById('bulk-progress-wrap').style.display = 'block';
   document.getElementById('bulk-import-btn').disabled = true;
   var fakeP = 0;
@@ -2770,6 +2880,9 @@ async function submitBulkImport() {
   var fd = new FormData();
   fd.append('csvFile', _bulkFile);
   fd.append('store', store);
+  fd.append('orderCol', orderCol);
+  fd.append('trackingCol', trackingCol);
+  fd.append('carrierCol', carrierCol);
   try {
     var res  = await fetch('/api/bulk-tracking', { method: 'POST', body: fd });
     var data = await res.json();
@@ -2800,7 +2913,8 @@ async function submitBulkImport() {
   } catch (err) {
     clearInterval(interval);
     document.getElementById('bulk-progress-wrap').style.display = 'none';
-    document.getElementById('bulk-step-upload').style.display = '';
+    document.getElementById('bulk-step-map').style.display = '';
+    document.getElementById('bulk-back-btn').style.display = '';
     document.getElementById('bulk-import-btn').disabled = false;
     alert('Import failed: ' + err.message);
   }
