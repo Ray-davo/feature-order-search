@@ -703,10 +703,15 @@ async function bcApiV3Request(store, endpoint) {
   return await response.json();
 }
 
-// Normalize phone number to digits only
+// Normalize phone number to digits only, strip leading country code
 function normalizePhone(phone) {
   if (!phone) return '';
-  return phone.replace(/\D/g, '');
+  let digits = phone.replace(/\D/g, '');
+  // Strip leading US country code: +1 or 1 prefix on 11-digit numbers
+  if (digits.length === 11 && digits.startsWith('1')) {
+    digits = digits.slice(1);
+  }
+  return digits;
 }
 
 // Sync orders from BigCommerce to Postgres index
