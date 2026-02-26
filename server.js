@@ -860,7 +860,7 @@ async function searchByPhone(store, query) {
 
   // Build all variants to search - whatever the customer typed, we find it
   const variants = new Set();
-  variants.add(digits); // exactly as stored
+  variants.add(digits);
 
   if (digits.length === 11 && digits.startsWith('1')) {
     variants.add(digits.slice(1)); // also try without country code
@@ -2554,8 +2554,41 @@ app.post('/api/bulk-tracking', requireAuth, requirePermission('orders.tracking.a
   const store = req.body.store || '1ink';
   if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
 
-  const rows = parseTrackingCsv(req.file.buffer);
-  if (rows.length === 0) return res.status(400).json({ error: 'No valid rows found in CSV' });
+  // Column mapping from client (indices into CSV columns)
+  const orderCol    = parseInt(req.body.orderCol)    ?? 0;
+  const trackingCol = parseInt(req.body.trackingCol) ?? 1;
+  const carrierCol  = parseInt(req.body.carrierCol)  ?? 2;
+
+  const text = req.file.buffer.toString('utf8');
+  const lines = text.split(/\r?\n/);
+  const rows = [];
+  let headerSkipped = false;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    // Parse CSV fields (handles quoted values)
+    const fields = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { fields.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    fields.push(cur);
+
+    // Skip header row
+    if (!headerSkipped) { headerSkipped = true; continue; }
+
+    const orderId  = (fields[orderCol]    || '').replace(/[\r\n\s"#]+/g, '').trim();
+    const tracking = (fields[trackingCol] || '').replace(/[\r\n\s"]+/g,  '').trim();
+    const carrier  = carrierCol >= 0 ? (fields[carrierCol] || '').trim() : '';
+
+    if (orderId && tracking && /^\d+$/.test(orderId)) {
+      rows.push({ orderId, tracking, carrier });
+    }
+  }
+
+  if (rows.length === 0) return res.status(400).json({ error: 'No valid rows found in CSV. Check your column mapping.' });
 
   const results = { success: [], failed: [], skipped: [] };
   const CARRIER_MAP = { ups:'ups', fedex:'fedex', usps:'usps', dhl:'dhl' };
