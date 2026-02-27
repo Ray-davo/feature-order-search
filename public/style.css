@@ -508,18 +508,19 @@ button.admin-btn {
 .search-row select { min-width: 160px; cursor: pointer; }
 
 .search-row button {
-  height: 42px;
-  padding: 0 24px;
+  height: 48px;
+  padding: 0 32px;
   background: var(--color-primary);
   color: #fff;
   border: 1.5px solid var(--color-primary);
   border-radius: var(--radius-sm);
   font-family: var(--font-base);
-  font-size: var(--font-size-base);
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 .search-row button:hover:not(:disabled) {
   background: var(--color-primary-hover);
@@ -603,12 +604,12 @@ button.admin-btn {
 
 .order-col.order-customer {
   font-weight: 600;
-  color: var(--color-text);
+  color: #333;
   font-size: var(--font-size-base);
 }
 
 .order-col.order-email {
-  color: #1E2A3A;
+  color: #333;
   font-size: var(--font-size-md);
   display: flex;
   align-items: center;
@@ -616,7 +617,7 @@ button.admin-btn {
 }
 
 .order-col.order-date {
-  color: #1E2A3A;
+  color: #333;
   font-size: var(--font-size-base);
   text-align: right;
 }
@@ -625,7 +626,7 @@ button.admin-btn {
   text-align: right;
   font-weight: 700;
   font-size: var(--font-size-lg);
-  color: var(--color-text);
+  color: #111;
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
 }
@@ -954,19 +955,19 @@ button.admin-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 13px;
-  border: none;
+  padding: 7px 14px;
+  border: 1.5px solid #CBD5E1;
   border-radius: var(--radius-sm);
-  background: var(--color-success);
-  color: #fff;
+  background: var(--color-surface);
+  color: #374151;
   font-family: var(--font-base);
-  font-size: var(--font-size-sm);
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast);
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
 }
-.view-full-btn:hover { background: var(--color-success-dark); }
+.view-full-btn:hover { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
 
 /* ============================================================
    EMAIL ACTIONS
@@ -999,10 +1000,22 @@ button.admin-btn {
 .email-btn-confirmation {
   background: var(--color-primary);
   color: #fff;
+  border: 1.5px solid var(--color-primary);
+}
+.email-btn-confirmation:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  filter: none;
 }
 .email-btn-tracking {
-  background: var(--color-success);
+  background: #0F766E;
   color: #fff;
+  border: 1.5px solid #0F766E;
+}
+.email-btn-tracking:hover:not(:disabled) {
+  background: #115E59;
+  border-color: #115E59;
+  filter: none;
 }
 
 /* Email log */
@@ -1177,40 +1190,57 @@ button.admin-btn {
 .action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
+  gap: 6px;
+  padding: 8px 16px;
   border: 1.5px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-base);
-  font-size: var(--font-size-sm);
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: filter var(--transition-fast), transform 0.08s ease;
+  transition: background 0.13s, border-color 0.13s, color 0.13s, box-shadow 0.13s;
   white-space: nowrap;
 }
-.action-btn:hover:not(:disabled) { filter: brightness(0.92); }
 .action-btn:active { transform: scale(0.975); }
-.action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.action-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
 .action-btn-neutral {
   background: var(--color-surface);
-  border-color: var(--color-border);
-  color: var(--color-text-secondary);
+  border-color: #CBD5E1;
+  color: #374151;
+}
+.action-btn-neutral:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+  border-color: #9CA3AF;
+  color: #111;
 }
 .action-btn-ship {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
+  box-shadow: 0 1px 3px rgba(37,99,235,0.2);
+}
+.action-btn-ship:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 .action-btn-cancel {
+  background: transparent;
+  border-color: #D97706;
+  color: #92400E;
+}
+.action-btn-cancel:hover:not(:disabled) {
   background: var(--color-warning-bg);
-  border-color: var(--color-warning-border);
-  color: var(--color-warning);
+  border-color: #B45309;
 }
 .action-btn-refund {
+  background: transparent;
+  border-color: #DC2626;
+  color: #991B1B;
+}
+.action-btn-refund:hover:not(:disabled) {
   background: var(--color-danger-bg);
-  border-color: var(--color-danger-border);
-  color: var(--color-danger);
+  border-color: #B91C1C;
 }
 
 .action-status-select {
@@ -1229,14 +1259,14 @@ button.admin-btn {
 .action-status-select:focus { border-color: var(--color-primary); }
 
 .action-status-btn {
-  height: 34px;
-  padding: 0 13px;
-  background: var(--color-success);
+  height: 36px;
+  padding: 0 16px;
+  background: var(--color-primary);
   color: #fff;
-  border: none;
+  border: 1.5px solid var(--color-primary);
   border-radius: var(--radius-sm);
   font-family: var(--font-base);
-  font-size: var(--font-size-sm);
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -2346,17 +2376,17 @@ html, body { height: 100%; overflow: hidden; }
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #4E6680;
+  color: #6B8FAE;
   margin-top: 8px;
 }
 
 .sidebar-section { padding: 14px 10px 6px; flex-shrink: 0; }
 .sidebar-section-label {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #4E6680;
+  color: #7A9BB5;
   padding: 0 8px;
   margin-bottom: 5px;
 }
@@ -2367,8 +2397,8 @@ html, body { height: 100%; overflow: hidden; }
   gap: 9px;
   padding: 9px 10px;
   border-radius: var(--radius-md);
-  color: #D8E6F3;
-  font-size: 15px;
+  color: #FFFFFF;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.13s, color 0.13s;
