@@ -5,1190 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Search</title>
     <link rel="stylesheet" href="/style.css">
-  <style>   
-
-    
-    .header-left { width: 210px; }
-    .logo { width: 210px; height: 84px; object-fit: contain; display: block; }
-    .header-title {
-      position: absolute;
-      top: 14px;
-      left: 50%;
-      transform: translateX(-50%);
-      margin: 0;
-      font-size: 24px;
-      white-space: nowrap;
-    }
-    
-    .user-info { color: #aaa; }
-    
-    .admin-btn {
-      background: #6c757d;
-      color: white;
-      border: none;
-      padding: 8px 15px;
-      border-radius: 4px;
-      cursor: pointer;
-      text-decoration: none;
-      font-size: 14px;
-    }
-    .admin-btn:hover { background: #5a6268; }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .search-box {
-      background: white;
-      padding: 25px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .search-row {
-      display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
-    }
-    .search-row select,
-    .search-row input {
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-    .search-row select { width: 150px; }
-    .search-row input { flex: 1; min-width: 200px; }
-    .search-row button {
-      padding: 12px 30px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    .search-row button:hover { background: #0056b3; }
-    .search-row button:disabled { background: #ccc; cursor: not-allowed; }
-
-    .db-stats {
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid #eee;
-      font-size: 13px;
-      color: #666;
-    }
-
-    .results {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    .results-header {
-      padding: 15px 20px;
-      border-bottom: 1px solid #eee;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .expand-all-btn {
-      padding: 6px 14px;
-      background: #f0f4ff;
-      border: 1px solid #007bff;
-      color: #007bff;
-      border-radius: 5px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .expand-all-btn:hover { background: #007bff; color: #fff; }
-    .expand-all-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .no-results {
-      padding: 40px;
-      text-align: center;
-      color: #666;
-    }
-    .order-row {
-      padding: 15px 20px;
-      border-bottom: 1px solid #eee;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: background 0.2s;
-    }
-    .order-row:hover { background: #f8f9fa; }
-
-    /* Expand button */
-    .expand-btn {
-      width: 60px;
-      height: 60px;
-      border: 1px solid #ddd;
-      background: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 50px;
-      font-weight: normal;
-      color: #666;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      flex-shrink: 0;
-      margin-right: 15px;
-    }
-    .expand-btn:hover { background: #007bff; border-color: #007bff; color: #fff; }
-    .expand-btn.expanded { background: #007bff; border-color: #007bff; color: #fff; }
-
-    .order-info { flex: 1; cursor: pointer; }
-    .order-id { font-weight: 600; color: #007bff; }
-    .order-customer { color: #333; margin-top: 3px; }
-    .order-email { color: #666; font-size: 14px; }
-
-    .order-meta { text-align: right; cursor: pointer; }
-    .order-total { font-weight: 600; font-size: 18px; }
-    .order-status {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 3px;
-      font-size: 12px;
-      margin-top: 5px;
-    }
-    .status-completed { background: #d4edda; color: #155724; font-size: 13px; }
-    .status-pending { background: #fff3cd; color: #856404; font-size: 13px;}
-    .status-shipped { background: #cce5ff; color: #004085; font-size: 13px;}
-    .status-refunded { background: #f8d7da; color: #721c24; font-size: 13px;}
-
-    /* Preview Panel */
-    .preview-panel { display: none; background: #f8fafc; border-bottom: 1px solid #eee; }
-    .preview-panel.show { display: block; }
-    .preview-content {
-      padding: 12px 20px;
-    }
-    .preview-loading { padding: 15px; color: #666; font-style: italic; }
-    .preview-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-bottom: 10px;
-    }
-    .preview-address-box {
-      background: #fff;
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #e0e0e0;
-      font-size: 16px;
-      line-height: 1.7;
-    }
-    .preview-address-box h5 {
-      margin: 0 0 6px 0;
-      font-size: 18px;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .preview-address-box p { margin: 0; }
-    .preview-address-box .contact {
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px solid #eee;
-      font-size: 16px;
-      color: #555;
-    }
-
-    .preview-address-box .contact.contact-inline{
-      display: flex;
-      align-items: center;
-      gap: 40px;
-      flex-wrap: wrap;
-    }
-    .preview-address-box .contact.contact-inline span{
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .tracking-inline {
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px solid #eee;
-      font-size: 16px;
-      color: #555;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .tracking-inline .tracking-label{
-      font-weight: 600;
-      color: #555;
-      white-space: nowrap;
-    }
-    .tracking-inline .tracking-numbers{
-      display: inline-flex;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .tracking-inline .tracking-sep{
-      color: #999;
-      font-weight: 400;
-    }
-    .tracking-inline .tracking-link {
-      color: #007bff;
-      text-decoration: none;
-      font-weight: 600;
-      word-break: normal;
-      overflow-wrap: anywhere;
-    }
-    .tracking-inline .tracking-link:hover { text-decoration: underline; }
-
-    /* Plain labels + easy copy (no emoji/icons) */
-    .field-label{
-      font-weight: 600;
-      color: #555;
-      margin-right: 4px;
-      white-space: nowrap;
-    }
-    .copyable{
-      user-select: text;
-    }
-
-    .meta-line{
-      margin-top: 4px;
-      font-size: 16px;
-      color: #555;
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    /* Carrier badge in tracking line */
-    .carrier-badge{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      border: 1px solid #d9d9d9;
-      background: #f1f3f5;
-      color: #333;
-      white-space: nowrap;
-      line-height: 1.2;
-    }
-
-    .preview-items-box {
-      grid-column: 1 / -1;
-      background: #fff;
-      padding: 12px;
-      border-radius: 6px;
-      border: 1px solid #e0e0e0;
-    }
-    .preview-items-box h5 {
-      margin: 0 0 8px 0;
-      font-size: 11px;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .preview-items-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 16px;
-    }
-    .preview-items-table th {
-      text-align: left;
-      padding: 8px 10px;
-      background: #e9ecef;
-      font-weight: 600;
-      color: #555;
-      font-size: 14px;
-      text-transform: uppercase;
-    }
-    .preview-items-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }
-    .preview-items-table .sku { font-family: monospace; font-size: 16px; color: #666; }
-    .preview-items-table .qty { text-align: center; }
-    .preview-items-table .price { text-align: right; }
-    .product-link { color: #007bff; text-decoration: underline; }
-    .product-link:hover { color: #0056b3; text-decoration: underline; }
-
-    .preview-total {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #ddd;
-      text-align: right;
-      font-weight: 600;
-      font-size: 16px;
-      line-height: 1.8;
-
-    }
-
-    
-    /* Shipping header row inside preview box (keeps button top-right without adding a line) */
-    .preview-box-header{
-      display:flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin: 0 0 6px 0;
-    }
-    .preview-box-header h5{
-      margin: 0;
-      font-size: 18px;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    /* View Full Order button (compact + secondary) */
-    .view-full-btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding: 6px 13px;
-      border: 1.5px solid var(--color-border);
-      border-radius: 6px;
-      background: var(--color-surface);
-      color: var(--color-text-secondary);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      font-family: var(--font-base);
-      transition: background 0.13s, border-color 0.13s, color 0.13s;
-    }
-    .view-full-btn:hover { background:var(--color-primary); border-color:var(--color-primary); color:#fff; }
-
-    /* Email action buttons */
-    .email-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-    }
-    .email-action-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 7px 13px;
-      border: none;
-      border-radius: 5px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s, opacity 0.15s;
-    }
-    .email-action-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .email-btn-confirmation { background:var(--color-primary); color:#fff; }
-    .email-btn-confirmation:hover:not(:disabled) { background:var(--color-primary-hover); }
-    .email-btn-tracking { background:var(--color-success); color:#fff; }
-    .email-btn-tracking:hover:not(:disabled) { background:var(--color-success-dark); }
-
-    /* Email log section */
-    .email-log-section {
-      margin-top: 14px;
-      background: #fff8f0;
-      border: 1px solid #fcd9b0;
-      border-left: 4px solid #fd7e14;
-      border-radius: 6px;
-      padding: 12px 16px;
-    }
-    .email-log-section h5 {
-      margin: 0 0 8px 0;
-      font-size: 13px;
-      color: #c05c00;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .email-log-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid #fcd9b0;
-      font-size: 13px;
-    }
-    .email-log-item:last-child { border-bottom: none; }
-    .email-log-type {
-      font-weight: 600;
-      color: #444;
-    }
-    .email-log-meta { color: #888; font-size: 12px; }
-    .email-log-status-sent { color: #28a745; font-weight: 600; }
-    .email-log-status-failed { color: #dc3545; font-weight: 600; }
-    .no-emails { color: #aaa; font-size: 13px; font-style: italic; }
-
-    /* Totals block: keep it right-aligned like an invoice */
-    .preview-total{
-      max-width: 320px;
-      margin-left: auto;
-    }
-    .preview-total .coupon-label{ color:#000; font-weight: 600; }
-    .preview-total .coupon-value{ color:#d32f2f; font-weight: 700; }
-
-    /* Notes Section (Preview only) */
-    .notes-section {
-      margin-top: 15px;
-      background: #eaf4ff;
-      border: 1px solid #c3ddf7;
-      border-left: 4px solid #007bff;
-      border-radius: 6px;
-      padding: 14px 16px;
-    }
-    .notes-section h5 {
-      margin: 0 0 10px 0;
-      font-size: 18px;
-      color: #0056b3;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .notes-list { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
-    .note-item {
-      background: #fff;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      padding: 10px;
-      margin-bottom: 8px;
-      font-size: 13px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .note-item-
-    .note-delete-btn {
-      background: none;
-      border: none;
-      color: #bbb;
-      line-height: 1;
-      cursor: pointer;
-      padding: 2px 3px;
-      flex-shrink: 0;
-      transition: color 0.15s;
-      display: flex;
-      align-items: center;
-    }
-    .note-delete-btn:hover { color: #dc3545; }
-    .note-item:last-child { margin-bottom: 0; }
-    .note-meta { font-size: 16px; color: #888; margin-bottom: 5px;}
-    .note-meta strong { color: #555; }
-    .note-text { color: #333; line-height: 1.4; white-space: pre-wrap; font-size: 16px; }
-    .note-form { display: flex; flex-direction: column; gap: 8px; }
-    .note-textarea {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 16px;
-      font-family: inherit;
-      resize: vertical;
-      min-height: 60px;
-    }
-    .note-textarea:focus { outline: none; border-color: #007bff; }
-    .note-form-footer { display: flex; justify-content: space-between; align-items: center; }
-    .char-counter { font-size: 11px; color: #888; }
-    .char-counter.warning { color: #dc3545; }
-    .add-note-btn {
-      padding: 6px 14px;
-      background: #007bff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .add-note-btn:hover { background: #0056b3; }
-    .add-note-btn:disabled { background: #ccc; cursor: not-allowed; }
-    .no-notes { color: #888; font-size: 13px; font-style: italic; }
-
-    /* Order Detail Modal */
-    
-    
-    
-    
-    .modal-header h2 { margin: 0; font-size: 18px; }
-    .print-btn {
-      margin-left: auto;
-      background: #007bff;
-      color: #fff;
-      border: 0;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .print-btn:hover { background: #0056b3; }
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 28px;
-      cursor: pointer;
-      color: #666;
-      line-height: 1;
-    }
-    .modal-
-
-    .loading { text-align: center; padding: 40px; color: #666; }
-
-    /* Invoice layout — mirrors BC PrintableInvoice.html structure exactly */
-    .invoice-wrap { background:#fff; padding:24px; font-size:16px; color:#222; line-height:1.6; }
-    /* Store address floats right 33% — exactly as BC does it */
-    .invoice-store-addr { float:right; width:33%; font-size:16px; color:#333; line-height:1.8; text-align:right; }
-    /* Logo div */
-    .invoice-logo-wrap { height:56px; overflow:hidden; }
-    .invoice-logo-wrap img { height:46px; width:auto; display:block; }
-    /* Title clears the float */
-    .invoice-title { clear:both; font-size:20px; font-weight:700; margin:14px 0 14px 0; color:#222; }
-    /* Bill To / Ship To — flex side by side, no boxes */
-    .invoice-addr-row { display:flex; gap:0; margin-bottom:16px; }
-    .invoice-addr-col { flex:1; padding-right:24px; font-size:16px; line-height:1.4; }
-    .invoice-addr-col:last-child { padding-right:0; }
-    .invoice-addr-heading { font-weight:700; font-size:18px; margin-bottom:8px; color:#222; border-bottom:1px solid #ccc; padding-bottom:5px; }
-    /* Order details — 2 col with border lines like BC InvoiceDetails */
-    .invoice-details { display:flex; margin-bottom:14px; border-top:1px solid #ccc; border-bottom:1px solid #ccc; padding:8px 0; }
-    .invoice-details-col { flex:1; }
-    .invoice-detail-row { display:flex; gap:10px; font-size:16px; padding:4px 0; }
-    .invoice-detail-label { font-weight:700; color:#222; white-space:nowrap; }
-    .invoice-detail-value { color:#444; }
-    /* Order items heading */
-    .invoice-items-heading { font-weight:700; font-size:18px; margin:12px 0 6px 0; }
-    /* Table — BC column widths: SKU 22%, Name 50%, Qty 4%, Price 12%, Total 12% */
-    .invoice-table { width:100%; border-collapse:collapse; font-size:16px; }
-    .invoice-table th { text-align:left; border-top:1px solid #ccc; border-bottom:1px solid #ccc; padding:10px 8px; font-size:15px; font-weight:700; color:#222; }
-    .invoice-table th.num { text-align:right; }
-    .invoice-table td { border-bottom:1px solid #eee; padding:11px 8px; vertical-align:top; }
-    .invoice-table .num { text-align:right; white-space:nowrap; }
-    .invoice-table .sku { font-weight:normal; color:#222; word-break:break-word; overflow-wrap:anywhere; }
-    /* Totals as second <tbody> inside the same table — BC's InvoiceTotals approach */
-    .invoice-table .totals-row td { border-bottom:1px solid #eee; padding:6px 8px; font-size:16px; }
-    .invoice-table .totals-row td.t-label { text-align:right; color:#555; padding-right:12px; }
-    .invoice-table .totals-row td.t-value { text-align:right; white-space:nowrap; width:120px; }
-    /* Grand total — explicit alignment on each cell so grand-row td doesn't override t-label/t-value */
-    .invoice-table .grand-row td { border-top:2px solid #999; border-bottom:none; font-weight:600; font-size:16px; padding-top:9px; white-space:nowrap; }
-    .invoice-table .grand-row td.t-label { text-align:right; color:#222; padding-right:12px; }
-    .invoice-table .grand-row td.t-value { text-align:right; white-space:nowrap; }
-    .product-link { color:#007bff; text-decoration:underline; }
-    .product-link:hover { color:#0056b3; }
-    .tracking-link { color:#007bff; text-decoration:none; font-weight:600; }
-    .tracking-link:hover { text-decoration:underline; }
-
-    @media print {
-  @page {
-    margin: 0.5in;
-    size: letter;
-  }
-
-  html {
-    zoom: 1 !important;
-    -webkit-text-size-adjust: 100% !important;
-    text-size-adjust: 100% !important;
-  }
-
-  /* 12pt = 16px at standard print DPI — matches our screen base exactly */
-  html, 
-
-  .header, .container { display: none !important; }
-
-  
-  
-  .modal-
-  
-  .modal-header h2 { font-size: 13pt !important; font-weight: 700 !important; }
-  .close-btn, .print-btn { display: none !important; }
-
-  /* Invoice wrapper — constrain width, inherit font from html/body above */
-  .invoice-wrap {
-    max-width: 7.5in !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 12pt !important;
-    line-height: 1.6 !important;
-    color: #000 !important;
-  }
-
-  /* Store address — slightly smaller so logo has room, still readable */
-  .invoice-store-addr { font-size: 11pt !important; line-height: 1.6 !important; width: 33% !important; }
-
-  /* Logo */
-  .invoice-logo-wrap { height: auto !important; }
-  .invoice-logo-wrap img {
-    height: 32pt !important;
-    width: auto !important;
-    max-width: 140pt !important;
-    object-fit: contain !important;
-    display: block !important;
-  }
-
-  /* Title & headings scale proportionally from 12pt base */
-  .invoice-title { font-size: 15pt !important; margin: 8pt 0 8pt 0 !important; }
-  .invoice-addr-heading { font-size: 13pt !important; margin-bottom: 4pt !important; padding-bottom: 3pt !important; }
-  .invoice-items-heading { font-size: 13pt !important; margin: 6pt 0 4pt 0 !important; }
-
-  /* Address block — inherit base, just tighten spacing for print */
-  .invoice-addr-row { margin-bottom: 8pt !important; }
-  .invoice-addr-col { font-size: 12pt !important; line-height: 1.5 !important; padding-right: 16pt !important; }
-
-  /* Order detail rows */
-  .invoice-details { padding: 5pt 0 !important; margin-bottom: 8pt !important; }
-  .invoice-detail-row { font-size: 11pt !important; padding: 2pt 0 !important; }
-
-  /* Table — inherit 12pt, just tighten cell padding for page fit */
-  .invoice-table { font-size: 11pt !important; }
-  .invoice-table th { font-size: 10pt !important; padding: 5pt 5pt !important; }
-  .invoice-table td { font-size: 11pt !important; padding: 5pt 5pt !important; }
-  .invoice-table .totals-row td { font-size: 11pt !important; padding: 4pt 5pt !important; }
-  .invoice-table .grand-row td { font-size: 13pt !important; padding-top: 5pt !important; }
-
-  /* Product links: plain black in print */
-  .product-link { color: #000 !important; text-decoration: none !important; }
-
-  
-
-  .session-warning { display: none !important; }
-}
-      /* ===== Collapsed row (before + preview) ===== */
-    .order-row{
-      display: grid !important;
-      grid-template-columns: 26px 90px minmax(100px, 1fr) minmax(140px, 1.3fr) 65px minmax(130px, 160px) 70px;
-      gap: 10px;
-      align-items: center;
-      justify-content: initial !important;
-      padding: 10px 16px !important;
-    }
-    .order-row >  /* allow ellipsis */
-    .order-col{
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.2;
-    }
-    .order-col.order-id{
-      font-weight: 600;
-      color: #007bff;
-      cursor: pointer;
-    }
-    .order-col.order-customer{ color:#333; }
-    .order-col.order-email{
-      color:#333;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .note-badge{
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 7px;
-      border-radius: 10px;
-      background: #ff6b35;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.3;
-      white-space: nowrap;
-      flex-shrink: 0;
-      cursor: pointer;
-      box-shadow: 0 1px 3px rgba(255,107,53,0.4);
-      transition: background 0.15s;
-      margin-right: 5px;
-    }
-    .note-badge:hover{ background: #e85a24; }
-    .order-col.order-date{ color:#333; font-size: 16px; text-align:right; }
-    .order-col.order-total{
-      text-align: right;
-      font-weight: 700;
-      font-size: 18px;
-      color:#111;
-    }
-    /* Make the status pill align nicely in the grid */
-    .order-row .order-status{
-      justify-self: end;
-      margin-top: 0 !important;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      white-space: nowrap;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    /* Smaller + / - button (collapsed row) */
-    .expand-btn{
-      width: 22px !important;
-      height: 22px !important;
-      font-size: 16px !important;
-      border-radius: 4px;
-      margin-right: 0 !important;
-    }
-
-    /* Column headers row — mirrors order-row grid exactly */
-    .order-col-headers {
-      display: grid;
-      grid-template-columns: 26px 90px minmax(100px, 1fr) minmax(140px, 1.3fr) 65px minmax(130px, 160px) 70px;
-      gap: 10px;
-      align-items: center;
-      padding: 8px 18px;
-      background: var(--color-surface-alt);
-      border-bottom: 2px solid var(--color-border);
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--color-text-muted);
-      user-select: none;
-    }
-
-    /* Responsive: keep one line, but shrink columns a bit */
-    @media (max-width: 900px){
-      .order-row{
-        grid-template-columns: 26px 80px minmax(90px, 1fr) minmax(120px, 1.3fr) 60px minmax(110px, 140px) 65px;
-        gap: 8px;
-      }
-      .order-col-headers {
-        grid-template-columns: 26px 80px minmax(90px, 1fr) minmax(120px, 1.3fr) 60px minmax(110px, 140px) 65px;
-        gap: 8px;
-      }
-    }
-
-    /* Session timeout warning modal */
-    .session-warning {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.6);
-      z-index: 9999;
-      align-items: center;
-      justify-content: center;
-    }
-    .session-warning.show {
-      display: flex;
-    }
-    .session-warning-content {
-      background: white;
-      padding: 30px 40px;
-      border-radius: 12px;
-      text-align: center;
-      max-width: 400px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    }
-    .session-warning-icon {
-      font-size: 48px;
-      margin-bottom: 15px;
-    }
-    .session-warning h3 {
-      margin: 0 0 10px 0;
-      font-size: 20px;
-      color: #333;
-    }
-    .session-warning p {
-      margin: 0 0 20px 0;
-      color: #666;
-      font-size: 15px;
-      line-height: 1.5;
-    }
-    .session-warning .countdown {
-      font-size: 32px;
-      font-weight: 700;
-      color: #dc3545;
-      margin-bottom: 20px;
-      font-family: monospace;
-    }
-    .session-warning-buttons {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-    }
-    .session-warning-buttons button {
-      padding: 12px 24px;
-      border-radius: 6px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: background 0.2s;
-    }
-    .btn-stay {
-      background: #28a745;
-      color: white;
-    }
-    .btn-stay:hover {
-      background: #218838;
-    }
-    .btn-logout {
-      background: #6c757d;
-      color: white;
-    }
-    .btn-logout:hover {
-      background: #5a6268;
-    }
-    
-    /* ── Order Actions Bar ───────────────────────────────── */
-    .order-actions { border-bottom:1px solid #eee; padding:12px 16px; background:#f8fafc; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-    .order-actions-label { font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }
-    .action-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1.5px solid transparent; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font-base); transition:background 0.13s, border-color 0.13s, box-shadow 0.13s; }
-    .action-btn:active { transform:scale(0.975); }
-    .action-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; }
-    /* Neutral — for status update, non-critical actions */
-    .action-btn-neutral { background:var(--color-surface); border-color:var(--color-border); color:var(--color-text-secondary); }
-    .action-btn-neutral:hover:not(:disabled) { background:var(--color-surface-hover); border-color:#CBD5E1; color:var(--color-text); }
-    /* Ship/Primary — positive action (Add Tracking, Create Shipment) */
-    .action-btn-ship { background:var(--color-primary); border-color:var(--color-primary); color:#fff; box-shadow:0 1px 3px rgba(37,99,235,0.25); }
-    .action-btn-ship:hover:not(:disabled) { background:var(--color-primary-hover); border-color:var(--color-primary-hover); }
-    /* Cancel — soft warning, not destructive */
-    .action-btn-cancel { background:var(--color-surface); border-color:var(--color-border); color:var(--color-warning); }
-    .action-btn-cancel:hover:not(:disabled) { background:var(--color-warning-bg); border-color:var(--color-warning-border); }
-    /* Refund — destructive, muted red */
-    .action-btn-refund { background:var(--color-surface); border-color:var(--color-border); color:var(--color-danger); }
-    .action-btn-refund:hover:not(:disabled) { background:var(--color-danger-bg); border-color:var(--color-danger-border); }
-    .action-status-select { padding:7px 10px; border:1.5px solid var(--color-border); border-radius:6px; font-size:13px; font-family:var(--font-base); background:var(--color-surface); color:var(--color-text); max-width:200px; outline:none; cursor:pointer; }
-    .action-status-select:focus { border-color:var(--color-primary); }
-    .action-status-btn { padding:7px 14px; background:var(--color-primary); color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; font-family:var(--font-base); cursor:pointer; transition:background 0.13s; }
-    .action-status-btn:hover { background:var(--color-primary-hover); }
-    .action-inline-result { font-size:12px; padding:3px 10px; border-radius:4px; font-weight:500; }
-    .action-inline-result.success { color:var(--color-success); background:var(--color-success-bg); border:1px solid var(--color-success-border); }
-    .action-inline-result.error   { color:var(--color-danger);  background:var(--color-danger-bg);  border:1px solid var(--color-danger-border); }
-
-    /* ── Shared modal base ───────────────────────────────── */
-    .amodal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.52); z-index:2000; align-items:center; justify-content:center; padding:16px; }
-    .amodal-overlay.active { display:flex; }
-    .amodal { background:#fff; border-radius:10px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,.22); display:flex; flex-direction:column; max-height:90vh; }
-    .amodal-sm { max-width:460px; }
-    .amodal-lg { max-width:780px; }
-    .amodal-hd { padding:16px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
-    .amodal-hd h3 { font-size:16px; font-weight:600; color:#222; margin:0; }
-    .amodal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#aaa; line-height:1; }
-    .amodal-close:hover { color:#333; }
-    .amodal-body { padding:20px; overflow-y:auto; flex:1; }
-    .amodal-ft { padding:14px 20px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; flex-shrink:0; }
-    .afield { margin-bottom:15px; }
-    .afield label { display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
-    .afield input, .afield select, .afield textarea { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; box-sizing:border-box; }
-    .afield input:focus, .afield select:focus, .afield textarea:focus { outline:none; border-color:#0065d1; box-shadow:0 0 0 2px rgba(0,101,209,.12); }
-    .afield .anote { font-size:12px; color:#888; margin-top:4px; }
-    .adanger-box { background:#fff3f3; border:1px solid #f5c6cb; border-radius:6px; padding:12px 14px; color:#721c24; font-size:13px; margin-bottom:14px; }
-    .aresult { padding:10px 14px; border-radius:5px; font-size:13px; margin-bottom:12px; display:none; }
-    .aresult.success { background:#d4edda; color:#155724; display:block; }
-    .aresult.error   { background:#f8d7da; color:#721c24; display:block; }
-    .item-check-list { max-height:160px; overflow-y:auto; border:1px solid #ddd; border-radius:5px; padding:6px; }
-    .item-check-row { display:flex; align-items:center; gap:8px; padding:5px 3px; font-size:13px; border-bottom:1px solid #f0f0f0; }
-    .item-check-row:last-child { border-bottom:none; }
-    .item-check-row input[type=number] { width:52px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; text-align:center; }
-
-    /* ── Refund modal specific ───────────────────────────── */
-    .refund-tabs { display:flex; gap:0; border:1px solid #ccc; border-radius:6px; overflow:hidden; margin-bottom:18px; }
-    .rtab { padding:9px 16px; border:none; background:#f8f9fa; font-size:13px; font-weight:500; cursor:pointer; color:#555; flex:1; border-right:1px solid #ccc; transition:background .15s; }
-    .rtab:last-child { border-right:none; }
-    .rtab.active { background:#0065d1; color:#fff; }
-    .rtab:hover:not(.active) { background:#e9ecef; }
-    .refund-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .refund-table th { background:#f8f9fa; padding:9px 8px; text-align:left; font-size:11px; font-weight:700; color:#777; text-transform:uppercase; letter-spacing:.04em; border-bottom:2px solid #eee; }
-    .refund-table th.num, .refund-table td.rtd-num  { text-align:center; }
-    .refund-table th.price, .refund-table td.rtd-price { text-align:right; }
-    .refund-table td { padding:10px 8px; border-bottom:1px solid #f2f2f2; vertical-align:middle; }
-    .refund-table tr:last-child td { border-bottom:none; }
-    .rtd-item { max-width:260px; }
-    .ri-name { font-weight:500; color:#222; line-height:1.3; }
-    .ri-subname { font-size:11px; color:#888; margin-top:2px; }
-    .rtd-sku { font-size:12px; color:#777; white-space:nowrap; }
-    .ri-qty { width:60px; padding:5px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; text-align:center; }
-    .ri-ship { width:74px; }
-    .refund-table-wrap { max-height:260px; overflow-y:auto; border:1px solid #e5e5e5; border-radius:6px; margin-bottom:14px; }
-    .refund-subtotals { display:flex; justify-content:flex-end; padding:10px 8px 4px; }
-    .refund-subtotals table { font-size:13px; }
-    .refund-subtotals td { padding:4px 6px; }
-    .refund-subtotals td:last-child { text-align:right; font-weight:600; min-width:72px; }
-    .refund-total-row td { font-size:15px; font-weight:700; padding-top:8px; border-top:2px solid #eee; }
-    .refund-method-section h4 { font-size:13px; font-weight:700; color:#444; margin:0 0 4px; }
-    .refund-method-section p  { font-size:12px; color:#777; margin:0 0 12px; }
-    .refund-method-card { border:1px solid #ddd; border-radius:7px; margin-bottom:8px; overflow:hidden; transition:border-color .15s; }
-    .refund-method-card.selected { border-color:#0065d1; box-shadow:0 0 0 2px rgba(0,101,209,.15); }
-    .refund-method-row { display:flex; align-items:flex-start; gap:12px; padding:13px 14px; cursor:pointer; }
-    .refund-method-row input[type=radio] { margin-top:2px; flex-shrink:0; width:16px; height:16px; accent-color:#0065d1; }
-    .rm-title { font-size:14px; color:#222; }
-    .rm-desc  { font-size:12px; color:#777; margin-top:2px; }
-    .refund-external-wrap { padding:0 14px 12px 42px; }
-    .refund-external-label { display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
-    .refund-external-label input[type=checkbox] { margin-top:2px; flex-shrink:0; }
-    .refund-note { padding:10px 14px; border-radius:5px; font-size:13px; margin-bottom:14px; }
-    .refund-note.warn { background:#fff8e1; border:1px solid #ffe082; color:#7a5800; }
-    .refund-section-title { font-size:16px; font-weight:700; color:#222; margin:0 0 6px; }
-    .refund-section-sub   { font-size:13px; color:#666; margin:0 0 14px; }
-
-    /* ── Bulk tracking modal ─────────────────────────────── */
-    .bulk-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:3000; align-items:center; justify-content:center; padding:16px; }
-    .bulk-overlay.active { display:flex; }
-    .bulk-modal { background:#fff; border-radius:10px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.25); }
-    .bulk-hd { padding:16px 22px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:1; }
-    .bulk-hd h3 { font-size:16px; font-weight:600; color:#222; margin:0; }
-    .bulk-close { background:none; border:none; font-size:22px; cursor:pointer; color:#aaa; }
-    .bulk-body { padding:22px; }
-    .bulk-ft { padding:14px 22px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; position:sticky; bottom:0; background:#fff; }
-    .bulk-drop { border:2px dashed #ccc; border-radius:8px; padding:36px 20px; text-align:center; cursor:pointer; background:#fafafa; transition:border-color .2s,background .2s; }
-    .bulk-drop:hover, .bulk-drop.over { border-color:#0065d1; background:#eaf4ff; }
-    .bulk-drop p { color:#666; font-size:13px; margin-top:8px; }
-    .bulk-drop-icon { font-size:38px; }
-    .bulk-fname { font-size:13px; font-weight:600; color:#333; margin-top:10px; padding:8px 14px; background:#e9f5e9; border-radius:5px; display:none; }
-    .bulk-store-sel { width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:5px; font-size:14px; margin-top:12px; box-sizing:border-box; }
-    .bulk-preview-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; display:none; }
-    .bulk-preview-table th { background:#f8f9fa; padding:8px 10px; text-align:left; font-size:11px; font-weight:700; color:#777; text-transform:uppercase; }
-    .bulk-preview-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; }
-    .bulk-preview-count { font-size:13px; color:#555; margin-top:6px; display:none; }
-    .bulk-prog-wrap { display:none; margin-top:16px; }
-    .bulk-map-row { display:flex; align-items:center; padding:10px 14px; border:1px solid #e0e0e0; border-radius:6px; margin-bottom:8px; background:#fff; }
-    .bulk-map-label { flex:1; font-size:13px; color:#444; }
-    .bulk-map-sel { width:220px; padding:7px 10px; border:1px solid #ccc; border-radius:5px; font-size:13px; }
-    .bulk-prog-lbl { font-size:13px; color:#555; margin-bottom:5px; display:flex; justify-content:space-between; }
-    .bulk-prog-bar { height:10px; background:#e9ecef; border-radius:5px; overflow:hidden; }
-    .bulk-prog-fill { height:100%; background:#28a745; border-radius:5px; width:0%; transition:width .3s; }
-    .bulk-results { display:none; margin-top:16px; }
-    .bulk-stats { display:flex; gap:10px; margin-bottom:14px; }
-    .bstat { flex:1; text-align:center; padding:12px 8px; border-radius:7px; font-weight:700; }
-    .bstat-n { font-size:26px; display:block; }
-    .bstat-l { font-size:11px; font-weight:500; }
-    .bstat.ok  { background:#d4edda; color:#155724; }
-    .bstat.fail{ background:#f8d7da; color:#721c24; }
-    .bstat.skip{ background:#fff3cd; color:#856404; }
-    .bulk-fail-list { max-height:180px; overflow-y:auto; border:1px solid #f5c6cb; border-radius:5px; background:#fff8f8; }
-    .bulk-fail-row { display:flex; gap:10px; padding:6px 10px; font-size:12px; border-bottom:1px solid #f5e6e6; }
-    .bulk-fail-row:last-child { border-bottom:none; }
-    .bulk-fail-ord { font-weight:700; color:#721c24; min-width:68px; }
-    .bulk-fail-rsn { color:#555; }
-
-
-  /* ── App Shell (sidebar layout) ─────────────────────────── */
-  html, body { height: 100%; overflow: hidden; }
-
-  .app-shell {
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  /* ── Sidebar ─────────────────────────────────────────────── */
-  .sidebar {
-    width: 220px;
-    background: var(--color-sidebar-bg);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    overflow-y: auto;
-    z-index: 50;
-  }
-
-  .sidebar-logo {
-    padding: 16px 16px 14px;
-    border-bottom: 1px solid var(--color-sidebar-border);
-    flex-shrink: 0;
-  }
-
-  .sidebar-logo img {
-    width: 160px;
-    height: auto;
-    display: block;
-    filter: brightness(0) invert(1);
-    opacity: 0.92;
-  }
-
-  .sidebar-logo .app-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #4E6680;
-    margin-top: 8px;
-  }
-
-  .sidebar-section {
-    padding: 14px 10px 6px;
-    flex-shrink: 0;
-  }
-
-  .sidebar-section-label {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: #4E6680;
-    padding: 0 8px;
-    margin-bottom: 5px;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 9px 10px;
-    border-radius: 6px;
-    color: #C8D6E5;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.13s, color 0.13s;
-    border: none;
-    background: none;
-    width: 100%;
-    text-align: left;
-    text-decoration: none;
-    font-family: var(--font-base);
-    white-space: nowrap;
-  }
-  .nav-item:hover { background: rgba(255,255,255,0.09); color: #FFFFFF; text-decoration: none; }
-  .nav-item.active { background: rgba(255,255,255,0.13); color: #FFFFFF; font-weight: 600; }
-  .nav-item.active .nav-icon { color: var(--color-sidebar-accent); }
-
-  .nav-icon {
-    width: 17px;
-    height: 17px;
-    flex-shrink: 0;
-    opacity: 1;
-    color: #7A9BB5;
-  }
-
-  /* Sidebar footer — user info + logout */
-  .sidebar-footer {
-    margin-top: auto;
-    padding: 12px 10px;
-    border-top: 1px solid var(--color-sidebar-border);
-    flex-shrink: 0;
-  }
-
-  .sidebar-user {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    cursor: default;
-    margin-bottom: 6px;
-  }
-
-  .sidebar-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-sidebar-accent));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-    flex-shrink: 0;
-  }
-
-  .sidebar-user-info { overflow: hidden; }
-  .sidebar-username {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #E8F0F8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .sidebar-role {
-    font-size: 11.5px;
-    color: #6B8299;
-  }
-
-  .sidebar-logout {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    color: #FDA4AF;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    font-family: var(--font-base);
-    transition: background 0.13s;
-  }
-  .sidebar-logout:hover { background: rgba(220, 38, 38, 0.15); }
-
-  /* ── Main content area ───────────────────────────────────── */
-  .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 0;
-  }
-
-  /* Top bar */
-  .topbar {
-    height: 56px;
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
-    display: flex;
-    align-items: center;
-    padding: 0 22px;
-    gap: 14px;
-    flex-shrink: 0;
-    box-shadow: var(--shadow-xs);
-  }
-
-  .topbar-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--color-text);
-    letter-spacing: -0.3px;
-  }
-
-  .topbar-store-badge {
-    font-size: 11.5px;
-    font-weight: 600;
-    background: var(--color-primary-light);
-    color: var(--color-primary);
-    border: 1px solid var(--color-primary-border);
-    padding: 2px 9px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: background 0.13s;
-  }
-  .topbar-store-badge:hover { background: var(--color-primary); color: #fff; }
-
-  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-
-  /* Page content scroll area */
-  .page-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 22px;
-  }
-
-  /* ── DB stats bar ─────────────────────────────────────────── */
-  .db-stats-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: var(--color-surface-alt);
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
-    font-size: 12px;
-    color: var(--color-text-muted);
-    margin-bottom: 16px;
-  }
-
-  .db-stats-bar .dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--color-success);
-    flex-shrink: 0;
-  }
-</style>
 </head>
 <body>
 <div class="app-shell">
@@ -1259,12 +75,12 @@
     <!-- Top Bar -->
     <div class="topbar">
       <span class="topbar-title">Order Search</span>
-      <select id="store" class="topbar-store-badge" style="border:none; cursor:pointer; font-family:inherit; font-weight:600; font-size:12px; background:var(--color-primary-light); color:var(--color-primary); padding:4px 10px; border-radius:20px; border:1px solid var(--color-primary-border); outline:none;">
+      <select id="store" class="topbar-store-badge">
         <option value="1ink">1ink.com</option>
         <option value="needink">needink.com</option>
       </select>
       <div class="topbar-actions">
-        <span style="font-size:12px; color:var(--color-text-muted);">Logged in as <strong id="topbarUsername" style="color:var(--color-text-secondary);"></strong></span>
+        <span class="topbar-user-label">Logged in as <strong id="topbarUsername" class="topbar-username"></strong></span>
       </div>
     </div>
 
@@ -1280,7 +96,7 @@
       <!-- Search Box -->
       <div class="search-box">
         <div class="search-row">
-          <input type="text" id="searchQuery" placeholder="Search by order #, name, phone, or email…" onkeypress="if(event.key==='Enter')search()" style="flex:1;">
+          <input type="text" id="searchQuery" placeholder="Search by order #, name, phone, or email…" onkeypress="if(event.key==='Enter')search()">
           <button onclick="search()" id="searchBtn">Search</button>
         </div>
       </div>
@@ -1535,7 +351,7 @@
         displayResults(data.orders, detected.label);
 
       } catch (err) {
-        resultsDiv.innerHTML = `<div class="no-results" style="color: #dc3545;">${err.message}</div>`;
+        resultsDiv.innerHTML = `<div class="no-results error">${err.message}</div>`;
       } finally {
         btn.disabled = false;
         btn.textContent = 'Search';
@@ -1562,7 +378,7 @@
       let html = `
         <div class="results-header">
           ${orders.length} order${orders.length !== 1 ? 's' : ''} found
-          <span style="color:var(--color-text-muted);font-weight:500;font-size:12.5px;">&nbsp;· searched by ${searchedBy}</span>
+          <span class="search-meta-label">&nbsp;· searched by ${searchedBy}</span>
           ${expandAllBtn}
         </div>
         <div class="order-col-headers">
@@ -1570,9 +386,9 @@
           <div>Order ID</div>
           <div>Customer</div>
           <div>Email</div>
-          <div style="text-align:right;">Date</div>
-          <div style="text-align:right;">Status</div>
-          <div style="text-align:right;">Total</div>
+          <div class="col-right">Date</div>
+          <div class="col-right">Status</div>
+          <div class="col-right">Total</div>
         </div>`;
 
       for (const order of orders) {
@@ -1702,7 +518,7 @@
                 renderPreviewItems(order.id, data);
               }
             } catch (err) {
-              if (previewContent) previewContent.innerHTML = `<div class="preview-loading" style="color:#dc3545;">Failed to load</div>`;
+              if (previewContent) previewContent.innerHTML = `<div class="preview-loading error">Failed to load</div>`;
             }
           } else {
             renderPreviewItems(order.id, orderDetailsCache[order.id]);
@@ -1743,7 +559,7 @@
             orderDetailsCache[orderId] = data;
             renderPreviewItems(orderId, data);
           } catch (err) {
-            previewContent.innerHTML = `<div class="preview-loading" style="color: #dc3545;">Failed to load items</div>`;
+            previewContent.innerHTML = `<div class="preview-loading error">Failed to load items</div>`;
           }
         } else {
           renderPreviewItems(orderId, orderDetailsCache[orderId]);
@@ -1912,7 +728,7 @@
           <div class="preview-address-box">
             <div class="preview-box-header">
               <h5>Billing</h5>
-              <span style="font-size:14px; font-weight:700; color:#555;">Order #${order.id}</span>
+              <span class="order-ref-label">Order #${order.id}</span>
             </div>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
@@ -1975,12 +791,12 @@
               </tbody>
             </table>
             <div class="preview-total">
-              <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <span>$${parseFloat(order.subtotal_ex_tax || 0).toFixed(2)}</span></div>
-              ${parseFloat(order.coupon_discount || 0) > 0 ? `<div style="display:flex; justify-content: space-between;"><span class="coupon-label">Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span> <span class="coupon-value">-$${Math.abs(parseFloat(order.coupon_discount || 0)).toFixed(2)}</span></div>` : ''}
-              ${parseFloat(order.discount_amount || 0) > 0 && parseFloat(order.discount_amount) !== parseFloat(order.coupon_discount || 0) ? `<div style="display: flex; justify-content: space-between; color: #28a745;"><span>Discount:</span> <span>-$${parseFloat(order.discount_amount).toFixed(2)}</span></div>` : ''}
-              <div style="display: flex; justify-content: space-between;"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_ex_tax || 0).toFixed(2)}</span></div>
-              <div style="display: flex; justify-content: space-between;"><span>Tax:</span> <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span></div>
-              <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px;"><span>Total:</span> <span>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</span></div>
+              <div class="preview-total-row"><span>Subtotal:</span> <span>$${parseFloat(order.subtotal_ex_tax || 0).toFixed(2)}</span></div>
+              ${parseFloat(order.coupon_discount || 0) > 0 ? `<div class="preview-total-row"><span class="coupon-label">Coupon${order.coupon_code ? ` (${order.coupon_code})` : ''}:</span> <span class="coupon-value">-$${Math.abs(parseFloat(order.coupon_discount || 0)).toFixed(2)}</span></div>` : ''}
+              ${parseFloat(order.discount_amount || 0) > 0 && parseFloat(order.discount_amount) !== parseFloat(order.coupon_discount || 0) ? `<div class="preview-total-row discount"><span>Discount:</span> <span>-$${parseFloat(order.discount_amount).toFixed(2)}</span></div>` : ''}
+              <div class="preview-total-row"><span>Shipping:</span> <span>$${parseFloat(order.shipping_cost_ex_tax || 0).toFixed(2)}</span></div>
+              <div class="preview-total-row"><span>Tax:</span> <span>$${parseFloat(order.total_tax || 0).toFixed(2)}</span></div>
+              <div class="preview-total-row preview-grand-total"><span>Total:</span> <span>$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</span></div>
             </div>
           </div>
         </div>
@@ -2189,7 +1005,7 @@
         displayOrderDetail(data);
 
       } catch (err) {
-        modalBody.innerHTML = `<div class="no-results" style="color: #dc3545; padding: 20px;">${err.message}</div>`;
+        modalBody.innerHTML = `<div class="no-results error">${err.message}</div>`;
       }
     }
 
@@ -2629,7 +1445,7 @@
   <div class="amodal-overlay" id="refundModal">
     <div class="amodal amodal-lg">
       <div class="amodal-hd">
-        <h3>Refund Order <span id="refund-order-num" style="color:#0065d1;"></span></h3>
+        <h3>Refund Order <span id="refund-order-num" class="refund-order-num"></span></h3>
         <button class="amodal-close" onclick="closeActionModal('refundModal')">&times;</button>
       </div>
       <div class="amodal-body">
@@ -2638,7 +1454,7 @@
         <!-- Step 1: Item selection -->
         <div id="refund-step1">
           <!-- Order summary line -->
-          <p style="font-size:13px;color:#666;margin:0 0 14px;">
+          <p class="refund-order-summary">
             Order total: <strong id="refund-order-total-lbl"></strong>
           </p>
 
@@ -2666,9 +1482,9 @@
                 <tbody id="refund-items-tbody"></tbody>
               </table>
             </div>
-            <div style="text-align:right;font-size:13px;color:#555;padding:0 8px 4px;">
+            <div class="refund-estimated">
               Estimated refund: <strong id="refund-items-subtotal">$0.00</strong>
-              <span style="color:#aaa;font-size:11px;"> (tax calculated on continue)</span>
+              <span class="refund-estimated-tax"> (tax calculated on continue)</span>
             </div>
           </div>
 
@@ -2681,14 +1497,14 @@
 
           <!-- Tab: Apply an order level refund (custom amount) -->
           <div id="refund-tab-custom" style="display:none;">
-            <div class="afield" style="max-width:220px;">
+            <div class="afield afield-narrow">
               <label>Refund Amount ($)</label>
               <input type="number" id="refund-custom-amount" min="0.01" step="0.01" placeholder="0.00">
               <p class="anote">Order total: <strong id="refund-custom-order-total"></strong> — tax-exempt custom amount</p>
             </div>
           </div>
 
-          <div class="afield" style="margin-top:14px;">
+          <div class="afield afield-mt">
             <label>Reason for refund (optional)</label>
             <textarea id="refund-reason" rows="2" placeholder="Defective item, customer return, wrong item shipped..."></textarea>
           </div>
@@ -2719,7 +1535,7 @@
           </div>
 
           <!-- Refund method -->
-          <div class="refund-method-section" style="margin-top:18px;">
+          <div class="refund-method-section">
             <p class="refund-section-title">Refund method</p>
             <p class="refund-section-sub">Select one of the methods below to complete your refund</p>
             <div id="refund-payment-methods"></div>
@@ -2760,9 +1576,9 @@
 
         <!-- STEP 2: Map fields -->
         <div id="bulk-step-map" style="display:none;">
-          <div style="margin-bottom:16px;">
-            <p style="font-size:13px;color:#555;margin:0 0 14px 0;">Use the form below to define which import fields should map to which tracking number fields.</p>
-            <p style="font-size:13px;font-weight:700;color:#333;margin:0 0 12px 0;">Link import fields</p>
+          <div class="bulk-map-header">
+            <p class="bulk-map-intro">Use the form below to define which import fields should map to which tracking number fields.</p>
+            <p class="bulk-map-title">Link import fields</p>
             <div class="bulk-map-row">
               <label class="bulk-map-label">Match "Order number" with:</label>
               <select class="bulk-map-sel" id="bulk-col-order"></select>
@@ -2804,11 +1620,11 @@
             <div class="bstat fail"><span class="bstat-n" id="bulk-res-failed">0</span> <span class="bstat-l">Failed</span></div>
           </div>
           <div id="bulk-fail-section" style="display:none;">
-            <p style="font-size:12px;font-weight:700;color:#721c24;margin-bottom:5px;">Failed orders:</p>
+            <p class="bulk-section-label danger">Failed orders:</p>
             <div class="bulk-fail-list" id="bulk-fail-list"></div>
           </div>
           <div id="bulk-skip-section" style="display:none;margin-top:10px;">
-            <p style="font-size:12px;font-weight:700;color:#856404;margin-bottom:5px;">Skipped orders:</p>
+            <p class="bulk-section-label warning">Skipped orders:</p>
             <div class="bulk-fail-list" id="bulk-skip-list"></div>
           </div>
         </div>
@@ -2910,7 +1726,7 @@ function injectOrderActionsBar(orderId, order, data) {
 
   var result = document.createElement('span');
   result.id = 'action-result-' + orderId;
-  result.style.fontSize = '13px';
+  result.className = 'action-inline-result';
   bar.appendChild(result);
 
   previewContent.insertBefore(bar, previewContent.firstChild);
@@ -2949,13 +1765,13 @@ function openShipmentModal(orderId, data) {
 
   var listEl = document.getElementById('shipment-items-list');
   if (_actionProducts.length === 0) {
-    listEl.innerHTML = '<p style="color:#888;font-size:13px;padding:6px;">No items found.</p>';
+    listEl.innerHTML = '<p class="no-results">No items found.</p>';
   } else {
     listEl.innerHTML = _actionProducts.map(function(p) {
       return '<div class="item-check-row">' +
         '<input type="checkbox" id="ship-item-' + p.id + '" checked>' +
         '<input type="number" id="ship-qty-' + p.id + '" min="1" max="' + p.quantity + '" value="' + p.quantity + '">' +
-        '<label for="ship-item-' + p.id + '" style="flex:1;">' + (p.sku ? p.sku + ' \u2014 ' : '') + p.name + '</label>' +
+        '<label for="ship-item-' + p.id + '" class="item-label">' + (p.sku ? p.sku + ' \u2014 ' : '') + p.name + '</label>' +
         '</div>';
     }).join('');
   }
@@ -3198,9 +2014,9 @@ function bulkUpdatePreview() {
 
   var tbody = document.getElementById('bulk-preview-body');
   var html = rows.slice(0,10).map(function(r) {
-    return '<tr><td>#' + r.orderId + '</td><td style="font-family:monospace;font-size:12px;">' + r.tracking + '</td><td>' + (r.carrier || '—') + '</td></tr>';
+    return '<tr><td>#' + r.orderId + '</td><td class="bulk-preview-table-tracking">' + r.tracking + '</td><td>' + (r.carrier || '—') + '</td></tr>';
   }).join('');
-  if (rows.length > 10) html += '<tr><td colspan="3" style="color:#888;font-style:italic;padding:8px 10px;">...and ' + (rows.length-10) + ' more rows</td></tr>';
+  if (rows.length > 10) html += '<tr><td colspan="3" class="bulk-more-rows">...and ' + (rows.length-10) + ' more rows</td></tr>';
   tbody.innerHTML = html;
   document.getElementById('bulk-preview-table').style.display = rows.length ? 'table' : 'none';
   document.getElementById('bulk-preview-count').style.display = rows.length ? 'block' : 'none';
@@ -3359,7 +2175,7 @@ function refundBuildItemsTable() {
     );
   }
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:14px;text-align:center;color:#888;">No items found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty-cell">No items found</td></tr>';
   } else {
     tbody.innerHTML = rows.join('');
   }
@@ -3481,7 +2297,7 @@ async function refundContinue() {
         '</tr>';
       }
     } else {
-      sumRows = '<tr><td colspan="4" style="padding:10px 8px;font-size:13px;">Custom refund</td>' +
+      sumRows = '<tr><td colspan="4" class="refund-custom-label">Custom refund</td>' +
         '<td class="rtd-num">—</td>' +
         '<td class="rtd-price">$' + parseFloat(document.getElementById('refund-custom-amount').value).toFixed(2) + '</td></tr>';
     }
@@ -3520,8 +2336,8 @@ async function refundContinue() {
             '<label class="refund-external-label">' +
               '<input type="checkbox" id="refund-extcb-' + i + '" onchange="refundToggleExternal(' + i + ')">' +
               '<div>' +
-                '<div style="font-size:13px;font-weight:500;">Refund transaction processed external to BigCommerce</div>' +
-                '<div style="font-size:12px;color:#777;margin-top:2px;">BigCommerce will not perform the refund because the amount was refunded directly through the payment provider.</div>' +
+                '<div class="refund-external-title">Refund transaction processed external to BigCommerce</div>' +
+                '<div class="refund-external-desc">BigCommerce will not perform the refund because the amount was refunded directly through the payment provider.</div>' +
               '</div>' +
             '</label>' +
           '</div>';
