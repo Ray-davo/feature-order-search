@@ -729,7 +729,10 @@
           <div class="preview-address-box">
             <div class="preview-box-header">
               <h5>Billing</h5>
-              <span class="order-ref-label">Order #${order.id}</span>
+              <span style="display:flex;align-items:center;gap:8px;">
+                <span class="order-ref-label">Order #${order.id}</span>
+                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('billing',${orderId},'${store}')">&#9998; Edit</button>` : ''}
+              </span>
             </div>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
@@ -746,7 +749,10 @@
           <div class="preview-address-box">
             <div class="preview-box-header">
               <h5>Shipping</h5>
-              <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
+              <span style="display:flex;align-items:center;gap:8px;">
+                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('shipping',${orderId},'${store}',${shippingAddresses[0]?.id||0})">&#9998; Edit</button>` : ''}
+                <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
+              </span>
             </div>
             <p>
               <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
@@ -1093,6 +1099,14 @@
         <td class="t-label">Grand total:</td>
         <td class="t-value">${money(grandTotal)}</td>
       </tr>`;
+      const refundedAmt = parseFloat(order.refunded_amount || 0);
+      if (refundedAmt > 0) {
+        totalsRows += `<tr class="totals-row" style="color:#B91C1C;font-weight:600;">
+          <td colspan="3"></td>
+          <td class="t-label">Refunded:</td>
+          <td class="t-value">-${money(refundedAmt)}</td>
+        </tr>`;
+      }
 
       // Tracking
       let trackingHtml = '';
@@ -1391,6 +1405,72 @@
     checkAuth();
   </script>
 
+
+  <!-- ── Edit Address Modal ─────────────────────────────────── -->
+  <div class="amodal-overlay" id="editAddressModal">
+    <div class="amodal amodal-sm">
+      <div class="amodal-hd">
+        <h3 id="edit-address-title">Edit Address</h3>
+        <button class="amodal-close" onclick="closeEditAddress()">&times;</button>
+      </div>
+      <div class="amodal-body">
+        <div class="aresult" id="edit-address-result"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="afield">
+            <label>First Name</label>
+            <input type="text" id="ea-first-name" placeholder="First name">
+          </div>
+          <div class="afield">
+            <label>Last Name</label>
+            <input type="text" id="ea-last-name" placeholder="Last name">
+          </div>
+        </div>
+        <div class="afield">
+          <label>Company <span style="font-weight:400;color:var(--color-text-muted)">(optional)</span></label>
+          <input type="text" id="ea-company" placeholder="Company name">
+        </div>
+        <div class="afield">
+          <label>Street Address</label>
+          <input type="text" id="ea-street-1" placeholder="Street line 1">
+        </div>
+        <div class="afield">
+          <label>Street Line 2 <span style="font-weight:400;color:var(--color-text-muted)">(optional)</span></label>
+          <input type="text" id="ea-street-2" placeholder="Apt, suite, unit, etc.">
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+          <div class="afield">
+            <label>City</label>
+            <input type="text" id="ea-city" placeholder="City">
+          </div>
+          <div class="afield">
+            <label>State</label>
+            <input type="text" id="ea-state" placeholder="CA">
+          </div>
+          <div class="afield">
+            <label>ZIP</label>
+            <input type="text" id="ea-zip" placeholder="90210">
+          </div>
+        </div>
+        <div class="afield">
+          <label>Country</label>
+          <input type="text" id="ea-country" placeholder="United States">
+        </div>
+        <div class="afield">
+          <label>Phone</label>
+          <input type="text" id="ea-phone" placeholder="Phone number">
+        </div>
+        <div class="afield" id="ea-email-field">
+          <label>Email <span style="font-weight:400;color:var(--color-text-muted)">(billing only)</span></label>
+          <input type="email" id="ea-email" placeholder="customer@email.com">
+        </div>
+        <p class="anote" style="margin-top:4px;">&#9888; Changes save directly to BigCommerce and are permanent.</p>
+      </div>
+      <div class="amodal-ft">
+        <button class="action-btn action-btn-neutral" onclick="closeEditAddress()">Cancel</button>
+        <button class="action-btn action-btn-ship" id="ea-save-btn" onclick="submitEditAddress()">Save Changes</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Shipment Modal ─────────────────────────────────────── -->
   <div class="amodal-overlay" id="shipmentModal">
@@ -1756,6 +1836,123 @@ async function submitStatusUpdate(orderId) {
     btn.disabled = false; btn.textContent = '\u2713 Set';
   }
 }
+
+// ── Edit Address modal ────────────────────────────────────────────
+var _editAddrType    = '';   // 'billing' or 'shipping'
+var _editAddrOrderId = 0;
+var _editAddrStore   = '';
+var _editAddrId      = 0;    // shipping address id (0 for billing)
+
+function openEditAddress(type, orderId, store, addressId) {
+  _editAddrType    = type;
+  _editAddrOrderId = orderId;
+  _editAddrStore   = store;
+  _editAddrId      = addressId || 0;
+
+  document.getElementById('edit-address-title').textContent =
+    type === 'billing' ? 'Edit Billing Address' : 'Edit Shipping Address';
+
+  // Show/hide email field — billing only
+  document.getElementById('ea-email-field').style.display = type === 'billing' ? '' : 'none';
+
+  // Pre-fill from live DOM if available
+  var panel = document.getElementById('preview-' + orderId);
+  if (panel) {
+    var boxes = panel.querySelectorAll('.preview-address-box');
+    var box   = type === 'billing' ? boxes[0] : boxes[1];
+    if (box) {
+      var p = box.querySelector('p');
+      // Pre-fill phone/email from contact spans
+      var phoneEl = box.querySelector('.contact-phone .copyable');
+      var emailEl = box.querySelector('.contact-email .copyable');
+      if (phoneEl) document.getElementById('ea-phone').value  = phoneEl.textContent.replace('N/A','').trim();
+      if (emailEl) document.getElementById('ea-email').value  = emailEl.textContent.replace('N/A','').trim();
+    }
+  }
+
+  // Clear result
+  var r = document.getElementById('edit-address-result');
+  r.className = 'aresult'; r.textContent = '';
+
+  document.getElementById('editAddressModal').classList.add('active');
+}
+
+function closeEditAddress() {
+  document.getElementById('editAddressModal').classList.remove('active');
+  // Clear all fields
+  ['first-name','last-name','company','street-1','street-2','city','state','zip','country','phone','email'].forEach(function(f) {
+    var el = document.getElementById('ea-' + f);
+    if (el) el.value = '';
+  });
+}
+
+async function submitEditAddress() {
+  var btn = document.getElementById('ea-save-btn');
+  var result = document.getElementById('edit-address-result');
+  result.className = 'aresult'; result.textContent = '';
+
+  var body = {
+    first_name: document.getElementById('ea-first-name').value.trim(),
+    last_name:  document.getElementById('ea-last-name').value.trim(),
+    company:    document.getElementById('ea-company').value.trim(),
+    street_1:   document.getElementById('ea-street-1').value.trim(),
+    street_2:   document.getElementById('ea-street-2').value.trim(),
+    city:       document.getElementById('ea-city').value.trim(),
+    state:      document.getElementById('ea-state').value.trim(),
+    zip:        document.getElementById('ea-zip').value.trim(),
+    country:    document.getElementById('ea-country').value.trim(),
+    phone:      document.getElementById('ea-phone').value.trim(),
+  };
+  if (_editAddrType === 'billing') {
+    body.email = document.getElementById('ea-email').value.trim();
+  }
+
+  // Remove empty optional fields (company, street_2) so we don't overwrite with blanks
+  if (!body.company)  delete body.company;
+  if (!body.street_2) delete body.street_2;
+
+  if (!body.first_name || !body.last_name || !body.street_1 || !body.city || !body.state || !body.zip) {
+    result.className = 'aresult error';
+    result.textContent = 'First name, last name, street, city, state, and ZIP are required.';
+    return;
+  }
+
+  var url = _editAddrType === 'billing'
+    ? '/api/order/' + _editAddrStore + '/' + _editAddrOrderId + '/billing-address'
+    : '/api/order/' + _editAddrStore + '/' + _editAddrOrderId + '/shipping-address/' + _editAddrId;
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    var res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+
+    result.className = 'aresult success';
+    result.textContent = (_editAddrType === 'billing' ? 'Billing' : 'Shipping') + ' address updated in BigCommerce.';
+
+    // Refresh the order preview to show new address
+    setTimeout(function() {
+      closeEditAddress();
+      var panel = document.getElementById('preview-' + _editAddrOrderId);
+      if (panel && panel.classList.contains('show')) {
+        loadPreview(_editAddrOrderId, _editAddrStore);
+      }
+    }, 1200);
+  } catch (err) {
+    result.className = 'aresult error';
+    result.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+}
+
 
 // ── Shipment modal ───────────────────────────────────────────────
 function openShipmentModal(orderId, data) {
