@@ -725,9 +725,30 @@
       margin-right: 0 !important;
     }
 
+    /* Column headers row — mirrors order-row grid exactly */
+    .order-col-headers {
+      display: grid;
+      grid-template-columns: 26px 90px minmax(100px, 1fr) minmax(140px, 1.3fr) 65px minmax(130px, 160px) 70px;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 18px;
+      background: var(--color-surface-alt);
+      border-bottom: 2px solid var(--color-border);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--color-text-muted);
+      user-select: none;
+    }
+
     /* Responsive: keep one line, but shrink columns a bit */
     @media (max-width: 900px){
       .order-row{
+        grid-template-columns: 26px 80px minmax(90px, 1fr) minmax(120px, 1.3fr) 60px minmax(110px, 140px) 65px;
+        gap: 8px;
+      }
+      .order-col-headers {
         grid-template-columns: 26px 80px minmax(90px, 1fr) minmax(120px, 1.3fr) 60px minmax(110px, 140px) 65px;
         gap: 8px;
       }
@@ -1166,7 +1187,7 @@
   <aside class="sidebar">
 
     <div class="sidebar-logo">
-      <img src="https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg" alt="1ink.com">
+      <img src="https://cdn11.bigcommerce.com/s-9u5u1ss/content/banners/1ink-logo-trademark-invoice.png" alt="1ink.com">
       <div class="app-label">Order Support Portal</div>
     </div>
 
@@ -1526,7 +1547,21 @@
         ? `<button class="expand-all-btn" id="expandAllBtn" onclick="expandAllOrders()">Expand All</button>`
         : '';
 
-      let html = `<div class="results-header">${orders.length} order${orders.length !== 1 ? 's' : ''} found <span style="color: #888; font-weight: normal; font-size: 13px;">(searched by ${searchedBy})</span>${expandAllBtn}</div>`;
+      let html = `
+        <div class="results-header">
+          ${orders.length} order${orders.length !== 1 ? 's' : ''} found
+          <span style="color:var(--color-text-muted);font-weight:500;font-size:12.5px;">&nbsp;· searched by ${searchedBy}</span>
+          ${expandAllBtn}
+        </div>
+        <div class="order-col-headers">
+          <div></div>
+          <div>Order ID</div>
+          <div>Customer</div>
+          <div>Email</div>
+          <div style="text-align:right;">Date</div>
+          <div style="text-align:right;">Status</div>
+          <div style="text-align:right;">Total</div>
+        </div>`;
 
       for (const order of orders) {
         const date = new Date(order.date_created).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
@@ -1536,28 +1571,21 @@
           : 'Guest';
         const customerEmail = order.billing_address?.email || '';
 
-        html += `          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
+        html += `
+          <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
-
             <div class="order-col order-id">#${order.id}</div>
-
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
-
             <div class="order-col order-email" title="${customerEmail}"><span id="note-badge-${order.id}"></span>${customerEmail}</div>
-
             <div class="order-col order-date">${date}</div>
-
             <div class="order-col order-status ${statusClass}">${order.status}</div>
-
             <div class="order-col order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
-          </div>
           </div>
           <div class="preview-panel" id="preview-${order.id}">
             <div class="preview-content" id="preview-content-${order.id}">
               <div class="preview-loading">Loading items...</div>
             </div>
-          </div>
-        `;
+          </div>`;
       }
 
       resultsDiv.innerHTML = html;
