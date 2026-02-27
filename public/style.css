@@ -1776,6 +1776,46 @@ button.admin-btn {
 
 .bulk-body { padding: 22px; }
 
+/* ── Bulk drop zone ──────────────────────────────────────── */
+.bulk-drop {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 12px;
+}
+.bulk-drop:hover,
+.bulk-drop.dragover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.bulk-drop-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+.bulk-drop strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+.bulk-drop p {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.bulk-fname {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  min-height: 20px;
+}
+
 /* ============================================================
    SESSION TIMEOUT WARNING
    ============================================================ */

@@ -81,7 +81,7 @@
     <div class="page-content">
 
       <!-- DB Stats -->
-      <div class="db-stats-bar">
+      <div class="db-stats-bar" id="dbStatsBar" style="display:none;">
         <span class="dot"></span>
         <span id="dbStats">Loading database stats...</span>
       </div>
@@ -253,6 +253,7 @@
 
         currentUser = data.user;
         currentUserIsAdmin = data.isAdmin || false;
+        if (data.isAdmin) { const bar = document.getElementById('dbStatsBar'); if (bar) bar.style.display = 'flex'; }
         currentUserPermissions = data.permissions || [];
         if (data.isAdmin || (data.permissions && data.permissions.includes('admin.users.view'))) {
           document.getElementById('adminLink').style.display = 'flex';
