@@ -508,14 +508,14 @@ button.admin-btn {
 .search-row select { min-width: 160px; cursor: pointer; }
 
 .search-row button {
-  height: 48px;
-  padding: 0 32px;
+  height: 42px;
+  padding: 0 65px;
   background: var(--color-primary);
   color: #fff;
   border: 1.5px solid var(--color-primary);
   border-radius: var(--radius-sm);
   font-family: var(--font-base);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
@@ -559,7 +559,7 @@ button.admin-btn {
   padding: 14px var(--space-5);
   border-bottom: 1px solid var(--color-border);
   font-weight: 700;
-  font-size: var(--font-size-base);
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -670,7 +670,7 @@ button.admin-btn {
   border: 1.5px solid var(--color-primary-border);
   color: var(--color-primary);
   border-radius: var(--radius-sm);
-  font-family: var(--font-base);
+  font-family: 14px;
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
@@ -776,9 +776,9 @@ button.admin-btn {
 
 .preview-address-box h5,
 .preview-box-header h5 {
-  font-size: var(--font-size-xs);
+  font-size: 18px;
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: #333;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin: 0 0 6px 0;
@@ -955,13 +955,13 @@ button.admin-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 14px;
+  padding: 8px 14px;
   border: 1.5px solid #CBD5E1;
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  background: #fff8d7;
   color: #374151;
   font-family: var(--font-base);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -1179,9 +1179,9 @@ button.admin-btn {
 }
 
 .order-actions-label {
-  font-size: var(--font-size-xs);
+  font-size: 16px;
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: #333;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin-right: 2px;
@@ -1195,7 +1195,7 @@ button.admin-btn {
   border: 1.5px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-base);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.13s, border-color 0.13s, color 0.13s, box-shadow 0.13s;
@@ -1214,42 +1214,46 @@ button.admin-btn {
   border-color: #9CA3AF;
   color: #111;
 }
+/* Add Tracking — solid blue, primary action */
 .action-btn-ship {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
+  background: #2563EB;
+  border-color: #2563EB;
+  color: #ffffff;
   box-shadow: 0 1px 3px rgba(37,99,235,0.2);
 }
 .action-btn-ship:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  background: #1D4ED8;
+  border-color: #1D4ED8;
 }
+/* Cancel — solid amber, caution */
 .action-btn-cancel {
-  background: transparent;
-  border-color: #D97706;
-  color: #92400E;
+  background: #B45309;
+  border-color: #B45309;
+  color: #ffffff;
 }
 .action-btn-cancel:hover:not(:disabled) {
-  background: var(--color-warning-bg);
-  border-color: #B45309;
+  background: #92400E;
+  border-color: #92400E;
 }
+
+/* Refund — solid red, destructive */
 .action-btn-refund {
-  background: transparent;
+  background: #DC2626;
   border-color: #DC2626;
-  color: #991B1B;
+  color: #ffffff;
 }
 .action-btn-refund:hover:not(:disabled) {
-  background: var(--color-danger-bg);
+  background: #B91C1C;
   border-color: #B91C1C;
 }
 
 .action-status-select {
-  height: 34px;
+  height: 36px;
   padding: 0 10px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-base);
-  font-size: var(--font-size-sm);
+  font-size: 14px;
   background: var(--color-surface);
   color: var(--color-text);
   max-width: 200px;
@@ -2293,7 +2297,7 @@ button.admin-btn {
   padding: 8px 18px;
   background: var(--color-surface-alt);
   border-bottom: 2px solid var(--color-border);
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2311,7 +2315,7 @@ button.admin-btn {
 .preview-total-row.discount { color: var(--color-success); }
 .preview-grand-total { font-weight: 700; border-top: 1px solid var(--color-border); padding-top: 5px; margin-top: 5px; }
 
-.search-meta-label { color: var(--color-text-muted); font-weight: 500; font-size: var(--font-size-sm); }
+.search-meta-label { color: #333; font-weight: 500; font-size: 14px; }
 
 .topbar-user-label { font-size: var(--font-size-sm); color: var(--color-text-muted); }
 .topbar-username { font-weight: 600; color: var(--color-text-secondary); }
