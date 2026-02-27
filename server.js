@@ -271,6 +271,7 @@ const SYSTEM_PERMISSIONS = [
   { code: 'orders.ship',            name: 'Create Shipment',        description: 'Mark items as shipped',            category: 'Orders',    risk_level: 2 },
   { code: 'orders.cancel',          name: 'Cancel Order',           description: 'Cancel orders',                    category: 'Orders',    risk_level: 3 },
   { code: 'orders.refund',          name: 'Process Refund',         description: 'Issue full or partial refunds',    category: 'Orders',    risk_level: 3 },
+  { code: 'orders.address.edit',    name: 'Edit Address',           description: 'Edit billing & shipping address', category: 'Orders',    risk_level: 3 },
   { code: 'orders.export',          name: 'Export Orders',          description: 'Export order data to CSV',         category: 'Orders',    risk_level: 2 },
   { code: 'customers.view',         name: 'View Customers',         description: 'View customer profiles',           category: 'Customers', risk_level: 1 },
   { code: 'customers.notes',        name: 'Customer Notes',         description: 'Add notes to customer profiles',   category: 'Customers', risk_level: 1 },
@@ -307,9 +308,9 @@ const DEFAULT_ROLES = [
   { name: 'Admin', description: 'Full access to everything', is_system: true,
     permissions: null }, // null = all permissions (filled below)
   { name: 'Senior Manager', description: 'All actions except user/role/settings management', is_system: true,
-    permissions: ['orders.view','orders.search','orders.notes.add','orders.notes.delete','orders.status.update','orders.tracking.add','orders.ship','orders.cancel','orders.refund','orders.export','customers.view','customers.notes','customers.merge','customers.export','email.view','email.reply','email.templates.use','email.templates.manage','reports.view','reports.export','admin.users.view','admin.labels.manage','admin.audit.view'] },
+    permissions: ['orders.view','orders.search','orders.notes.add','orders.notes.delete','orders.status.update','orders.tracking.add','orders.ship','orders.cancel','orders.refund','orders.address.edit','orders.export','customers.view','customers.notes','customers.merge','customers.export','email.view','email.reply','email.templates.use','email.templates.manage','reports.view','reports.export','admin.users.view','admin.labels.manage','admin.audit.view'] },
   { name: 'Manager', description: 'Orders, tracking, shipments, export', is_system: true,
-    permissions: ['orders.view','orders.search','orders.notes.add','orders.status.update','orders.tracking.add','orders.ship','orders.export','customers.view','customers.notes','email.view','email.reply','email.templates.use','reports.view','admin.users.view','admin.audit.view'] },
+    permissions: ['orders.view','orders.search','orders.notes.add','orders.status.update','orders.tracking.add','orders.ship','orders.address.edit','orders.export','customers.view','customers.notes','email.view','email.reply','email.templates.use','reports.view','admin.users.view','admin.audit.view'] },
   { name: 'Supervisor', description: 'View, search, notes, status updates', is_system: true,
     permissions: ['orders.view','orders.search','orders.notes.add','orders.status.update','customers.view','customers.notes','email.view','email.templates.use','admin.users.view'] },
   { name: 'Agent', description: 'View and search orders, add notes only', is_system: true,
@@ -669,6 +670,17 @@ async function bcApiRequest(store, endpoint, method = 'GET', body = null) {
       err.notFound = true;
       throw err;
     }
+    if (response.status === 403) {
+      const err = new Error('The BigCommerce API token does not have permission to perform this action. Please update the API account scope to Modify for Orders and Order Transactions.');
+      err.bcPermission = true;
+      err.status = 403;
+      throw err;
+    }
+    if (response.status === 401) {
+      const err = new Error('The BigCommerce API token is invalid or expired. Please check the API credentials in your environment settings.');
+      err.status = 401;
+      throw err;
+    }
     const errorText = await response.text();
     throw new Error(`BC API Error: ${response.status} - ${errorText}`);
   }
@@ -696,6 +708,12 @@ async function bcApiV3Request(store, endpoint) {
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('The BigCommerce API token does not have permission to perform this action. Please update the API account scope to Modify for Orders and Order Transactions.');
+    }
+    if (response.status === 401) {
+      throw new Error('The BigCommerce API token is invalid or expired. Please check the API credentials in your environment settings.');
+    }
     const text = await response.text();
     throw new Error(`v3 API ${response.status}: ${text.slice(0, 200)}`);
   }
@@ -2468,6 +2486,8 @@ app.post('/api/order/:store/:orderId/refund-quote', requireAuth, requirePermissi
       method: 'POST', headers, body: JSON.stringify({ items: quoteItems })
     });
     if (!quoteRes.ok) {
+      if (quoteRes.status === 403) throw new Error('The BigCommerce API token does not have permission to perform this action. Please update the API account scope to Modify for Orders and Order Transactions.');
+      if (quoteRes.status === 401) throw new Error('The BigCommerce API token is invalid or expired. Please check the API credentials in your environment settings.');
       const t = await quoteRes.text();
       throw new Error(`BC API Error: ${quoteRes.status} - ${t.slice(0, 300)}`);
     }
@@ -2510,6 +2530,8 @@ app.post('/api/order/:store/:orderId/refund', requireAuth, requirePermission('or
       }),
     });
     if (!refundRes.ok) {
+      if (refundRes.status === 403) throw new Error('The BigCommerce API token does not have permission to perform this action. Please update the API account scope to Modify for Orders and Order Transactions.');
+      if (refundRes.status === 401) throw new Error('The BigCommerce API token is invalid or expired. Please check the API credentials in your environment settings.');
       const t = await refundRes.text();
       throw new Error(`BC API Error: ${refundRes.status} - ${t.slice(0, 300)}`);
     }
@@ -2524,6 +2546,50 @@ app.post('/api/order/:store/:orderId/refund', requireAuth, requirePermission('or
 // Bulk tracking import
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// ==================== ADDRESS EDIT ENDPOINTS ====================
+
+// Update billing address — writes directly to BigCommerce via PUT /orders/{id}
+app.put('/api/order/:store/:orderId/billing-address', requireAuth, requirePermission('orders.address.edit'), async (req, res) => {
+  const { store, orderId } = req.params;
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  const allowed = ['first_name','last_name','company','street_1','street_2','city','state','zip','country','phone','email'];
+  const billing = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) billing[key] = req.body[key];
+  }
+  if (Object.keys(billing).length === 0) return res.status(400).json({ error: 'No fields provided' });
+
+  try {
+    await bcApiRequest(store, `orders/${orderId}`, 'PUT', { billing_address: billing });
+    console.log(`[ADDRESS] Billing updated: #${orderId} by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update shipping address — writes to BigCommerce via PUT /orders/{id}/shipping_addresses/{addressId}
+app.put('/api/order/:store/:orderId/shipping-address/:addressId', requireAuth, requirePermission('orders.address.edit'), async (req, res) => {
+  const { store, orderId, addressId } = req.params;
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  const allowed = ['first_name','last_name','company','street_1','street_2','city','state','zip','country','phone'];
+  const shipping = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) shipping[key] = req.body[key];
+  }
+  if (Object.keys(shipping).length === 0) return res.status(400).json({ error: 'No fields provided' });
+
+  try {
+    await bcApiRequest(store, `orders/${orderId}/shipping_addresses/${addressId}`, 'PUT', shipping);
+    console.log(`[ADDRESS] Shipping updated: #${orderId} addr #${addressId} by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 function parseTrackingCsv(buffer) {
   const text = buffer.toString('utf8');
