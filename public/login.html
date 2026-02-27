@@ -97,6 +97,21 @@
     .login-feature-text { font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.4; }
     .login-feature-text strong { display: block; color: rgba(255,255,255,0.85); font-weight: 600; font-size: 13px; margin-bottom: 1px; }
 
+    /* Permissions card gets special treatment — it's the headline feature */
+    .login-feature-highlight {
+      border-color: rgba(37,99,235,0.5);
+      background: rgba(37,99,235,0.12);
+    }
+    .login-feature-highlight .login-feature-icon {
+      background: rgba(37,99,235,0.4);
+    }
+    .login-feature-highlight .login-feature-text strong {
+      color: #FFFFFF;
+    }
+    .login-feature-highlight .login-feature-text {
+      color: rgba(255,255,255,0.7);
+    }
+
     /* ── Right Panel ────────────────────────────────────── */
     .login-right {
       flex: 1;
@@ -256,6 +271,13 @@
           <div class="login-feature-text">
             <strong>Resend Notifications</strong>
             Confirmation &amp; tracking emails
+          </div>
+        </div>
+        <div class="login-feature login-feature-highlight">
+          <div class="login-feature-icon">🔐</div>
+          <div class="login-feature-text">
+            <strong>Granular User Permissions</strong>
+            Control exactly what each agent can see and do — what BigCommerce can't
           </div>
         </div>
       </div>
