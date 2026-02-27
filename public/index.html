@@ -75,12 +75,6 @@
     <!-- Top Bar -->
     <div class="topbar">
       <span class="topbar-title">Order Search</span>
-      <select id="store" class="topbar-store-badge">
-        <option value="1ink">1ink.com</option>
-        <option value="needink">needink.com</option>
-      </select>
-      <div class="topbar-actions">
-      </div>
     </div>
 
     <!-- Page Content -->
@@ -94,6 +88,13 @@
 
       <!-- Search Box -->
       <div class="search-box">
+        <div class="search-store-row">
+          <label class="search-store-label">Store</label>
+          <select id="store" class="search-store-select">
+            <option value="1ink">1ink.com</option>
+            <option value="needink">needink.com</option>
+          </select>
+        </div>
         <div class="search-row">
           <input type="text" id="searchQuery" placeholder="Search by order #, name, phone, or email…" onkeypress="if(event.key==='Enter')search()">
           <button onclick="search()" id="searchBtn">Search</button>
