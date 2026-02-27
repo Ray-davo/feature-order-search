@@ -2385,7 +2385,9 @@ button.admin-btn {
 
 /* ── App Shell + Sidebar Layout ───────────────────────────── */
 /* These were previously only in index.html embedded <style>  */
-html, body { height: 100%; overflow: hidden; }
+/* overflow:hidden scoped to main app only — login/admin pages are unaffected */
+html, body { height: 100%; }
+body:has(.app-shell) { overflow: hidden; }
 
 .app-shell {
   display: flex;

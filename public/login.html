@@ -4,36 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — Order Search</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Shared design system — single source of truth for all branding -->
+  <link rel="stylesheet" href="/style.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --color-primary:        #2563EB;
-      --color-primary-hover:  #1D4ED8;
-      --color-primary-light:  #EFF6FF;
-      --color-primary-border: #BFDBFE;
-      --color-sidebar-bg:     #1E293B;
-      --color-danger:         #DC2626;
-      --color-danger-bg:      #FEF2F2;
-      --color-warning:        #D97706;
-      --color-warning-bg:     #FFFBEB;
-      --color-border:         #E2E8F0;
-      --color-surface:        #FFFFFF;
-      --color-body-bg:        #F1F5F9;
-      --color-text:           #0F172A;
-      --color-text-secondary: #475569;
-      --color-text-muted:     #94A3B8;
-      --font-base: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      --radius-sm: 6px;
-      --radius-md: 10px;
-      --shadow-focus: 0 0 0 3px rgba(37,99,235,0.15);
-    }
-
-    html, body { height: 100%; font-family: var(--font-base); -webkit-font-smoothing: antialiased; }
-
+    /* ── Login page layout only — all colors/fonts from style.css ── */
+    html, body { height: 100%; overflow: auto; }
     body { display: flex; min-height: 100vh; background: var(--color-body-bg); }
 
     /* ── Left Panel ─────────────────────────────────────── */
