@@ -929,44 +929,337 @@
     .bulk-fail-row:last-child { border-bottom:none; }
     .bulk-fail-ord { font-weight:700; color:#721c24; min-width:68px; }
     .bulk-fail-rsn { color:#555; }
+
+
+  /* ── App Shell (sidebar layout) ─────────────────────────── */
+  html, body { height: 100%; overflow: hidden; }
+
+  .app-shell {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────────── */
+  .sidebar {
+    width: 220px;
+    background: var(--color-sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+    z-index: 50;
+  }
+
+  .sidebar-logo {
+    padding: 16px 16px 14px;
+    border-bottom: 1px solid var(--color-sidebar-border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo img {
+    width: 160px;
+    height: auto;
+    display: block;
+    filter: brightness(0) invert(1);
+    opacity: 0.92;
+  }
+
+  .sidebar-logo .app-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-sidebar-heading);
+    margin-top: 8px;
+  }
+
+  .sidebar-section {
+    padding: 14px 10px 6px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-sidebar-heading);
+    padding: 0 8px;
+    margin-bottom: 5px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border-radius: 6px;
+    color: var(--color-sidebar-text);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.13s, color 0.13s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    text-decoration: none;
+    font-family: var(--font-base);
+    white-space: nowrap;
+  }
+  .nav-item:hover { background: var(--color-sidebar-hover); color: #CBD5E1; text-decoration: none; }
+  .nav-item.active { background: var(--color-sidebar-active); color: #FFFFFF; }
+  .nav-item.active .nav-icon { color: var(--color-sidebar-accent); }
+
+  .nav-icon {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+
+  /* Sidebar footer — user info + logout */
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 10px;
+    border-top: 1px solid var(--color-sidebar-border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: default;
+    margin-bottom: 6px;
+  }
+
+  .sidebar-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-sidebar-accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .sidebar-user-info { overflow: hidden; }
+  .sidebar-username {
+    font-size: 13px;
+    font-weight: 600;
+    color: #E2E8F0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-role {
+    font-size: 11px;
+    color: var(--color-sidebar-text);
+  }
+
+  .sidebar-logout {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: #FDA4AF;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-base);
+    transition: background 0.13s;
+  }
+  .sidebar-logout:hover { background: rgba(220, 38, 38, 0.15); }
+
+  /* ── Main content area ───────────────────────────────────── */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* Top bar */
+  .topbar {
+    height: 56px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    padding: 0 22px;
+    gap: 14px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-xs);
+  }
+
+  .topbar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    letter-spacing: -0.3px;
+  }
+
+  .topbar-store-badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary-border);
+    padding: 2px 9px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.13s;
+  }
+  .topbar-store-badge:hover { background: var(--color-primary); color: #fff; }
+
+  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* Page content scroll area */
+  .page-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 22px;
+  }
+
+  /* ── DB stats bar ─────────────────────────────────────────── */
+  .db-stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 16px;
+  }
+
+  .db-stats-bar .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--color-success);
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-left">
-      <img
-        src="https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg"
-        alt="1ink"
-        class="logo"
-      >
+<div class="app-shell">
+
+  <!-- ═══════════════════════════════════════════════
+       SIDEBAR
+  ════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <div class="sidebar-logo">
+      <img src="https://cdn11.bigcommerce.com/s-9u5u1ss/images/stencil/250x100/1ink-logo_1769641248__97578.original.jpg" alt="1ink.com">
+      <div class="app-label">Order Support Portal</div>
     </div>
 
-    <h1 class="header-title">Order Search</h1>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Search</div>
 
-    <div class="header-right">
-      <span class="user-info">Logged in as: <strong id="username"></strong></span>
-      <a href="/admin" class="admin-btn" id="adminLink" style="display: none;">Admin</a>
-      <button class="admin-btn" id="bulkImportBtn" style="display:none;background:#0065d1;" onclick="openBulkImportModal()">&#128230; Bulk Tracking</button>
-      <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
-  </div>
+      <button class="nav-item active">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        Order Search
+      </button>
 
-  <div class="container">
-    <div class="search-box">
-      <div class="search-row">
-        <select id="store">
-          <option value="1ink">1ink.com</option>
-          <option value="needink">needink.com</option>
-        </select>
-        <input type="text" id="searchQuery" placeholder="Order #, email, phone, or name..." onkeypress="if(event.key==='Enter')search()">
-        <button onclick="search()" id="searchBtn">Search</button>
-      </div>     
+      <button class="nav-item" id="bulkImportBtn" style="display:none;" onclick="openBulkImportModal()">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+        </svg>
+        Bulk Tracking
+      </button>
     </div>
 
-    <div class="results" id="results">
-      <div class="no-results">Enter a search term above to find orders</div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Admin</div>
+
+      <a href="/admin" class="nav-item" id="adminLink" style="display:none;">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        Users & Roles
+      </a>
+
+      <button class="nav-item" onclick="logout()">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Logout
+      </button>
     </div>
-  </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="userAvatar">?</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-username" id="username">Loading...</div>
+          <div class="sidebar-role" id="userRole">Agent</div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN CONTENT
+  ════════════════════════════════════════════════ -->
+  <div class="main-content">
+
+    <!-- Top Bar -->
+    <div class="topbar">
+      <span class="topbar-title">Order Search</span>
+      <select id="store" class="topbar-store-badge" style="border:none; cursor:pointer; font-family:inherit; font-weight:600; font-size:12px; background:var(--color-primary-light); color:var(--color-primary); padding:4px 10px; border-radius:20px; border:1px solid var(--color-primary-border); outline:none;">
+        <option value="1ink">1ink.com</option>
+        <option value="needink">needink.com</option>
+      </select>
+      <div class="topbar-actions">
+        <span style="font-size:12px; color:var(--color-text-muted);">Logged in as <strong id="topbarUsername" style="color:var(--color-text-secondary);"></strong></span>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="page-content">
+
+      <!-- DB Stats -->
+      <div class="db-stats-bar">
+        <span class="dot"></span>
+        <span id="dbStats">Loading database stats...</span>
+      </div>
+
+      <!-- Search Box -->
+      <div class="search-box">
+        <div class="search-row">
+          <input type="text" id="searchQuery" placeholder="Search by order #, name, phone, or email…" onkeypress="if(event.key==='Enter')search()" style="flex:1;">
+          <button onclick="search()" id="searchBtn">Search</button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="results" id="results">
+        <div class="no-results">Enter a search term above to find orders</div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
 
   <!-- Order Detail Modal -->
   <div class="modal" id="orderModal">
@@ -1098,15 +1391,25 @@
           return;
         }
 
-        document.getElementById('username').textContent = capitalize(data.user);
+        const displayName = capitalize(data.user);
+        document.getElementById('username').textContent = displayName;
+        const topbarEl = document.getElementById('topbarUsername');
+        if (topbarEl) topbarEl.textContent = displayName;
+        // Sidebar avatar initials
+        const avatarEl = document.getElementById('userAvatar');
+        if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+        // Role label
+        const roleEl = document.getElementById('userRole');
+        if (roleEl) roleEl.textContent = data.isAdmin ? 'Administrator' : 'Agent';
+
         currentUser = data.user;
         currentUserIsAdmin = data.isAdmin || false;
         currentUserPermissions = data.permissions || [];
         if (data.isAdmin || (data.permissions && data.permissions.includes('admin.users.view'))) {
-          document.getElementById('adminLink').style.display = 'inline-block';
+          document.getElementById('adminLink').style.display = 'flex';
         }
         if (data.permissions && data.permissions.includes('orders.tracking.add')) {
-          document.getElementById('bulkImportBtn').style.display = 'inline-block';
+          document.getElementById('bulkImportBtn').style.display = 'flex';
         }
         
         loadDbStats();
@@ -1140,10 +1443,12 @@
     }
 
     document.getElementById('store').addEventListener('change', function() {
+      currentStore = this.value;
       loadDbStats();
       expandedOrders = {};
       orderDetailsCache = {};
       currentOrders = [];
+      document.getElementById('results').innerHTML = '<div class="no-results">Enter a search term above to find orders</div>';
     });
 
     function detectSearchType(query, store) {
