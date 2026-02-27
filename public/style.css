@@ -2373,24 +2373,24 @@ html, body { height: 100%; overflow: hidden; }
   height: auto;
   display: block;
   filter: brightness(0) invert(1);
-  opacity: 0.92;
+  opacity: 1;
 }
 .sidebar-logo .app-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #6B8FAE;
+  color: #FFFFFF;
   margin-top: 8px;
 }
 
 .sidebar-section { padding: 14px 10px 6px; flex-shrink: 0; }
 .sidebar-section-label {
-  font-size: 11.5px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #7A9BB5;
+  color: #FFFFFF;
   padding: 0 8px;
   margin-bottom: 5px;
 }
@@ -2416,9 +2416,9 @@ html, body { height: 100%; overflow: hidden; }
 }
 .nav-item:hover { background: rgba(255,255,255,0.09); color: #fff; text-decoration: none; }
 .nav-item.active { background: rgba(255,255,255,0.13); color: #fff; font-weight: 600; }
-.nav-item.active .nav-icon { color: var(--color-sidebar-accent); }
+.nav-item.active .nav-icon { color: #FFFFFF; }
 
-.nav-icon { width: 18px; height: 18px; flex-shrink: 0; color: #8AADC8; }
+.nav-icon { width: 18px; height: 18px; flex-shrink: 0; color: #FFFFFF; }
 
 .sidebar-footer {
   margin-top: auto;
@@ -2449,8 +2449,8 @@ html, body { height: 100%; overflow: hidden; }
   flex-shrink: 0;
 }
 .sidebar-user-info { overflow: hidden; }
-.sidebar-username { font-size: 15px; font-weight: 700; color: #F0F6FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-role { font-size: 13px; color: #7A9BB5; }
+.sidebar-username { font-size: 15px; font-weight: 700; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-role { font-size: 13px; color: #CBD5E1; }
 .sidebar-logout {
   display: flex;
   align-items: center;
@@ -2526,7 +2526,7 @@ html, body { height: 100%; overflow: hidden; }
   padding: 6px 10px;
   margin-top: 4px;
   border-radius: var(--radius-md);
-  color: #8AADC8;
+  color: #FFFFFF;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -2566,7 +2566,7 @@ html, body { height: 100%; overflow: hidden; }
   font-size: 16px;
   font-weight: 600;
   color: var(--color-primary);
-  background: var(--color-primary-light);
+  background: #FFFFFF;
   cursor: pointer;
   outline: none;
   min-width: 160px;
@@ -2578,7 +2578,8 @@ html, body { height: 100%; overflow: hidden; }
   box-shadow: var(--shadow-focus);
 }
 
-.search-store-select:hover {
-  background: var(--color-primary);
-  color: #fff;
+.search-store-select option {
+  background: #FFFFFF;
+  color: #111111;
+  font-weight: 500;
 }
