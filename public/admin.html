@@ -301,13 +301,13 @@
                 <th>Username</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>2FA</th>
                 <th>Last Login</th>
-                <th>Failed Attempts</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="usersTableBody">
-              <tr><td colspan="6" class="no-data">Loading users...</td></tr>
+              <tr><td colspan="7" class="no-data">Loading users...</td></tr>
             </tbody>
           </table>
         </div>
@@ -597,20 +597,66 @@
       const roleBadge = (u.role_name||'').toLowerCase().includes('admin') ? 'badge-admin' :
                         (u.role_name||'').toLowerCase().includes('manager') ? 'badge-manager' :
                         (u.role_name||'').toLowerCase().includes('supervisor') ? 'badge-supervisor' : 'badge-agent';
+      const twoFaBadge = u.totp_enabled  ? '<span class="badge badge-active">🔐 On</span>'  :
+                         u.totp_pending  ? '<span class="badge badge-locked">⏳ Pending</span>' :
+                                           '<span class="badge badge-inactive">Off</span>';
+      const twoFaBtn = u.totp_enabled || u.totp_pending
+        ? `<button class="btn btn-sm btn-warning requires-manage" onclick="disable2fa(${u.id}, '${u.username}')">Disable 2FA</button>`
+        : `<button class="btn btn-sm requires-manage" style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;" onclick="enroll2fa(${u.id}, '${u.username}')">Enable 2FA</button>`;
       return `<tr>
         <td><strong>${u.username}</strong></td>
         <td><span class="badge ${roleBadge}">${u.role_name||'No Role'}</span></td>
         <td>${!u.is_active ? '<span class="badge badge-inactive">Inactive</span>' : isLocked ? '<span class="badge badge-locked">Locked</span>' : '<span class="badge badge-active">Active</span>'}</td>
+        <td>${twoFaBadge}</td>
         <td>${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
-        <td>${u.failed_attempts||0}</td>
         <td class="actions">
           <button class="btn btn-sm btn-primary requires-manage" onclick="showEditUserModal(${u.id})">Edit</button>
           ${isLocked ? `<button class="btn btn-sm btn-warning requires-manage" onclick="unlockUser(${u.id})">Unlock</button>` : ''}
+          ${twoFaBtn}
           <button class="btn btn-sm btn-danger requires-manage" onclick="showDeleteModal('user',${u.id},'${u.username}')">Delete</button>
         </td>
       </tr>`;
     }).join('');
   }
+
+  // ── 2FA admin functions ──────────────────────────────────────────────────
+  async function enroll2fa(userId, username) {
+    if (!confirm(`Enable 2FA for ${username}?\n\nThey will be prompted to scan a QR code on their next login.`)) return;
+    try {
+      const res  = await fetch(`/api/admin/users/${userId}/2fa/enroll`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      // Show QR modal
+      show2faQrModal(username, data.qrDataUrl, data.secret);
+      await loadUsers();
+    } catch (err) {
+      alert('Failed to enable 2FA: ' + err.message);
+    }
+  }
+
+  async function disable2fa(userId, username) {
+    if (!confirm(`Disable 2FA for ${username}?\n\nThey will be able to log in with password only.`)) return;
+    try {
+      const res  = await fetch(`/api/admin/users/${userId}/2fa/disable`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await loadUsers();
+    } catch (err) {
+      alert('Failed to disable 2FA: ' + err.message);
+    }
+  }
+
+  function show2faQrModal(username, qrDataUrl, secret) {
+    const modal = document.getElementById('twoFaModal');
+    document.getElementById('twoFaUsername').textContent = username;
+    document.getElementById('twoFaQrImg').src = qrDataUrl;
+    document.getElementById('twoFaSecret').textContent = secret;
+    modal.style.display = 'flex';
+  }
+
+  document.getElementById('twoFaModal')?.addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
 
   async function loadRoles() {
     try {
@@ -1102,5 +1148,29 @@
 
   checkAuth();
 </script>
+<!-- 2FA QR Modal -->
+<div class="modal" id="twoFaModal" style="display:none;">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>2FA Enabled — Share QR with Agent</h3>
+      <button class="modal-close" onclick="document.getElementById('twoFaModal').style.display='none'">&times;</button>
+    </div>
+    <div style="text-align:center;padding:20px 0 8px;">
+      <img id="twoFaQrImg" src="" alt="QR Code" style="width:180px;height:180px;border:3px solid var(--color-border);border-radius:8px;margin-bottom:16px;">
+      <p style="font-size:14px;color:var(--color-text-muted);margin-bottom:8px;">
+        Share this QR code with <strong id="twoFaUsername"></strong>.<br>
+        They will scan it on their next login.
+      </p>
+      <div style="background:var(--color-body-bg);border:1px solid var(--color-border);border-radius:6px;padding:10px;margin-top:12px;">
+        <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:4px;">Manual entry key (if QR won't scan)</div>
+        <code id="twoFaSecret" style="font-size:13px;letter-spacing:0.1em;color:var(--color-text);word-break:break-all;"></code>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('twoFaModal').style.display='none'">Done</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

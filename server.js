@@ -6,6 +6,8 @@ const path = require('path');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const postmark = require('postmark');
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -97,6 +99,10 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
   `);
+  // ── TOTP columns (added via migration — safe to run repeatedly) ──────────
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret  TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending BOOLEAN DEFAULT FALSE`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS search_audit (
@@ -390,6 +396,31 @@ const loginAttempts = {
   byIp: new Map(),      // IP -> { count, firstAttempt, lockedUntil }
   byUser: new Map()     // username -> { count, firstAttempt, lockedUntil }
 };
+
+// ── Temp TOTP tokens (in-memory, 5-min TTL) ─────────────────────────────
+// Maps tempToken -> { userId, username, ip, setupMode, expiresAt }
+const pendingTotpTokens = new Map();
+const TOTP_TOKEN_TTL_MS = 5 * 60 * 1000;
+
+function createTotpToken(userId, username, ip, setupMode = false) {
+  const token = require('crypto').randomBytes(32).toString('hex');
+  pendingTotpTokens.set(token, { userId, username, ip, setupMode, expiresAt: Date.now() + TOTP_TOKEN_TTL_MS });
+  return token;
+}
+
+function consumeTotpToken(token) {
+  const entry = pendingTotpTokens.get(token);
+  if (!entry) return null;
+  pendingTotpTokens.delete(token);
+  if (Date.now() > entry.expiresAt) return null;
+  return entry;
+}
+
+// Purge expired tokens every 10 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, e] of pendingTotpTokens) { if (now > e.expiresAt) pendingTotpTokens.delete(t); }
+}, 10 * 60 * 1000);
 
 // Get client IP address
 function getClientIp(req) {
@@ -941,7 +972,7 @@ app.post('/api/login', async (req, res) => {
   try {
     // Get user from database
     const result = await pool.query(
-      'SELECT id, username, password_hash, is_admin, is_active, locked_until FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, is_admin, is_active, locked_until, totp_secret, totp_enabled, totp_pending FROM users WHERE username = $1',
       [userLower]
     );
     
@@ -972,6 +1003,29 @@ app.post('/api/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password_hash);
     
     if (validPassword) {
+      // ── 2FA check ───────────────────────────────────────────────────────
+      if (user.totp_pending && user.totp_secret) {
+        // User enrolled but hasn't set up authenticator yet — show QR
+        const tempToken = createTotpToken(user.id, userLower, ip, true);
+        const otpauthUrl = speakeasy.otpauthURL({
+          secret: user.totp_secret,
+          label: encodeURIComponent(userLower),
+          issuer: 'Order Portal',
+          encoding: 'base32'
+        });
+        const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+        console.log(`[2FA] Setup required for ${userLower} from ${ip}`);
+        return res.status(202).json({ totp_setup: true, tempToken, qrDataUrl });
+      }
+
+      if (user.totp_enabled && user.totp_secret) {
+        // 2FA active — require TOTP code before creating session
+        const tempToken = createTotpToken(user.id, userLower, ip, false);
+        console.log(`[2FA] Code required for ${userLower} from ${ip}`);
+        return res.status(202).json({ totp_required: true, tempToken });
+      }
+
+      // ── No 2FA — create session immediately ─────────────────────────────
       await pool.query(
         'UPDATE users SET last_login = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = $1',
         [user.id]
@@ -1059,6 +1113,125 @@ app.get('/api/auth-check', (req, res) => {
   res.json({ authenticated: false });
 });
 
+// ── 2FA: Verify TOTP code after password ──────────────────────────────────
+app.post('/api/login/verify-totp', async (req, res) => {
+  const { tempToken, code } = req.body;
+  if (!tempToken || !code) return res.status(400).json({ error: 'Missing token or code' });
+
+  const entry = consumeTotpToken(tempToken);
+  if (!entry) {
+    return res.status(401).json({ error: 'Session expired or invalid. Please sign in again.' });
+  }
+
+  const ip = getClientIp(req);
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Too many attempts. Please wait a minute.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT id, username, is_active, totp_secret, totp_enabled, totp_pending FROM users WHERE id = $1',
+      [entry.userId]
+    );
+    const user = result.rows[0];
+    if (!user || !user.is_active || !user.totp_secret) {
+      return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(code).replace(/\s/g, ''),
+      window: 1
+    });
+
+    if (!verified) {
+      await recordFailedAttempt(ip, entry.username);
+      return res.status(401).json({ error: 'Invalid code. Please try again.' });
+    }
+
+    if (entry.setupMode) {
+      await pool.query(
+        'UPDATE users SET totp_enabled = TRUE, totp_pending = FALSE WHERE id = $1',
+        [user.id]
+      );
+      console.log(`[2FA] Setup completed for ${entry.username}`);
+    }
+
+    await pool.query(
+      'UPDATE users SET last_login = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = $1',
+      [user.id]
+    );
+    const defaultStore  = Object.keys(stores)[0];
+    const permissions   = await getUserPermissions(user.id, defaultStore);
+    const roleRes       = await pool.query(`
+      SELECT r.name FROM user_store_roles usr
+      JOIN roles r ON r.id = usr.role_id
+      WHERE usr.user_id = $1 AND usr.store_hash = $2 LIMIT 1
+    `, [user.id, defaultStore]);
+    const roleName = roleRes.rows[0]?.name || 'Agent';
+    req.session.user        = entry.username;
+    req.session.userId      = user.id;
+    req.session.storeHash   = defaultStore;
+    req.session.permissions = permissions;
+    req.session.roleName    = roleName;
+    req.session.isAdmin     = permissions.includes('admin.users.manage');
+    await recordSuccessfulLogin(ip, entry.username);
+    console.log(`[2FA] Login complete: ${entry.username} from ${ip}`);
+    return res.json({ success: true, user: entry.username, isAdmin: req.session.isAdmin, roleName, permissions });
+
+  } catch (err) {
+    console.error('[2FA] verify-totp error:', err.message);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// ── 2FA Admin: Enroll a user ──────────────────────────────────────────────
+app.post('/api/admin/users/:id/2fa/enroll', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  try {
+    const userRes = await pool.query('SELECT id, username FROM users WHERE id = $1', [userId]);
+    const user = userRes.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const secret = speakeasy.generateSecret({ length: 20 });
+    await pool.query(
+      'UPDATE users SET totp_secret = $1, totp_pending = TRUE, totp_enabled = FALSE WHERE id = $2',
+      [secret.base32, userId]
+    );
+
+    const otpauthUrl = speakeasy.otpauthURL({
+      secret: secret.base32,
+      label: encodeURIComponent(user.username),
+      issuer: 'Order Portal',
+      encoding: 'base32'
+    });
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+    console.log(`[2FA] Enrolled ${user.username} by ${req.session.user}`);
+    res.json({ success: true, qrDataUrl, secret: secret.base32 });
+  } catch (err) {
+    console.error('[2FA] enroll error:', err.message);
+    res.status(500).json({ error: 'Failed to enroll 2FA' });
+  }
+});
+
+// ── 2FA Admin: Disable 2FA for a user ────────────────────────────────────
+app.post('/api/admin/users/:id/2fa/disable', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  try {
+    const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
+    if (!userRes.rows[0]) return res.status(404).json({ error: 'User not found' });
+    await pool.query(
+      'UPDATE users SET totp_secret = NULL, totp_enabled = FALSE, totp_pending = FALSE WHERE id = $1',
+      [userId]
+    );
+    console.log(`[2FA] Disabled for ${userRes.rows[0].username} by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to disable 2FA' });
+  }
+});
+
 // Session status check (doesn't reset activity timer)
 app.get('/api/session-check', (req, res) => {
   if (!req.session || !req.session.user) {
@@ -1100,6 +1273,7 @@ app.get('/api/admin/users', requireAuth, requirePermission('admin.users.view'), 
     const result = await pool.query(`
       SELECT u.id, u.username, u.is_active, u.created_at, u.last_login,
              u.failed_attempts, u.locked_until,
+             u.totp_enabled, u.totp_pending,
              r.id AS role_id, r.name AS role_name
       FROM users u
       LEFT JOIN user_store_roles usr ON usr.user_id = u.id AND usr.store_hash = $1

@@ -215,6 +215,64 @@
       color: var(--color-text-muted);
     }
 
+    /* ── 2FA screens ────────────────────────────────────── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .totp-input-wrap {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .totp-digit {
+      flex: 1;
+      height: 60px;
+      text-align: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--color-text);
+      background: var(--color-surface);
+      border: 1.5px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.13s, box-shadow 0.13s;
+      -moz-appearance: textfield;
+    }
+    .totp-digit::-webkit-outer-spin-button,
+    .totp-digit::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .totp-digit:focus { border-color: var(--color-primary); box-shadow: var(--shadow-focus); }
+    .totp-digit.filled { border-color: var(--color-primary); }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .back-link:hover { color: var(--color-text); }
+
+    .qr-wrap { text-align: center; margin: 16px 0 20px; }
+    .qr-wrap img {
+      width: 180px; height: 180px;
+      border: 3px solid var(--color-border);
+      border-radius: var(--radius-md);
+      display: block; margin: 0 auto 12px;
+    }
+    .qr-steps {
+      font-size: 13px;
+      color: var(--color-text-muted);
+      line-height: 1.7;
+      text-align: left;
+      background: var(--color-body-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .qr-steps strong { color: var(--color-text-secondary); }
+
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
       .login-left { display: none; }
@@ -281,36 +339,70 @@
 
       <div class="alert" id="error"></div>
 
-      <form id="loginForm">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            placeholder="Enter your username"
-            required
-            autofocus
-            autocomplete="username"
-          >
+      <!-- Screen 1: Username + password -->
+      <div class="screen active" id="screen-password">
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username"
+              placeholder="Enter your username" required autofocus autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password"
+              placeholder="Enter your password" required autocomplete="current-password">
+          </div>
+          <button type="submit" id="submitBtn" class="btn-login">Sign In</button>
+        </form>
+        <div class="lockout-timer" id="lockoutTimer">
+          Account locked. Try again in
+          <span class="time" id="lockoutTime">--:--</span>
         </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="Enter your password"
-            required
-            autocomplete="current-password"
-          >
-        </div>
-        <button type="submit" id="submitBtn" class="btn-login">Sign In</button>
-      </form>
+      </div>
 
-      <div class="lockout-timer" id="lockoutTimer">
-        Account locked. Try again in
-        <span class="time" id="lockoutTime">--:--</span>
+      <!-- Screen 2: Enter 6-digit TOTP code -->
+      <div class="screen" id="screen-totp">
+        <div class="login-card-header" style="margin-bottom:20px;">
+          <h1>Two-Factor Auth</h1>
+          <p>Open your authenticator app and enter the 6-digit code</p>
+        </div>
+        <div class="totp-input-wrap" id="totpDigits">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+        </div>
+        <button class="btn-login" id="totpSubmitBtn" onclick="submitTotp()">Verify Code</button>
+        <div><span class="back-link" onclick="goBackToPassword()">← Back to sign in</span></div>
+      </div>
+
+      <!-- Screen 3: First-time 2FA setup (scan QR) -->
+      <div class="screen" id="screen-setup">
+        <div class="login-card-header" style="margin-bottom:16px;">
+          <h1>Set Up Authenticator</h1>
+          <p>Your account requires two-factor authentication</p>
+        </div>
+        <div class="qr-wrap">
+          <img id="setupQrImg" src="" alt="QR Code">
+        </div>
+        <div class="qr-steps">
+          <strong>1.</strong> Install Google Authenticator or Authy on your phone<br>
+          <strong>2.</strong> Tap <strong>+</strong> → <strong>Scan a QR code</strong><br>
+          <strong>3.</strong> Scan the QR code above<br>
+          <strong>4.</strong> Enter the 6-digit code below to confirm
+        </div>
+        <div class="totp-input-wrap" id="setupDigits">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+          <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
+        </div>
+        <button class="btn-login" id="setupSubmitBtn" onclick="submitTotp(true)">Confirm &amp; Sign In</button>
+        <div><span class="back-link" onclick="goBackToPassword()">← Start over</span></div>
       </div>
 
       <div class="login-footer">
@@ -329,22 +421,36 @@
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
 
-    let lockoutEndTime = null;
+    let lockoutEndTime    = null;
     let countdownInterval = null;
+    let currentTempToken  = null;
 
     function showError(message, type = 'error') {
-      errorDiv.textContent = message;
-      errorDiv.className = 'alert ' + type;
+      errorDiv.textContent   = message;
+      errorDiv.className     = 'alert ' + type;
       errorDiv.style.display = 'block';
     }
-
     function hideError() { errorDiv.style.display = 'none'; }
 
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      hideError();
+    }
+
+    function goBackToPassword() {
+      currentTempToken = null;
+      document.querySelectorAll('.totp-digit').forEach(d => { d.value = ''; d.classList.remove('filled'); });
+      setFormDisabled(false);
+      showScreen('screen-password');
+      usernameInput.focus();
+    }
+
     function setFormDisabled(disabled) {
-      usernameInput.disabled = disabled;
-      passwordInput.disabled = disabled;
-      submitBtn.disabled = disabled;
-      submitBtn.textContent = disabled ? 'Locked Out' : 'Sign In';
+      usernameInput.disabled    = disabled;
+      passwordInput.disabled    = disabled;
+      submitBtn.disabled        = disabled;
+      submitBtn.textContent     = disabled ? 'Locked Out' : 'Sign In';
     }
 
     function startLockoutCountdown(minutes) {
@@ -352,10 +458,9 @@
       lockoutTimer.style.display = 'block';
       setFormDisabled(true);
       if (countdownInterval) clearInterval(countdownInterval);
-
-      function updateCountdown() {
-        const remaining = lockoutEndTime - Date.now();
-        if (remaining <= 0) {
+      function tick() {
+        const rem = lockoutEndTime - Date.now();
+        if (rem <= 0) {
           clearInterval(countdownInterval);
           lockoutTimer.style.display = 'none';
           setFormDisabled(false);
@@ -364,57 +469,66 @@
           usernameInput.focus();
           return;
         }
-        const mins = Math.floor(remaining / 60000);
-        const secs = Math.floor((remaining % 60000) / 1000);
-        lockoutTime.textContent = mins + ':' + secs.toString().padStart(2, '0');
+        const m = Math.floor(rem / 60000), s = Math.floor((rem % 60000) / 1000);
+        lockoutTime.textContent = m + ':' + s.toString().padStart(2, '0');
       }
-
-      updateCountdown();
-      countdownInterval = setInterval(updateCountdown, 1000);
+      tick();
+      countdownInterval = setInterval(tick, 1000);
     }
 
+    // ── Screen 1: Password submit ─────────────────────────────────────────
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (submitBtn.disabled) return;
 
       const username = usernameInput.value.trim();
       const password = passwordInput.value;
-
-      if (!username || !password) {
-        showError('Please enter both username and password.');
-        return;
-      }
+      if (!username || !password) { showError('Please enter both username and password.'); return; }
 
       hideError();
-      submitBtn.disabled = true;
+      submitBtn.disabled    = true;
       submitBtn.textContent = 'Signing in\u2026';
 
       try {
-        const response = await fetch('/api/login', {
+        const res  = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
         });
+        const data = await res.json();
 
-        const data = await response.json();
-
-        if (response.ok) {
+        if (res.ok) {
           submitBtn.textContent = '\u2713 Success!';
           window.location.href = '/';
           return;
         }
 
-        if (response.status === 423) {
+        if (res.status === 202 && data.totp_required) {
+          currentTempToken = data.tempToken;
+          showScreen('screen-totp');
+          document.querySelector('#screen-totp .totp-digit').focus();
+          return;
+        }
+
+        if (res.status === 202 && data.totp_setup) {
+          currentTempToken = data.tempToken;
+          document.getElementById('setupQrImg').src = data.qrDataUrl;
+          showScreen('screen-setup');
+          document.querySelector('#screen-setup .totp-digit').focus();
+          return;
+        }
+
+        if (res.status === 423) {
           showError(data.error, 'locked');
-          const match = data.error.match(/(\d+) minute/);
-          startLockoutCountdown(match ? parseInt(match[1]) : 15);
-        } else if (response.status === 429) {
+          const m = data.error.match(/(\d+) minute/);
+          startLockoutCountdown(m ? parseInt(m[1]) : 15);
+        } else if (res.status === 429) {
           showError(data.error, 'rate-limited');
-          submitBtn.disabled = true;
+          submitBtn.disabled    = true;
           submitBtn.textContent = 'Please wait\u2026';
           setTimeout(() => { setFormDisabled(false); hideError(); }, 60000);
         } else {
-          const isWarning = data.error.includes('attempt') && data.error.includes('remaining');
+          const isWarning = data.error && data.error.includes('attempt') && data.error.includes('remaining');
           showError(data.error, isWarning ? 'warning' : 'error');
           setFormDisabled(false);
           passwordInput.value = '';
@@ -426,6 +540,86 @@
         setFormDisabled(false);
       }
     });
+
+    // ── 6-digit input behaviour ───────────────────────────────────────────
+    function initDigitInputs(wrapId) {
+      const digits = document.querySelectorAll('#' + wrapId + ' .totp-digit');
+      digits.forEach((el, i) => {
+        el.addEventListener('input', () => {
+          const val = el.value.toString().replace(/[^0-9]/g, '').slice(-1);
+          el.value  = val;
+          el.classList.toggle('filled', val !== '');
+          if (val && i < digits.length - 1) digits[i + 1].focus();
+          if ([...digits].every(d => d.value !== '')) submitTotp(wrapId === 'setupDigits');
+        });
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Backspace' && !el.value && i > 0) {
+            digits[i - 1].value = '';
+            digits[i - 1].classList.remove('filled');
+            digits[i - 1].focus();
+          }
+          if (e.key === 'Enter') submitTotp(wrapId === 'setupDigits');
+        });
+        el.addEventListener('paste', e => {
+          e.preventDefault();
+          const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, 6);
+          digits.forEach((d, j) => { d.value = pasted[j] || ''; d.classList.toggle('filled', !!pasted[j]); });
+          if (pasted.length === 6) submitTotp(wrapId === 'setupDigits');
+          else digits[Math.min(pasted.length, 5)].focus();
+        });
+      });
+    }
+
+    initDigitInputs('totpDigits');
+    initDigitInputs('setupDigits');
+
+    function getDigitCode(wrapId) {
+      return [...document.querySelectorAll('#' + wrapId + ' .totp-digit')].map(d => d.value).join('');
+    }
+
+    async function submitTotp(isSetup) {
+      const wrapId = isSetup ? 'setupDigits' : 'totpDigits';
+      const btnId  = isSetup ? 'setupSubmitBtn' : 'totpSubmitBtn';
+      const code   = getDigitCode(wrapId);
+
+      if (code.length < 6) { showError('Please enter all 6 digits.'); return; }
+      if (!currentTempToken) { showError('Session expired. Please sign in again.'); goBackToPassword(); return; }
+
+      const btn = document.getElementById(btnId);
+      btn.disabled    = true;
+      btn.textContent = 'Verifying\u2026';
+      hideError();
+
+      try {
+        const res  = await fetch('/api/login/verify-totp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tempToken: currentTempToken, code })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          btn.textContent = '\u2713 Verified!';
+          window.location.href = '/';
+          return;
+        }
+
+        showError(data.error || 'Invalid code. Please try again.');
+        document.querySelectorAll('#' + wrapId + ' .totp-digit').forEach(d => { d.value = ''; d.classList.remove('filled'); });
+        document.querySelector('#' + wrapId + ' .totp-digit').focus();
+        btn.disabled    = false;
+        btn.textContent = isSetup ? 'Confirm \u0026 Sign In' : 'Verify Code';
+
+        if (res.status === 401 && data.error && data.error.includes('expired')) {
+          setTimeout(goBackToPassword, 2000);
+        }
+
+      } catch (err) {
+        showError('Connection error. Please try again.');
+        btn.disabled    = false;
+        btn.textContent = isSetup ? 'Confirm \u0026 Sign In' : 'Verify Code';
+      }
+    }
 
     usernameInput.addEventListener('input', hideError);
     passwordInput.addEventListener('input', hideError);
