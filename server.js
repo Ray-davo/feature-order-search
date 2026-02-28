@@ -206,7 +206,7 @@ async function initDb() {
     await seedDefaultRoles(storeKey);
   }
 
-  await pool.query(`DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours'`);
+  await pool.query(`DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'`);
   await pool.query(`DELETE FROM search_audit   WHERE searched_at  < NOW() - INTERVAL '90 days'`);
 
   await migrateEnvUsers();
