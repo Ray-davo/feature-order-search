@@ -697,6 +697,14 @@
       const billing = order.billing_address || {};
       const shipping = shippingAddresses[0] || billing;
 
+      // Cache address data so edit modal can pre-fill without touching HTML attributes
+      _addrDataCache[orderId] = {
+        billing:           billing,
+        shipping:          shipping,
+        shippingAddressId: shippingAddresses[0] ? shippingAddresses[0].id : 0,
+        store:             currentStore
+      };
+
       const trackingHtml = buildTrackingHtml(shipments);
 
       const countryShort = (c) => {
@@ -731,7 +739,7 @@
               <h5>Billing</h5>
               <span style="display:flex;align-items:center;gap:8px;">
                 <span class="order-ref-label">Order #${order.id}</span>
-                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick='openEditAddress("billing",${orderId},"${store}",0,${JSON.stringify(billing)})'>&#9998; Edit</button>` : ''}
+                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('billing',${orderId})">&#9998; Edit</button>` : ''}
               </span>
             </div>
             <p>
@@ -750,7 +758,7 @@
             <div class="preview-box-header">
               <h5>Shipping</h5>
               <span style="display:flex;align-items:center;gap:8px;">
-                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick='openEditAddress("shipping",${orderId},"${store}",${shippingAddresses[0]?.id||0},${JSON.stringify(shipping)})'>&#9998; Edit</button>` : ''}
+                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('shipping',${orderId})">&#9998; Edit</button>` : ''}
                 <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
               </span>
             </div>
@@ -1843,12 +1851,17 @@ var _editAddrType    = '';   // 'billing' or 'shipping'
 var _editAddrOrderId = 0;
 var _editAddrStore   = '';
 var _editAddrId      = 0;    // shipping address id (0 for billing)
+var _addrDataCache   = {};   // keyed by orderId, stores { billing, shipping, shippingAddressId }
 
-function openEditAddress(type, orderId, store, addressId, addrData) {
+function openEditAddress(type, orderId) {
+  // Pull address data from cache populated when preview was rendered
+  var cached = _addrDataCache[orderId] || {};
+  var a = type === 'billing' ? (cached.billing || {}) : (cached.shipping || {});
+
   _editAddrType    = type;
   _editAddrOrderId = orderId;
-  _editAddrStore   = store;
-  _editAddrId      = addressId || 0;
+  _editAddrStore   = cached.store || currentStore;
+  _editAddrId      = type === 'shipping' ? (cached.shippingAddressId || 0) : 0;
 
   document.getElementById('edit-address-title').textContent =
     type === 'billing' ? 'Edit Billing Address' : 'Edit Shipping Address';
@@ -1856,8 +1869,7 @@ function openEditAddress(type, orderId, store, addressId, addrData) {
   // Show/hide email field — billing only
   document.getElementById('ea-email-field').style.display = type === 'billing' ? '' : 'none';
 
-  // Pre-fill all fields from the live address data passed in
-  var a = addrData || {};
+  // Pre-fill all fields from cached address data
   document.getElementById('ea-first-name').value = a.first_name || '';
   document.getElementById('ea-last-name').value  = a.last_name  || '';
   document.getElementById('ea-company').value    = a.company    || '';
