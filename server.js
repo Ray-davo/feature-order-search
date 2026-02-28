@@ -365,6 +365,31 @@ const LOCKOUT_DURATION_MIN = 15;    // Lockout duration in minutes
 const RATE_LIMIT_WINDOW_SEC = 60;   // Rate limit window in seconds
 const RATE_LIMIT_MAX_ATTEMPTS = 5;  // Max attempts per IP in window
 
+// ── IP Allowlist ─────────────────────────────────────────────────────────
+// Set ALLOWED_IPS env var on Render as comma-separated CIDRs or exact IPs
+// e.g. "203.0.113.5,198.51.100.0/24"
+// Leave blank to disable (allow all IPs — not recommended for production)
+const ALLOWED_IPS_RAW = (process.env.ALLOWED_IPS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+function ipToInt(ip) {
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+}
+
+function isIpAllowed(ip) {
+  if (ALLOWED_IPS_RAW.length === 0) return true; // allowlist disabled
+  for (const entry of ALLOWED_IPS_RAW) {
+    if (entry.includes('/')) {
+      // CIDR notation
+      const [base, bits] = entry.split('/');
+      const mask = bits === '0' ? 0 : (~0 << (32 - parseInt(bits))) >>> 0;
+      if ((ipToInt(ip) & mask) === (ipToInt(base) & mask)) return true;
+    } else {
+      if (ip === entry) return true;
+    }
+  }
+  return false;
+}
+
 // In-memory cache for faster checks (persisted to DB for audit)
 const loginAttempts = {
   byIp: new Map(),      // IP -> { count, firstAttempt, lockedUntil }
@@ -899,7 +924,17 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   const userLower = (username || '').toLowerCase().trim();
   const ip = getClientIp(req);
-  
+
+  // ── IP Allowlist check ───────────────────────────────────────────────────
+  if (!isIpAllowed(ip)) {
+    console.log(`[SECURITY] Blocked login from non-whitelisted IP: ${ip} (user: ${userLower || 'unknown'})`);
+    // Still log the attempt so it appears in audit log
+    await recordFailedAttempt(ip, userLower || null).catch(() => {});
+    return res.status(403).json({
+      error: 'Access denied. Your IP address is not authorized to access this portal. Contact your administrator.'
+    });
+  }
+
   // Check rate limiting first
   if (isRateLimited(ip)) {
     console.log(`[SECURITY] Rate limited IP: ${ip}`);
@@ -1281,9 +1316,21 @@ app.delete('/api/admin/roles/:id', requireAuth, requirePermission('admin.roles.m
 });
 
 app.get('/api/admin/login-attempts', requireAuth, requirePermission('admin.audit.view'), async (req, res) => {
-  const { limit = 100 } = req.query;
+  const { limit = 200, username, success, date_from, date_to } = req.query;
   try {
-    const result = await pool.query('SELECT id, ip_address, username, success, attempted_at FROM login_attempts ORDER BY attempted_at DESC LIMIT $1', [Math.min(parseInt(limit), 500)]);
+    const conditions = [];
+    const params = [];
+    if (username) { params.push(username); conditions.push(`username = $${params.length}`); }
+    if (success === 'true')  { conditions.push('success = TRUE'); }
+    if (success === 'false') { conditions.push('success = FALSE'); }
+    if (date_from) { params.push(date_from); conditions.push(`attempted_at >= $${params.length}`); }
+    if (date_to)   { params.push(date_to);   conditions.push(`attempted_at <= $${params.length}::date + 1`); }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    params.push(Math.min(parseInt(limit) || 200, 1000));
+    const result = await pool.query(
+      `SELECT id, ip_address, username, success, attempted_at FROM login_attempts ${where} ORDER BY attempted_at DESC LIMIT $${params.length}`,
+      params
+    );
     res.json({ success: true, attempts: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get login attempts' });
@@ -1291,18 +1338,46 @@ app.get('/api/admin/login-attempts', requireAuth, requirePermission('admin.audit
 });
 
 app.get('/api/admin/search-audit', requireAuth, requirePermission('admin.audit.view'), async (req, res) => {
-  const { limit = 200, username } = req.query;
+  const { limit = 200, username, store, date_from, date_to, suspicious } = req.query;
   try {
-    let query, params;
-    if (username) {
-      query  = 'SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit WHERE username = $1 ORDER BY searched_at DESC LIMIT $2';
-      params = [username, Math.min(parseInt(limit), 1000)];
-    } else {
-      query  = 'SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit ORDER BY searched_at DESC LIMIT $1';
-      params = [Math.min(parseInt(limit), 1000)];
+    const conditions = [];
+    const params = [];
+    if (username)  { params.push(username);  conditions.push(`username = $${params.length}`); }
+    if (store)     { params.push(store);     conditions.push(`store = $${params.length}`); }
+    if (date_from) { params.push(date_from); conditions.push(`searched_at >= $${params.length}`); }
+    if (date_to)   { params.push(date_to);   conditions.push(`searched_at <= $${params.length}::date + 1`); }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    params.push(Math.min(parseInt(limit) || 200, 2000));
+    const result = await pool.query(
+      `SELECT id, username, store, search_type, query, result_count, searched_at FROM search_audit ${where} ORDER BY searched_at DESC LIMIT $${params.length}`,
+      params
+    );
+
+    // Flag suspicious activity: any user with 10+ searches in any 5-min window
+    let suspiciousUsers = new Set();
+    if (suspicious === 'true' || !suspicious) {
+      const rows = result.rows;
+      const byUser = {};
+      rows.forEach(r => {
+        if (!byUser[r.username]) byUser[r.username] = [];
+        byUser[r.username].push(new Date(r.searched_at).getTime());
+      });
+      for (const [user, times] of Object.entries(byUser)) {
+        times.sort((a,b) => a - b);
+        for (let i = 0; i < times.length - 9; i++) {
+          if (times[i + 9] - times[i] <= 5 * 60 * 1000) {
+            suspiciousUsers.add(user);
+            break;
+          }
+        }
+      }
     }
-    const result = await pool.query(query, params);
-    res.json({ success: true, searches: result.rows });
+
+    res.json({
+      success: true,
+      searches: result.rows,
+      suspiciousUsers: [...suspiciousUsers]
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get search audit log' });
   }

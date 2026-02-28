@@ -114,6 +114,73 @@
 
     .attempt-success { color: var(--color-success); font-weight: 600; }
     .attempt-failed  { color: var(--color-danger);  font-weight: 600; }
+
+    /* ── Audit filters ── */
+    .audit-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 0 16px;
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: 12px;
+    }
+    .audit-filters select,
+    .audit-filters input[type="date"] {
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-base);
+      font-size: 13px;
+      color: var(--color-text);
+      background: var(--color-surface);
+      cursor: pointer;
+    }
+    .audit-filters .btn-sm {
+      height: 34px;
+      padding: 0 12px;
+      font-size: 12px;
+      background: var(--color-surface-hover);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--color-text-muted);
+    }
+    .audit-filters .btn-sm:hover { background: var(--color-border); }
+
+    /* ── Audit summary badges ── */
+    .audit-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .audit-summary > span {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-info    { background: #EFF6FF; color: #1D4ED8; }
+    .badge-success { background: var(--color-success-bg); color: var(--color-success); }
+    .badge-danger  { background: var(--color-danger-bg);  color: var(--color-danger); }
+    .badge-warning { background: var(--color-warning-bg); color: #92400E; }
+
+    /* ── Search audit ── */
+    .search-type-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #F1F5F9;
+      color: #475569;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .row-suspicious { background: #FFF7ED !important; }
+    .row-suspicious:hover { background: #FFEDD5 !important; }
   </style>
 </head>
 <body>
@@ -176,6 +243,7 @@
         <button class="tab-btn active" onclick="showTab('users')">👤 Users</button>
         <button class="tab-btn" onclick="showTab('roles')">🔐 Roles &amp; Permissions</button>
         <button class="tab-btn" onclick="showTab('attempts')">📋 Login Attempts</button>
+        <button class="tab-btn" onclick="showTab('searches')">🔍 Search Audit</button>
       </div>
 
       <!-- Users Panel -->
@@ -232,20 +300,75 @@
       <div class="panel" id="panel-attempts">
         <div class="card">
           <div class="panel-header">
-            <h2>Recent Login Attempts</h2>
+            <h2>Login Attempts</h2>
             <button class="refresh-btn" onclick="loadLoginAttempts()">↻ Refresh</button>
           </div>
+          <!-- Filters -->
+          <div class="audit-filters">
+            <select id="attemptFilterUser" onchange="loadLoginAttempts()">
+              <option value="">All Agents</option>
+            </select>
+            <select id="attemptFilterResult" onchange="loadLoginAttempts()">
+              <option value="">All Results</option>
+              <option value="true">✓ Success</option>
+              <option value="false">✗ Failed</option>
+            </select>
+            <input type="date" id="attemptFilterFrom" onchange="loadLoginAttempts()" placeholder="From date">
+            <input type="date" id="attemptFilterTo"   onchange="loadLoginAttempts()" placeholder="To date">
+            <button class="btn btn-sm" onclick="clearAttemptFilters()">✕ Clear</button>
+          </div>
+          <div id="attemptsSummary" class="audit-summary"></div>
           <table class="data-table">
             <thead>
               <tr>
                 <th>Time</th>
-                <th>Username</th>
+                <th>Agent</th>
                 <th>IP Address</th>
                 <th>Result</th>
               </tr>
             </thead>
             <tbody id="attemptsTableBody">
               <tr><td colspan="4" class="no-data">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Search Audit Panel -->
+      <div class="panel" id="panel-searches">
+        <div class="card">
+          <div class="panel-header">
+            <h2>Search Audit</h2>
+            <button class="refresh-btn" onclick="loadSearchAudit()">↻ Refresh</button>
+          </div>
+          <!-- Filters -->
+          <div class="audit-filters">
+            <select id="searchFilterUser" onchange="loadSearchAudit()">
+              <option value="">All Agents</option>
+            </select>
+            <select id="searchFilterStore" onchange="loadSearchAudit()">
+              <option value="">All Stores</option>
+              <option value="1ink">1ink.com</option>
+              <option value="needink">NeedInk.com</option>
+            </select>
+            <input type="date" id="searchFilterFrom" onchange="loadSearchAudit()" placeholder="From date">
+            <input type="date" id="searchFilterTo"   onchange="loadSearchAudit()" placeholder="To date">
+            <button class="btn btn-sm" onclick="clearSearchFilters()">✕ Clear</button>
+          </div>
+          <div id="searchSummary" class="audit-summary"></div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Agent</th>
+                <th>Store</th>
+                <th>Type</th>
+                <th>Query</th>
+                <th>Results</th>
+              </tr>
+            </thead>
+            <tbody id="searchesTableBody">
+              <tr><td colspan="6" class="no-data">Click Refresh to load search audit</td></tr>
             </tbody>
           </table>
         </div>
@@ -379,6 +502,7 @@
     document.querySelector(`[onclick="showTab('${tab}')"]`).classList.add('active');
     document.getElementById(`panel-${tab}`).classList.add('active');
     if (tab === 'attempts') loadLoginAttempts();
+    if (tab === 'searches') loadSearchAudit();
   }
 
   async function loadUsers() {
@@ -468,25 +592,114 @@
     } catch (err) { console.error('Failed to load permissions:', err); }
   }
 
+  function populateAgentFilter(selectId, rows, field = 'username') {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const current = sel.value;
+    const names = [...new Set(rows.map(r => r[field]).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All Agents</option>' +
+      names.map(n => `<option value="${n}" ${n===current?'selected':''}>${n}</option>`).join('');
+  }
+
   async function loadLoginAttempts() {
+    const tbody = document.getElementById('attemptsTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="no-data">Loading...</td></tr>';
     try {
-      const res = await fetch('/api/admin/login-attempts?limit=100');
+      const params = new URLSearchParams({ limit: 500 });
+      const user   = document.getElementById('attemptFilterUser')?.value;
+      const result = document.getElementById('attemptFilterResult')?.value;
+      const from   = document.getElementById('attemptFilterFrom')?.value;
+      const to     = document.getElementById('attemptFilterTo')?.value;
+      if (user)   params.set('username', user);
+      if (result) params.set('success',  result);
+      if (from)   params.set('date_from', from);
+      if (to)     params.set('date_to',   to);
+
+      const res  = await fetch('/api/admin/login-attempts?' + params);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const tbody = document.getElementById('attemptsTableBody');
+
+      populateAgentFilter('attemptFilterUser', data.attempts);
+
+      const failed  = data.attempts.filter(a => !a.success).length;
+      const success = data.attempts.filter(a =>  a.success).length;
+      document.getElementById('attemptsSummary').innerHTML =
+        `<span class="badge-info">${data.attempts.length} total</span>` +
+        `<span class="badge-success">✓ ${success} success</span>` +
+        `<span class="badge-danger">✗ ${failed} failed</span>`;
+
       if (data.attempts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="no-data">No login attempts found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="no-data">No login attempts match the filters</td></tr>';
         return;
       }
       tbody.innerHTML = data.attempts.map(a => `<tr>
-        <td>${new Date(a.attempted_at).toLocaleString()}</td>
-        <td>${a.username||'unknown'}</td>
+        <td style="white-space:nowrap">${new Date(a.attempted_at).toLocaleString()}</td>
+        <td>${a.username||'<em>unknown</em>'}</td>
         <td><code>${a.ip_address}</code></td>
         <td class="${a.success?'attempt-success':'attempt-failed'}">${a.success?'✓ Success':'✗ Failed'}</td>
       </tr>`).join('');
     } catch (err) {
-      document.getElementById('attemptsTableBody').innerHTML = `<tr><td colspan="4" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
     }
+  }
+
+  function clearAttemptFilters() {
+    ['attemptFilterUser','attemptFilterResult','attemptFilterFrom','attemptFilterTo']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    loadLoginAttempts();
+  }
+
+  async function loadSearchAudit() {
+    const tbody = document.getElementById('searchesTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Loading...</td></tr>';
+    try {
+      const params = new URLSearchParams({ limit: 500 });
+      const user  = document.getElementById('searchFilterUser')?.value;
+      const store = document.getElementById('searchFilterStore')?.value;
+      const from  = document.getElementById('searchFilterFrom')?.value;
+      const to    = document.getElementById('searchFilterTo')?.value;
+      if (user)  params.set('username',  user);
+      if (store) params.set('store',     store);
+      if (from)  params.set('date_from', from);
+      if (to)    params.set('date_to',   to);
+
+      const res  = await fetch('/api/admin/search-audit?' + params);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      populateAgentFilter('searchFilterUser', data.searches);
+
+      const suspicious = data.suspiciousUsers || [];
+      const zeroResults = data.searches.filter(s => s.result_count === 0).length;
+      document.getElementById('searchSummary').innerHTML =
+        `<span class="badge-info">${data.searches.length} searches</span>` +
+        `<span class="badge-warning">${zeroResults} zero-result</span>` +
+        (suspicious.length ? `<span class="badge-danger">⚠ Suspicious activity: ${suspicious.join(', ')}</span>` : '');
+
+      if (data.searches.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No searches match the filters</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.searches.map(s => {
+        const isSuspicious = suspicious.includes(s.username);
+        return `<tr class="${isSuspicious ? 'row-suspicious' : ''}">
+          <td style="white-space:nowrap">${new Date(s.searched_at).toLocaleString()}</td>
+          <td>${isSuspicious ? '⚠ ' : ''}${s.username}</td>
+          <td>${s.store}</td>
+          <td><span class="search-type-badge">${s.search_type}</span></td>
+          <td><code>${s.query}</code></td>
+          <td class="${s.result_count === 0 ? 'attempt-failed' : ''}">${s.result_count}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="6" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+    }
+  }
+
+  function clearSearchFilters() {
+    ['searchFilterUser','searchFilterStore','searchFilterFrom','searchFilterTo']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    loadSearchAudit();
   }
 
   function showAddUserModal() {
