@@ -744,7 +744,8 @@
             </div>
             <p>
               <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
-              ${billing.street_1 || ''}${billing.street_2 ? ', ' + billing.street_2 : ''}<br>
+              ${billing.street_1 || ''}<br>
+              ${billing.street_2 ? billing.street_2 + '<br>' : ''}
               ${formatCityLine(billing)}
             </p>
             <div class="contact contact-inline">
@@ -764,7 +765,8 @@
             </div>
             <p>
               <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
-              ${shipping.street_1 || ''}${shipping.street_2 ? ', ' + shipping.street_2 : ''}<br>
+              ${shipping.street_1 || ''}<br>
+              ${shipping.street_2 ? shipping.street_2 + '<br>' : ''}
               ${formatCityLine(shipping)}
             </p>
             ${trackingHtml}
@@ -1921,9 +1923,9 @@ async function submitEditAddress() {
     body.email = document.getElementById('ea-email').value.trim();
   }
 
-  // Remove empty optional fields (company, street_2) so we don't overwrite with blanks
-  if (!body.company)  delete body.company;
-  if (!body.street_2) delete body.street_2;
+  // Remove company only if blank — street_2 is always sent so agents can clear it
+  if (!body.company) delete body.company;
+  // street_2 intentionally kept even if empty — allows agent to clear a duplicate line
 
   if (!body.first_name || !body.last_name || !body.street_1 || !body.city || !body.state || !body.zip) {
     result.className = 'aresult error';
