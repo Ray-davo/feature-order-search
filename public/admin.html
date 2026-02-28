@@ -181,6 +181,46 @@
     }
     .row-suspicious { background: #FFF7ED !important; }
     .row-suspicious:hover { background: #FFEDD5 !important; }
+
+    /* ── Grouped search audit ── */
+    .group-row { cursor: pointer; }
+    .group-row:hover { background: var(--color-surface-hover) !important; }
+    .expand-arrow { font-size: 11px; color: var(--color-text-muted); margin-left: 6px; }
+    .detail-row { background: #F8FAFC; }
+    .detail-table { margin: 0; border-radius: 0; box-shadow: none; border: none; }
+    .detail-table thead th { background: #EFF4FB; font-size: 11px; padding: 6px 12px; }
+    .detail-table tbody td { padding: 6px 12px; border-bottom: 1px solid #E8EDF3; }
+    .detail-loading { padding: 16px; color: var(--color-text-muted); font-size: 13px; text-align: center; }
+
+    /* ── Settings ── */
+    .setting-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 0;
+    }
+    .setting-info { display: flex; flex-direction: column; gap: 3px; }
+    .setting-info strong { font-size: 15px; color: var(--color-text); }
+    .setting-info span { font-size: 13px; color: var(--color-text-muted); }
+    .setting-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+    .setting-control { display: flex; gap: 6px; flex-shrink: 0; margin-top: 2px; }
+    .retention-btn {
+      width: 46px; height: 34px;
+      border: 1.5px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text-muted);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .retention-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .retention-btn.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -244,6 +284,7 @@
         <button class="tab-btn" onclick="showTab('roles')">🔐 Roles &amp; Permissions</button>
         <button class="tab-btn" onclick="showTab('attempts')">📋 Login Attempts</button>
         <button class="tab-btn" onclick="showTab('searches')">🔍 Search Audit</button>
+        <button class="tab-btn" onclick="showTab('settings')">⚙️ Settings</button>
       </div>
 
       <!-- Users Panel -->
@@ -341,7 +382,6 @@
             <h2>Search Audit</h2>
             <button class="refresh-btn" onclick="loadSearchAudit()">↻ Refresh</button>
           </div>
-          <!-- Filters -->
           <div class="audit-filters">
             <select id="searchFilterUser" onchange="loadSearchAudit()">
               <option value="">All Agents</option>
@@ -356,21 +396,39 @@
             <button class="btn btn-sm" onclick="clearSearchFilters()">✕ Clear</button>
           </div>
           <div id="searchSummary" class="audit-summary"></div>
-          <table class="data-table">
+          <!-- Grouped rows — each group expands to show detail -->
+          <table class="data-table" id="searchGroupTable">
             <thead>
               <tr>
-                <th>Time</th>
+                <th>Date</th>
                 <th>Agent</th>
                 <th>Store</th>
-                <th>Type</th>
-                <th>Query</th>
-                <th>Results</th>
+                <th>Searches</th>
+                <th>Zero Results</th>
+                <th>Active</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="searchesTableBody">
-              <tr><td colspan="6" class="no-data">Click Refresh to load search audit</td></tr>
+              <tr><td colspan="7" class="no-data">Click Refresh to load search audit</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Settings Panel -->
+      <div class="panel" id="panel-settings">
+        <div class="card">
+          <div class="panel-header">
+            <h2>Log Retention Settings</h2>
+            <button class="refresh-btn" onclick="loadSettings()">↻ Refresh</button>
+          </div>
+          <p style="color:var(--color-text-muted);font-size:14px;margin-bottom:24px;">
+            Control how long audit logs are kept before being automatically deleted. Changes take effect on next server restart.
+          </p>
+          <div id="settingsBody" style="max-width:520px;">
+            <div class="no-data">Loading settings...</div>
+          </div>
         </div>
       </div>
 
@@ -503,6 +561,7 @@
     document.getElementById(`panel-${tab}`).classList.add('active');
     if (tab === 'attempts') loadLoginAttempts();
     if (tab === 'searches') loadSearchAudit();
+    if (tab === 'settings') loadSettings();
   }
 
   async function loadUsers() {
@@ -649,11 +708,14 @@
     loadLoginAttempts();
   }
 
+  // Holds expanded detail rows by group key
+  const expandedGroups = new Set();
+
   async function loadSearchAudit() {
     const tbody = document.getElementById('searchesTableBody');
-    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="no-data">Loading...</td></tr>';
     try {
-      const params = new URLSearchParams({ limit: 500 });
+      const params = new URLSearchParams();
       const user  = document.getElementById('searchFilterUser')?.value;
       const store = document.getElementById('searchFilterStore')?.value;
       const from  = document.getElementById('searchFilterFrom')?.value;
@@ -663,43 +725,183 @@
       if (from)  params.set('date_from', from);
       if (to)    params.set('date_to',   to);
 
+      const res  = await fetch('/api/admin/search-audit/grouped?' + params);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Populate agent filter from groups
+      populateAgentFilter('searchFilterUser', data.groups);
+
+      const suspicious   = data.suspiciousUsers || [];
+      const totalSearches = data.groups.reduce((s, g) => s + g.total_searches, 0);
+      const totalZero     = data.groups.reduce((s, g) => s + g.zero_results, 0);
+
+      document.getElementById('searchSummary').innerHTML =
+        `<span class="badge-info">${totalSearches.toLocaleString()} total searches</span>` +
+        `<span class="badge-info">${data.groups.length} groups</span>` +
+        `<span class="badge-warning">${totalZero} zero-result</span>` +
+        (suspicious.length ? `<span class="badge-danger">⚠ Suspicious: ${suspicious.join(', ')}</span>` : '');
+
+      if (data.groups.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="no-data">No searches match the filters</td></tr>';
+        return;
+      }
+
+      renderGroupedRows(data.groups, suspicious);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+    }
+  }
+
+  function renderGroupedRows(groups, suspicious) {
+    const tbody = document.getElementById('searchesTableBody');
+    let html = '';
+    groups.forEach((g, idx) => {
+      const key = `${g.username}|${g.store}|${g.day}`;
+      const isExpanded  = expandedGroups.has(key);
+      const isSuspicious = suspicious.includes(g.username);
+      const dateLabel   = new Date(g.day + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+      const firstTime   = new Date(g.first_search).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+      const lastTime    = new Date(g.last_search).toLocaleTimeString('en-US',  { hour:'numeric', minute:'2-digit' });
+      const types       = (g.search_types || []).map(t => `<span class="search-type-badge">${t}</span>`).join(' ');
+
+      html += `<tr class="group-row ${isSuspicious ? 'row-suspicious' : ''}" onclick="toggleGroup('${key.replace(/'/g,"\'")}', '${g.username}', '${g.store}', '${g.day}')">
+        <td><strong>${dateLabel}</strong></td>
+        <td>${isSuspicious ? '⚠ ' : ''}<strong>${g.username}</strong></td>
+        <td>${g.store}</td>
+        <td><strong>${g.total_searches}</strong></td>
+        <td class="${g.zero_results > 0 ? 'attempt-failed' : ''}">${g.zero_results}</td>
+        <td style="font-size:12px;color:var(--color-text-muted)">${firstTime} – ${lastTime}</td>
+        <td style="text-align:right">${types} <span class="expand-arrow">${isExpanded ? '▲' : '▼'}</span></td>
+      </tr>`;
+
+      if (isExpanded) {
+        html += `<tr class="detail-row" id="detail-${idx}">
+          <td colspan="7" style="padding:0">
+            <div class="detail-loading" id="detail-inner-${idx}">Loading...</div>
+          </td>
+        </tr>`;
+      }
+    });
+    tbody.innerHTML = html;
+
+    // Load detail for already-expanded groups
+    groups.forEach((g, idx) => {
+      const key = `${g.username}|${g.store}|${g.day}`;
+      if (expandedGroups.has(key)) {
+        fetchGroupDetail(g.username, g.store, g.day, `detail-inner-${idx}`);
+      }
+    });
+  }
+
+  async function toggleGroup(key, username, store, day) {
+    if (expandedGroups.has(key)) {
+      expandedGroups.delete(key);
+    } else {
+      expandedGroups.add(key);
+    }
+    loadSearchAudit();
+  }
+
+  async function fetchGroupDetail(username, store, day, containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    try {
+      const params = new URLSearchParams({ username, store, date_from: day, date_to: day, limit: 500 });
       const res  = await fetch('/api/admin/search-audit?' + params);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      populateAgentFilter('searchFilterUser', data.searches);
-
-      const suspicious = data.suspiciousUsers || [];
-      const zeroResults = data.searches.filter(s => s.result_count === 0).length;
-      document.getElementById('searchSummary').innerHTML =
-        `<span class="badge-info">${data.searches.length} searches</span>` +
-        `<span class="badge-warning">${zeroResults} zero-result</span>` +
-        (suspicious.length ? `<span class="badge-danger">⚠ Suspicious activity: ${suspicious.join(', ')}</span>` : '');
-
-      if (data.searches.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No searches match the filters</td></tr>';
+      if (!data.searches || data.searches.length === 0) {
+        el.innerHTML = '<div style="padding:12px;color:var(--color-text-muted);font-size:13px;">No detail found</div>';
         return;
       }
-      tbody.innerHTML = data.searches.map(s => {
-        const isSuspicious = suspicious.includes(s.username);
-        return `<tr class="${isSuspicious ? 'row-suspicious' : ''}">
-          <td style="white-space:nowrap">${new Date(s.searched_at).toLocaleString()}</td>
-          <td>${isSuspicious ? '⚠ ' : ''}${s.username}</td>
-          <td>${s.store}</td>
-          <td><span class="search-type-badge">${s.search_type}</span></td>
-          <td><code>${s.query}</code></td>
-          <td class="${s.result_count === 0 ? 'attempt-failed' : ''}">${s.result_count}</td>
-        </tr>`;
-      }).join('');
+
+      el.innerHTML = `<table class="data-table detail-table">
+        <thead><tr>
+          <th>Time</th><th>Type</th><th>Query</th><th>Results</th>
+        </tr></thead>
+        <tbody>
+          ${data.searches.map(s => `<tr>
+            <td style="white-space:nowrap;font-size:12px;">${new Date(s.searched_at).toLocaleTimeString()}</td>
+            <td><span class="search-type-badge">${s.search_type}</span></td>
+            <td><code style="font-size:12px;">${s.query}</code></td>
+            <td class="${s.result_count === 0 ? 'attempt-failed' : ''}" style="font-size:13px;">${s.result_count}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+      el.innerHTML = `<div style="padding:12px;color:var(--color-danger);font-size:13px;">${err.message}</div>`;
     }
   }
 
   function clearSearchFilters() {
     ['searchFilterUser','searchFilterStore','searchFilterFrom','searchFilterTo']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    expandedGroups.clear();
     loadSearchAudit();
+  }
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  async function loadSettings() {
+    const body = document.getElementById('settingsBody');
+    body.innerHTML = '<div class="no-data">Loading...</div>';
+    try {
+      const res  = await fetch('/api/admin/settings');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const s = data.settings;
+      const options = [30, 60, 90, 120, 180];
+
+      const renderSetting = (key, label, desc) => {
+        const current = parseInt(s[key]?.value || 90);
+        const updatedBy = s[key]?.updated_by ? `Last changed by ${s[key].updated_by}` : '';
+        return `
+        <div class="setting-row">
+          <div class="setting-info">
+            <strong>${label}</strong>
+            <span>${desc}</span>
+            <span class="setting-meta">${updatedBy}</span>
+          </div>
+          <div class="setting-control">
+            ${options.map(v => `<button
+              class="retention-btn ${v === current ? 'active' : ''}"
+              onclick="saveSetting('${key}', ${v}, this)"
+            >${v}d</button>`).join('')}
+          </div>
+        </div>`;
+      };
+
+      body.innerHTML = `
+        <div id="settingsMsg"></div>
+        ${renderSetting('login_retention_days',  'Login Attempts Log', 'How long to keep login attempt records')}
+        <div style="height:1px;background:var(--color-border);margin:20px 0"></div>
+        ${renderSetting('search_retention_days', 'Search Audit Log',   'How long to keep agent search records')}
+        <p style="margin-top:24px;font-size:13px;color:var(--color-text-muted);">
+          ⚠ Changes apply on next server restart. Records older than the selected window are deleted automatically.
+        </p>`;
+    } catch (err) {
+      body.innerHTML = `<div class="no-data" style="color:var(--color-danger)">${err.message}</div>`;
+    }
+  }
+
+  async function saveSetting(key, value, btn) {
+    const msg = document.getElementById('settingsMsg');
+    try {
+      const res  = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      // Update button states
+      btn.closest('.setting-control').querySelectorAll('.retention-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      msg.innerHTML = `<span class="badge-success" style="display:inline-block;margin-bottom:12px;">✓ Saved — takes effect on next restart</span>`;
+    } catch (err) {
+      msg.innerHTML = `<span class="badge-danger" style="display:inline-block;margin-bottom:12px;">✗ ${err.message}</span>`;
+    }
   }
 
   function showAddUserModal() {
