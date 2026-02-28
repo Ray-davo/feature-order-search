@@ -418,7 +418,7 @@
           <div>Email</div>
           <div>Phone</div>
           <div class="col-right">Date</div>
-          <div class="col-right">Status</div>
+          <div>Status</div>
           <div class="col-right">Total</div>
         </div>`;
 
@@ -433,7 +433,7 @@
         html += `
           <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
-            <div class="order-col order-id" onclick="event.stopPropagation(); copyToClipboard('${order.id}', this)" title="Click to copy order #">#${order.id} <span class="copy-hint">&#128203;</span></div>
+            <div class="order-col order-id" onclick="togglePreview(null, ${order.id})">#${order.id}</div>
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
             <div class="order-col order-email" title="${customerEmail}"><span id="note-badge-${order.id}"></span>${customerEmail}</div>
             <div class="order-col order-phone">${order.billing_address?.phone || ''}</div>
@@ -782,14 +782,23 @@
               </span>
             </div>
             <p>
-              <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
-              ${billing.street_1 || ''}<br>
-              ${billing.street_2 ? billing.street_2 + '<br>' : ''}
-              ${formatCityLine(billing)}
+              <span style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+                <span>
+                  <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
+                  ${billing.street_1 || ''}<br>
+                  ${billing.street_2 ? billing.street_2 + '<br>' : ''}
+                  ${formatCityLine(billing)}
+                </span>
+                <button class="copy-field-btn" style="margin-top:2px;" onclick="event.stopPropagation(); copyToClipboard(\`\${billing.first_name||''} \${billing.last_name||''}\n\${billing.street_1||''}\${billing.street_2?'\n'+billing.street_2:''}\n\${formatCityLine(billing)}\`, this)" title="Copy address"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+              </span>
             </p>
             <div class="contact contact-inline">
-              <span class="contact-phone"><span class="field-label">Phone:</span> <span class="copyable">${billing.phone || 'N/A'}</span></span>
-              <span class="contact-email"><span class="field-label">Email:</span> <span class="copyable">${billing.email || 'N/A'}</span></span>
+              <span class="contact-phone"><span class="field-label">Phone:</span> <span class="copyable">${billing.phone || 'N/A'}</span>
+                ${billing.phone ? `<button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard('${billing.phone}', this)" title="Copy phone"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>` : ''}
+              </span>
+              <span class="contact-email"><span class="field-label">Email:</span> <span class="copyable">${billing.email || 'N/A'}</span>
+                ${billing.email ? `<button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard('${billing.email}', this)" title="Copy email"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>` : ''}
+              </span>
             </div>
             <div class="meta-line"><span class="field-label">Order Date:</span> <span class="copyable">${orderDateTime}</span></div>
           </div>
@@ -803,10 +812,15 @@
               </span>
             </div>
             <p>
-              <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
-              ${shipping.street_1 || ''}<br>
-              ${shipping.street_2 ? shipping.street_2 + '<br>' : ''}
-              ${formatCityLine(shipping)}
+              <span style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+                <span>
+                  <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
+                  ${shipping.street_1 || ''}<br>
+                  ${shipping.street_2 ? shipping.street_2 + '<br>' : ''}
+                  ${formatCityLine(shipping)}
+                </span>
+                <button class="copy-field-btn" style="margin-top:2px;" onclick="event.stopPropagation(); copyToClipboard(\`\${shipping.first_name||''} \${shipping.last_name||''}\n\${shipping.street_1||''}\${shipping.street_2?'\n'+shipping.street_2:''}\n\${formatCityLine(shipping)}\`, this)" title="Copy address"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+              </span>
             </p>
             ${trackingHtml}
             <div class="meta-line"><span class="field-label">Shipped:</span> <span class="copyable">${shippedDateOnly}</span></div>
