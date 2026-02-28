@@ -6,8 +6,9 @@ const path = require('path');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const postmark = require('postmark');
-const speakeasy = require('speakeasy');
-const QRCode = require('qrcode');
+const speakeasy    = require('speakeasy');
+const QRCode       = require('qrcode');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -128,7 +129,8 @@ async function initDb() {
     INSERT INTO app_settings (key, value) VALUES
       ('login_retention_days',   '90'),
       ('search_retention_days',  '90'),
-      ('ip_allowlist_enabled',   'false')
+      ('ip_allowlist_enabled',   'false'),
+      ('device_trust_days',      '30')
     ON CONFLICT (key) DO NOTHING;
   `);
 
@@ -158,6 +160,22 @@ async function initDb() {
       created_at   TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_ip_req_status ON ip_access_requests (status);
+  `);
+
+  // ── Trusted Devices table ─────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS trusted_devices (
+      id           SERIAL PRIMARY KEY,
+      user_id      INT REFERENCES users(id) ON DELETE CASCADE,
+      token_hash   TEXT NOT NULL UNIQUE,
+      browser_hint TEXT,
+      ip_address   TEXT,
+      created_at   TIMESTAMPTZ DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_trusted_devices_user    ON trusted_devices (user_id);
+    CREATE INDEX IF NOT EXISTS idx_trusted_devices_expires ON trusted_devices (expires_at);
   `);
 
   // Seed from ALLOWED_IPS env var if allowlist table is empty
@@ -513,6 +531,59 @@ function invalidateAllowlistCache() {
   _allowlistCacheTime = 0;
 }
 
+// ── Trusted Device helpers ───────────────────────────────────────────────
+const DEVICE_COOKIE_NAME = 'dt';  // short name, less visible
+
+async function getDeviceTrustDays() {
+  try {
+    const r = await pool.query("SELECT value FROM app_settings WHERE key = 'device_trust_days'");
+    return parseInt(r.rows[0]?.value || '30');
+  } catch { return 30; }
+}
+
+async function createTrustedDevice(userId, ip, browserHint, trustDays) {
+  const crypto = require('crypto');
+  const rawToken   = crypto.randomBytes(64).toString('hex');  // 128-char hex
+  const tokenHash  = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt  = new Date(Date.now() + trustDays * 24 * 60 * 60 * 1000);
+  await pool.query(
+    'INSERT INTO trusted_devices (user_id, token_hash, browser_hint, ip_address, expires_at) VALUES ($1, $2, $3, $4, $5)',
+    [userId, tokenHash, browserHint || 'Unknown browser', ip, expiresAt]
+  );
+  return rawToken; // only the raw token goes to the cookie — hash stays in DB
+}
+
+async function verifyTrustedDevice(userId, rawToken) {
+  if (!rawToken) return null;
+  const crypto    = require('crypto');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const result    = await pool.query(
+    'SELECT id, browser_hint, expires_at FROM trusted_devices WHERE user_id = $1 AND token_hash = $2 AND expires_at > NOW()',
+    [userId, tokenHash]
+  );
+  if (!result.rows[0]) return null;
+  // Update last_used
+  await pool.query('UPDATE trusted_devices SET last_used_at = NOW() WHERE id = $1', [result.rows[0].id]);
+  return result.rows[0];
+}
+
+async function getBrowserHint(req) {
+  const ua = req.headers['user-agent'] || '';
+  // Extract a readable browser/OS hint from user-agent
+  let browser = 'Unknown';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+  else if (ua.includes('Firefox'))  browser = 'Firefox';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Edg'))      browser = 'Edge';
+  let os = '';
+  if (ua.includes('Windows'))       os = 'Windows';
+  else if (ua.includes('Mac OS'))   os = 'Mac';
+  else if (ua.includes('Linux'))    os = 'Linux';
+  else if (ua.includes('iPhone'))   os = 'iPhone';
+  else if (ua.includes('Android'))  os = 'Android';
+  return os ? `${browser} on ${os}` : browser;
+}
+
 async function isIpAllowed(ip) {
   const { enabled, ips } = await getAllowlistSettings();
   if (!enabled || ips.length === 0) return true;
@@ -688,6 +759,7 @@ async function logSearch(username, store, searchType, query, resultCount) {
 // Middleware
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Session configuration
@@ -1128,7 +1200,27 @@ app.post('/api/login', async (req, res) => {
       }
 
       if (user.totp_enabled && user.totp_secret) {
-        // 2FA active — require TOTP code before creating session
+        // ── Check for trusted device cookie ─────────────────────────────
+        const rawToken    = req.cookies?.[DEVICE_COOKIE_NAME];
+        const trustedDev  = rawToken ? await verifyTrustedDevice(user.id, rawToken) : null;
+        if (trustedDev) {
+          // Trusted device — skip 2FA, create session directly
+          await pool.query('UPDATE users SET last_login = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = $1', [user.id]);
+          const defaultStore  = Object.keys(stores)[0];
+          const permissions   = await getUserPermissions(user.id, defaultStore);
+          const roleRes       = await pool.query(`SELECT r.name FROM user_store_roles usr JOIN roles r ON r.id = usr.role_id WHERE usr.user_id = $1 AND usr.store_hash = $2 LIMIT 1`, [user.id, defaultStore]);
+          const roleName      = roleRes.rows[0]?.name || 'Agent';
+          req.session.user        = userLower;
+          req.session.userId      = user.id;
+          req.session.storeHash   = defaultStore;
+          req.session.permissions = permissions;
+          req.session.roleName    = roleName;
+          req.session.isAdmin     = permissions.includes('admin.users.manage');
+          await recordSuccessfulLogin(ip, userLower);
+          console.log(`[2FA] Trusted device login: ${userLower} (${trustedDev.browser_hint}) from ${ip}`);
+          return res.json({ success: true, user: userLower, isAdmin: req.session.isAdmin, roleName, permissions });
+        }
+        // No trusted device — require TOTP code
         const tempToken = createTotpToken(user.id, userLower, ip, false);
         console.log(`[2FA] Code required for ${userLower} from ${ip}`);
         return res.status(202).json({ totp_required: true, tempToken });
@@ -1221,6 +1313,51 @@ app.get('/api/auth-check', (req, res) => {
   }
   res.json({ authenticated: false });
 });
+
+// ── Trusted Devices admin endpoints ─────────────────────────────────────
+
+// Get trusted devices for a user
+app.get('/api/admin/users/:id/trusted-devices', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, browser_hint, ip_address, created_at, last_used_at, expires_at FROM trusted_devices WHERE user_id = $1 ORDER BY last_used_at DESC',
+      [parseInt(req.params.id)]
+    );
+    res.json({ success: true, devices: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load trusted devices' });
+  }
+});
+
+// Revoke a single trusted device
+app.delete('/api/admin/trusted-devices/:id', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM trusted_devices WHERE id = $1', [parseInt(req.params.id)]);
+    console.log(`[Device Trust] Device ${req.params.id} revoked by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to revoke device' });
+  }
+});
+
+// Revoke ALL trusted devices for a user
+app.delete('/api/admin/users/:id/trusted-devices', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM trusted_devices WHERE user_id = $1 RETURNING id', [parseInt(req.params.id)]);
+    console.log(`[Device Trust] All ${result.rowCount} devices revoked for user ${req.params.id} by ${req.session.user}`);
+    res.json({ success: true, revoked: result.rowCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to revoke devices' });
+  }
+});
+
+// Cleanup expired trusted devices (also runs in initDb but good to have on-demand)
+setInterval(async () => {
+  try {
+    const result = await pool.query('DELETE FROM trusted_devices WHERE expires_at < NOW()');
+    if (result.rowCount > 0) console.log(`[Device Trust] Cleaned up ${result.rowCount} expired devices`);
+  } catch (e) { /* silent */ }
+}, 60 * 60 * 1000); // every hour
 
 // ── IP Allowlist endpoints ───────────────────────────────────────────────
 
@@ -1390,6 +1527,12 @@ app.post('/api/admin/ip-access-requests/:id/deny', requireAuth, requirePermissio
   }
 });
 
+// Public endpoint — returns device trust duration for login page label
+app.get('/api/device-trust-days', async (req, res) => {
+  const days = await getDeviceTrustDays();
+  res.json({ days });
+});
+
 // Return requester's IP — used by admin "Use My Current IP" button
 app.get('/api/my-ip', requireAuth, (req, res) => {
   res.json({ ip: getClientIp(req) });
@@ -1459,6 +1602,23 @@ app.post('/api/login/verify-totp', async (req, res) => {
     req.session.roleName    = roleName;
     req.session.isAdmin     = permissions.includes('admin.users.manage');
     await recordSuccessfulLogin(ip, entry.username);
+
+    // ── Remember this device ─────────────────────────────────────────────
+    if (req.body.rememberDevice) {
+      const trustDays   = await getDeviceTrustDays();
+      const browserHint = await getBrowserHint(req);
+      const rawToken    = await createTrustedDevice(user.id, ip, browserHint, trustDays);
+      const cookieMaxAge = trustDays * 24 * 60 * 60 * 1000;
+      res.cookie(DEVICE_COOKIE_NAME, rawToken, {
+        httpOnly:  true,                                        // JS cannot read it
+        secure:    process.env.NODE_ENV === 'production',       // HTTPS only in prod
+        sameSite:  'strict',                                    // no cross-site sending
+        maxAge:    cookieMaxAge,
+        path:      '/'
+      });
+      console.log(`[2FA] Device trusted for ${trustDays}d: ${entry.username} (${browserHint}) from ${ip}`);
+    }
+
     console.log(`[2FA] Login complete: ${entry.username} from ${ip}`);
     return res.json({ success: true, user: entry.username, isAdmin: req.session.isAdmin, roleName, permissions });
 
@@ -3003,11 +3163,14 @@ app.get('/api/admin/settings', requireAuth, requirePermission('admin.audit.view'
 app.put('/api/admin/settings', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
   const { key, value } = req.body;
   const updatedBy = req.session.user;
-  const allowedKeys = ['login_retention_days', 'search_retention_days'];
-  const allowedValues = [30, 60, 90, 120, 180];
+  const allowedKeys = ['login_retention_days', 'search_retention_days', 'device_trust_days'];
   if (!allowedKeys.includes(key)) return res.status(400).json({ error: 'Invalid setting key' });
   const numVal = parseInt(value);
-  if (!allowedValues.includes(numVal)) return res.status(400).json({ error: 'Invalid value. Must be 30, 60, 90, 120, or 180.' });
+  // device_trust_days has its own valid set; retention settings use the larger set
+  const retentionValues   = [30, 60, 90, 120, 180];
+  const trustValues       = [15, 30, 60, 90];
+  const allowedValues     = key === 'device_trust_days' ? trustValues : retentionValues;
+  if (!allowedValues.includes(numVal)) return res.status(400).json({ error: `Invalid value for ${key}` });
   try {
     await pool.query(
       `INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ($1, $2, NOW(), $3)

@@ -253,6 +253,24 @@
     }
     .back-link:hover { color: var(--color-text); }
 
+    .remember-device-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--color-text-muted);
+      margin-bottom: 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .remember-device-label input[type="checkbox"] {
+      width: 15px; height: 15px;
+      accent-color: var(--color-primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .remember-device-label:hover { color: var(--color-text-secondary); }
+
     .qr-wrap { text-align: center; margin: 16px 0 20px; }
     .qr-wrap img {
       width: 180px; height: 180px;
@@ -379,6 +397,10 @@
           <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
           <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
         </div>
+        <label class="remember-device-label">
+          <input type="checkbox" id="rememberDeviceTotp">
+          <span>Remember this device for <span id="trustDaysLabel">30</span> days</span>
+        </label>
         <button class="btn-login" id="totpSubmitBtn" onclick="submitTotp()">Verify Code</button>
         <div><span class="back-link" onclick="goBackToPassword()">← Back to sign in</span></div>
       </div>
@@ -406,6 +428,10 @@
           <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
           <input class="totp-digit" type="number" maxlength="1" min="0" max="9" inputmode="numeric">
         </div>
+        <label class="remember-device-label">
+          <input type="checkbox" id="rememberDeviceSetup">
+          <span>Remember this device for <span class="trustDaysLabel">30</span> days</span>
+        </label>
         <button class="btn-login" id="setupSubmitBtn" onclick="submitTotp(true)">Confirm &amp; Sign In</button>
         <div><span class="back-link" onclick="goBackToPassword()">← Start over</span></div>
       </div>
@@ -624,6 +650,17 @@
     initDigitInputs('totpDigits');
     initDigitInputs('setupDigits');
 
+    // Load trust duration from server settings to show correct day count
+    (async () => {
+      try {
+        const res = await fetch('/api/device-trust-days');
+        if (res.ok) {
+          const { days } = await res.json();
+          document.querySelectorAll('#trustDaysLabel, .trustDaysLabel').forEach(el => el.textContent = days);
+        }
+      } catch { /* leave default 30 */ }
+    })();
+
     function getDigitCode(wrapId) {
       return [...document.querySelectorAll('#' + wrapId + ' .totp-digit')].map(d => d.value).join('');
     }
@@ -641,11 +678,14 @@
       btn.textContent = 'Verifying\u2026';
       hideError();
 
+      const rememberCheckboxId = isSetup ? 'rememberDeviceSetup' : 'rememberDeviceTotp';
+      const rememberDevice = document.getElementById(rememberCheckboxId)?.checked || false;
+
       try {
         const res  = await fetch('/api/login/verify-totp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tempToken: currentTempToken, code })
+          body: JSON.stringify({ tempToken: currentTempToken, code, rememberDevice })
         });
         const data = await res.json();
 

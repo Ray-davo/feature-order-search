@@ -182,6 +182,23 @@
     .row-suspicious { background: #FFF7ED !important; }
     .row-suspicious:hover { background: #FFEDD5 !important; }
 
+    /* ── Trusted Devices ── */
+    .devices-panel {
+      background: var(--color-body-bg);
+      border-top: 1px solid var(--color-border);
+      padding: 14px 20px;
+    }
+    .devices-panel table { width: 100%; font-size: 12px; border-collapse: collapse; }
+    .devices-panel th { text-align: left; padding: 6px 10px; color: var(--color-text-muted); font-weight: 600; border-bottom: 1px solid var(--color-border); }
+    .devices-panel td { padding: 6px 10px; border-bottom: 1px solid var(--color-border); color: var(--color-text); }
+    .devices-panel tr:last-child td { border-bottom: none; }
+    .device-row { background: var(--color-body-bg); }
+    .devices-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .devices-header strong { font-size: 13px; color: var(--color-text-secondary); }
+
     /* ── IP Allowlist ── */
     .ip-toggle-row {
       display: flex;
@@ -759,10 +776,102 @@
           <button class="btn btn-sm btn-primary requires-manage" onclick="showEditUserModal(${u.id})">Edit</button>
           ${isLocked ? `<button class="btn btn-sm btn-warning requires-manage" onclick="unlockUser(${u.id})">Unlock</button>` : ''}
           ${twoFaBtn}
+          ${(u.totp_enabled || u.totp_pending) ? `<button class="btn btn-sm" style="background:#F5F3FF;color:#6D28D9;border:1px solid #DDD6FE;" onclick="toggleDevices(${u.id})">🖥 Devices</button>` : ''}
           <button class="btn btn-sm btn-danger requires-manage" onclick="showDeleteModal('user',${u.id},'${u.username}')">Delete</button>
+        </td>
+      </tr>
+      <tr class="device-row" id="devices-${u.id}" style="display:none;">
+        <td colspan="7" style="padding:0;">
+          <div class="devices-panel" id="devices-panel-${u.id}">
+            <div class="no-data" style="padding:12px;">Loading devices...</div>
+          </div>
         </td>
       </tr>`;
     }).join('');
+  }
+
+  // ── Trusted Devices ──────────────────────────────────────────────────────
+  const _devicesOpen = new Set();
+
+  async function toggleDevices(userId) {
+    const row   = document.getElementById(`devices-${userId}`);
+    const panel = document.getElementById(`devices-panel-${userId}`);
+    if (_devicesOpen.has(userId)) {
+      row.style.display = 'none';
+      _devicesOpen.delete(userId);
+    } else {
+      row.style.display = 'table-row';
+      _devicesOpen.add(userId);
+      await loadDevices(userId);
+    }
+  }
+
+  async function loadDevices(userId) {
+    const panel = document.getElementById(`devices-panel-${userId}`);
+    panel.innerHTML = '<div class="no-data" style="padding:12px;">Loading...</div>';
+    try {
+      const res  = await fetch(`/api/admin/users/${userId}/trusted-devices`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      if (data.devices.length === 0) {
+        panel.innerHTML = `
+          <div class="devices-header">
+            <strong>🖥 Trusted Devices</strong>
+          </div>
+          <div class="no-data" style="padding:8px 0;">No trusted devices — agent hasn't used "Remember this device" yet.</div>`;
+        return;
+      }
+
+      const now = Date.now();
+      panel.innerHTML = `
+        <div class="devices-header">
+          <strong>🖥 Trusted Devices (${data.devices.length})</strong>
+          <button class="btn btn-sm btn-danger" onclick="revokeAllDevices(${userId})">Revoke All</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Browser</th><th>IP Address</th><th>Added</th><th>Last Used</th><th>Expires</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${data.devices.map(d => {
+              const expired  = new Date(d.expires_at) < new Date();
+              const expLabel = expired
+                ? '<span style="color:var(--color-danger)">Expired</span>'
+                : new Date(d.expires_at).toLocaleDateString();
+              return `<tr>
+                <td>${d.browser_hint || 'Unknown'}</td>
+                <td><code>${d.ip_address || '—'}</code></td>
+                <td>${new Date(d.created_at).toLocaleDateString()}</td>
+                <td>${new Date(d.last_used_at).toLocaleDateString()}</td>
+                <td>${expLabel}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="revokeDevice(${d.id}, ${userId})">Revoke</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    } catch (err) {
+      panel.innerHTML = `<div style="color:var(--color-danger);padding:12px;">${err.message}</div>`;
+    }
+  }
+
+  async function revokeDevice(deviceId, userId) {
+    if (!confirm('Revoke this trusted device? The agent will need to enter their 2FA code on next login from this browser.')) return;
+    try {
+      const res = await fetch(`/api/admin/trusted-devices/${deviceId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      loadDevices(userId);
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  async function revokeAllDevices(userId) {
+    if (!confirm('Revoke ALL trusted devices for this user? They will need to re-enter their 2FA code from every browser next login.')) return;
+    try {
+      const res  = await fetch(`/api/admin/users/${userId}/trusted-devices`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      loadDevices(userId);
+    } catch (err) { alert('Failed: ' + err.message); }
   }
 
   // ── 2FA admin functions ──────────────────────────────────────────────────
@@ -1061,8 +1170,9 @@
       const s = data.settings;
       const options = [30, 60, 90, 120, 180];
 
-      const renderSetting = (key, label, desc) => {
-        const current = parseInt(s[key]?.value || 90);
+      const renderSetting = (key, label, desc, customOptions) => {
+        const opts = customOptions || [30, 60, 90, 120, 180];
+        const current = parseInt(s[key]?.value || opts[1]);
         const updatedBy = s[key]?.updated_by ? `Last changed by ${s[key].updated_by}` : '';
         return `
         <div class="setting-row">
@@ -1072,7 +1182,7 @@
             <span class="setting-meta">${updatedBy}</span>
           </div>
           <div class="setting-control">
-            ${options.map(v => `<button
+            ${opts.map(v => `<button
               class="retention-btn ${v === current ? 'active' : ''}"
               onclick="saveSetting('${key}', ${v}, this)"
             >${v}d</button>`).join('')}
@@ -1083,6 +1193,7 @@
       body.innerHTML = `
         <div id="settingsMsg"></div>
         ${renderSetting('login_retention_days',  'Login Attempts Log', 'How long to keep login attempt records')}
+        ${renderSetting('device_trust_days', 'Trusted Device Duration', 'How long a remembered device skips 2FA', [15,30,60,90])}
         <div style="height:1px;background:var(--color-border);margin:20px 0"></div>
         ${renderSetting('search_retention_days', 'Search Audit Log',   'How long to keep agent search records')}
         <p style="margin-top:24px;font-size:13px;color:var(--color-text-muted);">
