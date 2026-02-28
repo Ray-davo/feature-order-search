@@ -1442,7 +1442,7 @@
 
         // ── Step 3: Render invoice element to canvas then to PDF ──
         const canvas = await html2canvas(invoiceEl, {
-          scale: 2,
+          scale: 1.5,
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false
@@ -1470,7 +1470,7 @@
           sliceCanvas.height = (sliceH / imgH) * canvas.height;
           const ctx = sliceCanvas.getContext('2d');
           ctx.drawImage(canvas, 0, sourceY * (canvas.height / imgH), canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
-          const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+          const imgData = sliceCanvas.toDataURL('image/jpeg', 0.85);
           pdf.addImage(imgData, 'JPEG', margin, yPos, imgW, sliceH);
           remainingH -= sliceH;
           sourceY    += sliceH;
