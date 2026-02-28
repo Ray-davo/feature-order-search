@@ -3087,8 +3087,9 @@ app.post('/api/bulk-tracking', requireAuth, requirePermission('orders.tracking.a
     const batch = rows.slice(i, i + BATCH);
     await Promise.all(batch.map(async ({ orderId, tracking, carrier }) => {
       try {
-        const existing = await bcApiRequest(store, `orders/${orderId}/shipments`).catch(() => []);
-        if (existing && existing.some(s => s.tracking_number === tracking)) {
+        const existingRaw = await bcApiRequest(store, `orders/${orderId}/shipments`).catch(() => []);
+        const existing = Array.isArray(existingRaw) ? existingRaw : [];
+        if (existing.some(s => s.tracking_number === tracking)) {
           results.skipped.push({ orderId, reason: 'Tracking already exists' }); return;
         }
         const products  = await bcApiRequest(store, `orders/${orderId}/products`);
