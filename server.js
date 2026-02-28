@@ -126,10 +126,55 @@ async function initDb() {
       updated_by TEXT
     );
     INSERT INTO app_settings (key, value) VALUES
-      ('login_retention_days',  '90'),
-      ('search_retention_days', '90')
+      ('login_retention_days',   '90'),
+      ('search_retention_days',  '90'),
+      ('ip_allowlist_enabled',   'false')
     ON CONFLICT (key) DO NOTHING;
   `);
+
+  // ── IP Allowlist table ─────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ip_allowlist (
+      id         SERIAL PRIMARY KEY,
+      ip_cidr    TEXT NOT NULL,
+      label      TEXT NOT NULL DEFAULT '',
+      is_active  BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      created_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_ip_allowlist_active ON ip_allowlist (is_active);
+  `);
+
+  // ── IP Access Requests table ───────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ip_access_requests (
+      id           SERIAL PRIMARY KEY,
+      ip_address   TEXT NOT NULL,
+      requester    TEXT NOT NULL,
+      reason       TEXT,
+      status       TEXT DEFAULT 'pending',
+      reviewed_by  TEXT,
+      reviewed_at  TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_ip_req_status ON ip_access_requests (status);
+  `);
+
+  // Seed from ALLOWED_IPS env var if allowlist table is empty
+  const existingIps = await pool.query('SELECT COUNT(*) FROM ip_allowlist');
+  if (parseInt(existingIps.rows[0].count) === 0 && process.env.ALLOWED_IPS) {
+    const seedIps = process.env.ALLOWED_IPS.split(',').map(s => s.trim()).filter(Boolean);
+    for (const ip of seedIps) {
+      await pool.query(
+        'INSERT INTO ip_allowlist (ip_cidr, label, created_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+        [ip, 'Imported from ALLOWED_IPS env var', 'system']
+      );
+    }
+    if (seedIps.length > 0) {
+      await pool.query(`INSERT INTO app_settings (key, value) VALUES ('ip_allowlist_enabled','true') ON CONFLICT (key) DO UPDATE SET value='true'`);
+      console.log(`[IP Allowlist] Seeded ${seedIps.length} IPs from ALLOWED_IPS env var`);
+    }
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_log (
@@ -421,6 +466,58 @@ setInterval(() => {
   const now = Date.now();
   for (const [t, e] of pendingTotpTokens) { if (now > e.expiresAt) pendingTotpTokens.delete(t); }
 }, 10 * 60 * 1000);
+
+// ── IP Allowlist helpers ──────────────────────────────────────────────────
+function ipToInt(ip) {
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+}
+
+function ipMatchesCidr(ip, cidr) {
+  if (cidr.includes('/')) {
+    const [base, bits] = cidr.split('/');
+    const mask = bits === '0' ? 0 : (~0 << (32 - parseInt(bits))) >>> 0;
+    return (ipToInt(ip) & mask) === (ipToInt(base) & mask);
+  }
+  return ip === cidr;
+}
+
+// Cache allowlist in memory, refresh every 60s to avoid DB hit on every login
+let _allowlistCache = null;
+let _allowlistCacheTime = 0;
+const ALLOWLIST_CACHE_TTL = 60 * 1000;
+
+async function getAllowlistSettings() {
+  const now = Date.now();
+  if (_allowlistCache && (now - _allowlistCacheTime) < ALLOWLIST_CACHE_TTL) {
+    return _allowlistCache;
+  }
+  try {
+    const [settingRes, ipsRes] = await Promise.all([
+      pool.query("SELECT value FROM app_settings WHERE key = 'ip_allowlist_enabled'"),
+      pool.query('SELECT ip_cidr FROM ip_allowlist WHERE is_active = TRUE')
+    ]);
+    _allowlistCache = {
+      enabled: settingRes.rows[0]?.value === 'true',
+      ips: ipsRes.rows.map(r => r.ip_cidr)
+    };
+    _allowlistCacheTime = now;
+  } catch (e) {
+    // On error, fail open (don't block logins if DB has issues)
+    _allowlistCache = { enabled: false, ips: [] };
+  }
+  return _allowlistCache;
+}
+
+function invalidateAllowlistCache() {
+  _allowlistCache = null;
+  _allowlistCacheTime = 0;
+}
+
+async function isIpAllowed(ip) {
+  const { enabled, ips } = await getAllowlistSettings();
+  if (!enabled || ips.length === 0) return true;
+  return ips.some(cidr => ipMatchesCidr(ip, cidr));
+}
 
 // Get client IP address
 function getClientIp(req) {
@@ -950,7 +1047,19 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   const userLower = (username || '').toLowerCase().trim();
   const ip = getClientIp(req);
-  
+
+  // ── IP Allowlist check ───────────────────────────────────────────────────
+  const ipAllowed = await isIpAllowed(ip);
+  if (!ipAllowed) {
+    console.log(`[SECURITY] Blocked login from non-whitelisted IP: ${ip} (user: ${userLower || 'unknown'})`);
+    await recordFailedAttempt(ip, userLower || null).catch(() => {});
+    return res.status(403).json({
+      error: 'ip_blocked',
+      ip,
+      message: 'Access denied. Your IP address is not authorized to access this portal.'
+    });
+  }
+
   // Check rate limiting first
   if (isRateLimited(ip)) {
     console.log(`[SECURITY] Rate limited IP: ${ip}`);
@@ -1111,6 +1220,179 @@ app.get('/api/auth-check', (req, res) => {
     });
   }
   res.json({ authenticated: false });
+});
+
+// ── IP Allowlist endpoints ───────────────────────────────────────────────
+
+// Get full allowlist + enabled status
+app.get('/api/admin/ip-allowlist', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const [ipsRes, settingRes] = await Promise.all([
+      pool.query('SELECT id, ip_cidr, label, is_active, created_at, created_by FROM ip_allowlist ORDER BY created_at DESC'),
+      pool.query("SELECT value FROM app_settings WHERE key = 'ip_allowlist_enabled'")
+    ]);
+    res.json({
+      success: true,
+      enabled: settingRes.rows[0]?.value === 'true',
+      entries: ipsRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load IP allowlist' });
+  }
+});
+
+// Add IP entry
+app.post('/api/admin/ip-allowlist', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  const { ip_cidr, label } = req.body;
+  if (!ip_cidr) return res.status(400).json({ error: 'IP address is required' });
+  // Basic validation
+  const ipPattern = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+  if (!ipPattern.test(ip_cidr.trim())) return res.status(400).json({ error: 'Invalid IP format. Use x.x.x.x or x.x.x.x/24' });
+  try {
+    const result = await pool.query(
+      'INSERT INTO ip_allowlist (ip_cidr, label, created_by) VALUES ($1, $2, $3) RETURNING *',
+      [ip_cidr.trim(), (label || '').trim(), req.session.user]
+    );
+    invalidateAllowlistCache();
+    console.log(`[IP Allowlist] Added ${ip_cidr} by ${req.session.user}`);
+    res.json({ success: true, entry: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add IP' });
+  }
+});
+
+// Toggle individual IP entry active/inactive
+app.put('/api/admin/ip-allowlist/:id/toggle', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'UPDATE ip_allowlist SET is_active = NOT is_active WHERE id = $1 RETURNING *',
+      [parseInt(req.params.id)]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Entry not found' });
+    invalidateAllowlistCache();
+    res.json({ success: true, entry: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle IP' });
+  }
+});
+
+// Delete IP entry
+app.delete('/api/admin/ip-allowlist/:id', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM ip_allowlist WHERE id = $1 RETURNING ip_cidr', [parseInt(req.params.id)]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Entry not found' });
+    invalidateAllowlistCache();
+    console.log(`[IP Allowlist] Deleted ${result.rows[0].ip_cidr} by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete IP' });
+  }
+});
+
+// Toggle entire allowlist on/off
+app.put('/api/admin/ip-allowlist/toggle-enabled', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const current = await pool.query("SELECT value FROM app_settings WHERE key = 'ip_allowlist_enabled'");
+    const newVal  = current.rows[0]?.value === 'true' ? 'false' : 'true';
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('ip_allowlist_enabled', $1, NOW(), $2)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2`,
+      [newVal, req.session.user]
+    );
+    invalidateAllowlistCache();
+    console.log(`[IP Allowlist] ${newVal === 'true' ? 'Enabled' : 'Disabled'} by ${req.session.user}`);
+    res.json({ success: true, enabled: newVal === 'true' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle allowlist' });
+  }
+});
+
+// ── IP Access Requests ────────────────────────────────────────────────────
+
+// Public endpoint — no auth required (blocked users can't log in)
+app.post('/api/ip-access-request', async (req, res) => {
+  const { requester, reason } = req.body;
+  const ip = getClientIp(req);
+  if (!requester || !requester.trim()) return res.status(400).json({ error: 'Name is required' });
+  // Check if IP already allowed
+  const allowed = await isIpAllowed(ip);
+  if (allowed) return res.status(400).json({ error: 'Your IP is already allowed' });
+  // Check for duplicate pending request from same IP
+  const existing = await pool.query(
+    "SELECT id FROM ip_access_requests WHERE ip_address = $1 AND status = 'pending'",
+    [ip]
+  );
+  if (existing.rows.length > 0) {
+    return res.status(400).json({ error: 'A request from your IP is already pending review' });
+  }
+  try {
+    await pool.query(
+      'INSERT INTO ip_access_requests (ip_address, requester, reason) VALUES ($1, $2, $3)',
+      [ip, requester.trim(), (reason || '').trim()]
+    );
+    console.log(`[IP Request] New request from ${ip} by "${requester}"`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to submit request' });
+  }
+});
+
+// Get pending access requests
+app.get('/api/admin/ip-access-requests', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM ip_access_requests ORDER BY created_at DESC LIMIT 200'
+    );
+    res.json({ success: true, requests: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load access requests' });
+  }
+});
+
+// Approve access request — adds IP to allowlist
+app.post('/api/admin/ip-access-requests/:id/approve', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  const { label } = req.body;
+  try {
+    const reqRes = await pool.query('SELECT * FROM ip_access_requests WHERE id = $1', [parseInt(req.params.id)]);
+    const request = reqRes.rows[0];
+    if (!request) return res.status(404).json({ error: 'Request not found' });
+
+    // Add IP to allowlist
+    await pool.query(
+      'INSERT INTO ip_allowlist (ip_cidr, label, created_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+      [request.ip_address, label || `${request.requester} — approved by ${req.session.user}`, req.session.user]
+    );
+    // Mark request approved
+    await pool.query(
+      "UPDATE ip_access_requests SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2",
+      [req.session.user, parseInt(req.params.id)]
+    );
+    invalidateAllowlistCache();
+    console.log(`[IP Request] Approved ${request.ip_address} for "${request.requester}" by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to approve request' });
+  }
+});
+
+// Deny access request
+app.post('/api/admin/ip-access-requests/:id/deny', requireAuth, requirePermission('admin.users.manage'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      "UPDATE ip_access_requests SET status = 'denied', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2 RETURNING ip_address",
+      [req.session.user, parseInt(req.params.id)]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Request not found' });
+    console.log(`[IP Request] Denied ${result.rows[0].ip_address} by ${req.session.user}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to deny request' });
+  }
+});
+
+// Return requester's IP — used by admin "Use My Current IP" button
+app.get('/api/my-ip', requireAuth, (req, res) => {
+  res.json({ ip: getClientIp(req) });
 });
 
 // ── 2FA: Verify TOTP code after password ──────────────────────────────────

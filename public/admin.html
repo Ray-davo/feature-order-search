@@ -182,6 +182,65 @@
     .row-suspicious { background: #FFF7ED !important; }
     .row-suspicious:hover { background: #FFEDD5 !important; }
 
+    /* ── IP Allowlist ── */
+    .ip-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: 16px;
+    }
+    .ip-toggle-row strong { font-size: 15px; color: var(--color-text); }
+    .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: #CBD5E1; border-radius: 26px;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      left: 3px; bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--color-primary); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
+    .ip-disabled-note {
+      background: var(--color-warning-bg);
+      border: 1px solid #FDE68A;
+      color: #92400E;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .ip-add-form {
+      background: var(--color-body-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .ip-add-form .form-col { display: flex; flex-direction: column; gap: 4px; }
+    .ip-add-form label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
+    .ip-add-form input {
+      height: 36px; padding: 0 10px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-base); font-size: 13px;
+      color: var(--color-text); background: var(--color-surface);
+    }
+    .ip-status-active   { color: var(--color-success); font-weight: 600; font-size: 12px; }
+    .ip-status-inactive { color: var(--color-text-muted); font-weight: 600; font-size: 12px; }
+    .req-pending  { color: #92400E; font-weight: 600; }
+    .req-approved { color: var(--color-success); font-weight: 600; }
+    .req-denied   { color: var(--color-danger); font-weight: 600; }
+
     /* ── Grouped search audit ── */
     .group-row { cursor: pointer; }
     .group-row:hover { background: var(--color-surface-hover) !important; }
@@ -285,6 +344,7 @@
         <button class="tab-btn" onclick="showTab('attempts')">📋 Login Attempts</button>
         <button class="tab-btn" onclick="showTab('searches')">🔍 Search Audit</button>
         <button class="tab-btn" onclick="showTab('settings')">⚙️ Settings</button>
+        <button class="tab-btn" onclick="showTab('ips')" id="tabIps">🌐 IP Allowlist</button>
       </div>
 
       <!-- Users Panel -->
@@ -432,6 +492,91 @@
         </div>
       </div>
 
+      <!-- IP Allowlist Panel -->
+      <div class="panel" id="panel-ips">
+        <div class="card">
+          <div class="panel-header">
+            <h2>IP Allowlist</h2>
+            <button class="refresh-btn" onclick="loadIpAllowlist()">↻ Refresh</button>
+          </div>
+
+          <!-- Master toggle -->
+          <div class="ip-toggle-row" id="ipToggleRow">
+            <div>
+              <strong>IP Allowlist</strong>
+              <span id="ipEnabledLabel" style="font-size:13px;margin-left:10px;"></span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="ipEnabledToggle" onchange="toggleAllowlist()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="ipDisabledNote" class="ip-disabled-note" style="display:none;">
+            ⚠ Allowlist is currently <strong>disabled</strong> — all IPs can access the login page.
+          </div>
+
+          <!-- Add new IP -->
+          <div class="ip-add-form">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+              <div class="form-col">
+                <label>IP Address or CIDR Range</label>
+                <input type="text" id="newIpCidr" placeholder="e.g. 203.0.113.5 or 192.168.1.0/24" style="width:260px;">
+              </div>
+              <div class="form-col">
+                <label>Label</label>
+                <input type="text" id="newIpLabel" placeholder="e.g. Office — Main" style="width:200px;">
+              </div>
+              <button class="btn btn-primary" onclick="addIp()">+ Add IP</button>
+              <button class="btn" style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;" onclick="detectMyIp()">📍 Use My Current IP</button>
+            </div>
+            <div id="ipAddMsg" style="margin-top:8px;font-size:13px;"></div>
+          </div>
+
+          <!-- IP list -->
+          <table class="data-table" id="ipTable">
+            <thead>
+              <tr>
+                <th>IP / Range</th>
+                <th>Label</th>
+                <th>Added By</th>
+                <th>Date Added</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ipTableBody">
+              <tr><td colspan="6" class="no-data">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Access Requests -->
+        <div class="card" style="margin-top:20px;">
+          <div class="panel-header">
+            <h2>Access Requests <span id="pendingBadge"></span></h2>
+            <button class="refresh-btn" onclick="loadAccessRequests()">↻ Refresh</button>
+          </div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:16px;">
+            Agents blocked by the IP allowlist can submit a request from the login page. Approve to automatically add their IP.
+          </p>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Requested</th>
+                <th>Name</th>
+                <th>IP Address</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTableBody">
+              <tr><td colspan="6" class="no-data">No access requests</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div><!-- /page-content -->
   </div><!-- /main-content -->
 </div><!-- /app-shell -->
@@ -562,6 +707,7 @@
     if (tab === 'attempts') loadLoginAttempts();
     if (tab === 'searches') loadSearchAudit();
     if (tab === 'settings') loadSettings();
+    if (tab === 'ips') { loadIpAllowlist(); loadAccessRequests(); }
   }
 
   async function loadUsers() {
@@ -1147,6 +1293,185 @@
   }
 
   checkAuth();
+
+  // ── IP Allowlist ──────────────────────────────────────────────────────────
+  async function loadIpAllowlist() {
+    const tbody = document.getElementById('ipTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Loading...</td></tr>';
+    try {
+      const res  = await fetch('/api/admin/ip-allowlist');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Update toggle
+      const toggle = document.getElementById('ipEnabledToggle');
+      const label  = document.getElementById('ipEnabledLabel');
+      const note   = document.getElementById('ipDisabledNote');
+      toggle.checked   = data.enabled;
+      label.textContent = data.enabled ? '— Active' : '— Disabled';
+      label.style.color = data.enabled ? 'var(--color-success)' : 'var(--color-text-muted)';
+      note.style.display = data.enabled ? 'none' : 'block';
+
+      if (data.entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No IPs added yet. Add your first IP above.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.entries.map(e => `<tr>
+        <td><code>${e.ip_cidr}</code></td>
+        <td>${e.label || '<em style="color:var(--color-text-muted)">No label</em>'}</td>
+        <td>${e.created_by || '—'}</td>
+        <td style="font-size:12px;">${new Date(e.created_at).toLocaleDateString()}</td>
+        <td>
+          <span class="${e.is_active ? 'ip-status-active' : 'ip-status-inactive'}">
+            ${e.is_active ? '● Active' : '○ Inactive'}
+          </span>
+        </td>
+        <td class="actions">
+          <button class="btn btn-sm" onclick="toggleIp(${e.id})" style="${e.is_active ? '' : 'background:#F0FDF4;color:var(--color-success);border:1px solid #BBF7D0;'}">
+            ${e.is_active ? 'Deactivate' : 'Activate'}
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="deleteIp(${e.id}, '${e.ip_cidr.replace(/'/g,"\'")}')">Delete</button>
+        </td>
+      </tr>`).join('');
+    } catch (err) {
+      document.getElementById('ipTableBody').innerHTML = `<tr><td colspan="6" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+    }
+  }
+
+  async function toggleAllowlist() {
+    try {
+      const res  = await fetch('/api/admin/ip-allowlist/toggle-enabled', { method: 'PUT' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      loadIpAllowlist();
+    } catch (err) {
+      alert('Failed to toggle allowlist: ' + err.message);
+      loadIpAllowlist(); // revert toggle visual
+    }
+  }
+
+  async function detectMyIp() {
+    const input = document.getElementById('newIpCidr');
+    const msg   = document.getElementById('ipAddMsg');
+    try {
+      // Use the session endpoint to get server-side IP (most accurate through proxies)
+      const res  = await fetch('/api/my-ip');
+      const data = await res.json();
+      input.value = data.ip;
+      msg.innerHTML = `<span style="color:var(--color-success)">✓ Your current IP: <strong>${data.ip}</strong></span>`;
+    } catch {
+      msg.innerHTML = '<span style="color:var(--color-danger)">Could not detect IP automatically</span>';
+    }
+  }
+
+  async function addIp() {
+    const cidr  = document.getElementById('newIpCidr').value.trim();
+    const label = document.getElementById('newIpLabel').value.trim();
+    const msg   = document.getElementById('ipAddMsg');
+    if (!cidr) { msg.innerHTML = '<span style="color:var(--color-danger)">Please enter an IP address</span>'; return; }
+    try {
+      const res  = await fetch('/api/admin/ip-allowlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip_cidr: cidr, label })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      msg.innerHTML = `<span style="color:var(--color-success)">✓ Added ${cidr}</span>`;
+      document.getElementById('newIpCidr').value  = '';
+      document.getElementById('newIpLabel').value = '';
+      loadIpAllowlist();
+    } catch (err) {
+      msg.innerHTML = `<span style="color:var(--color-danger)">✗ ${err.message}</span>`;
+    }
+  }
+
+  async function toggleIp(id) {
+    try {
+      const res = await fetch(`/api/admin/ip-allowlist/${id}/toggle`, { method: 'PUT' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      loadIpAllowlist();
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  async function deleteIp(id, cidr) {
+    if (!confirm(`Remove ${cidr} from the allowlist?`)) return;
+    try {
+      const res = await fetch(`/api/admin/ip-allowlist/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      loadIpAllowlist();
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  // ── Access Requests ───────────────────────────────────────────────────────
+  async function loadAccessRequests() {
+    const tbody = document.getElementById('requestsTableBody');
+    try {
+      const res  = await fetch('/api/admin/ip-access-requests');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const pending = data.requests.filter(r => r.status === 'pending').length;
+      const badge   = document.getElementById('pendingBadge');
+      badge.innerHTML = pending > 0
+        ? `<span class="badge-danger" style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;background:var(--color-danger-bg);color:var(--color-danger);margin-left:6px;">${pending} pending</span>`
+        : '';
+
+      // Also update tab button
+      const tabBtn = document.getElementById('tabIps');
+      if (tabBtn) tabBtn.textContent = pending > 0 ? `🌐 IP Allowlist (${pending})` : '🌐 IP Allowlist';
+
+      if (data.requests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No access requests yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.requests.map(r => `<tr>
+        <td style="font-size:12px;white-space:nowrap">${new Date(r.created_at).toLocaleString()}</td>
+        <td><strong>${r.requester}</strong></td>
+        <td><code>${r.ip_address}</code></td>
+        <td style="font-size:13px;">${r.reason || '—'}</td>
+        <td class="req-${r.status}">${r.status.charAt(0).toUpperCase() + r.status.slice(1)}${r.reviewed_by ? `<br><span style="font-size:11px;font-weight:400;color:var(--color-text-muted)">by ${r.reviewed_by}</span>` : ''}</td>
+        <td class="actions">
+          ${r.status === 'pending' ? `
+            <button class="btn btn-sm btn-primary" onclick="approveRequest(${r.id}, '${r.requester.replace(/'/g,"\'")}', '${r.ip_address}')">Approve</button>
+            <button class="btn btn-sm btn-danger"  onclick="denyRequest(${r.id})">Deny</button>
+          ` : '—'}
+        </td>
+      </tr>`).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="6" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+    }
+  }
+
+  async function approveRequest(id, requester, ip) {
+    const label = prompt(`Add label for ${ip}:`, `${requester} — approved`);
+    if (label === null) return; // cancelled
+    try {
+      const res = await fetch(`/api/admin/ip-access-requests/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label })
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      loadIpAllowlist();
+      loadAccessRequests();
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  async function denyRequest(id) {
+    if (!confirm('Deny this access request?')) return;
+    try {
+      const res = await fetch(`/api/admin/ip-access-requests/${id}/deny`, { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      loadAccessRequests();
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  // Poll for pending requests every 2 minutes when admin is logged in
+  setInterval(() => {
+    if (document.getElementById('requestsTableBody')) loadAccessRequests();
+  }, 2 * 60 * 1000);
+
 </script>
 <!-- 2FA QR Modal -->
 <div class="modal" id="twoFaModal" style="display:none;">

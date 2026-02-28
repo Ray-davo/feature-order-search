@@ -273,6 +273,11 @@
     }
     .qr-steps strong { color: var(--color-text-secondary); }
 
+    /* ── IP Blocked screen ──────────────────────────────────── */
+    .blocked-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+    .request-sent { text-align: center; padding: 20px 0; }
+    .request-sent .check { font-size: 48px; display: block; margin-bottom: 12px; }
+
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 768px) {
       .login-left { display: none; }
@@ -405,6 +410,44 @@
         <div><span class="back-link" onclick="goBackToPassword()">← Start over</span></div>
       </div>
 
+      <!-- Screen 4: IP Blocked + Request Access -->
+      <div class="screen" id="screen-blocked">
+        <span class="blocked-icon">🔒</span>
+        <div class="login-card-header" style="margin-bottom:20px;">
+          <h1>Access Restricted</h1>
+          <p>Your IP address is not authorized to access this portal.</p>
+        </div>
+        <div id="blockedIpDisplay" style="font-size:13px;color:var(--color-text-muted);margin-bottom:20px;background:var(--color-body-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:10px 14px;">
+          Your IP: <code id="blockedIpValue"></code>
+        </div>
+
+        <!-- Request form -->
+        <div id="requestForm">
+          <div class="form-group">
+            <label for="reqName">Your Name</label>
+            <input type="text" id="reqName" placeholder="Enter your name">
+          </div>
+          <div class="form-group">
+            <label for="reqReason">Reason <span style="font-weight:400;color:var(--color-text-muted)">(optional)</span></label>
+            <input type="text" id="reqReason" placeholder="e.g. Working from home today">
+          </div>
+          <button class="btn-login" onclick="submitAccessRequest()">Request Access</button>
+          <div id="reqMsg" style="margin-top:12px;font-size:13px;"></div>
+        </div>
+
+        <!-- Success state -->
+        <div id="requestSent" class="request-sent" style="display:none;">
+          <span class="check">✅</span>
+          <h2 style="margin-bottom:8px;">Request Submitted</h2>
+          <p style="color:var(--color-text-muted);font-size:14px;">
+            Your request has been sent to your administrator.<br>
+            Contact them directly if you need urgent access.
+          </p>
+        </div>
+
+        <div><span class="back-link" onclick="goBackToPassword()">← Try a different account</span></div>
+      </div>
+
       <div class="login-footer">
         1ink.com &nbsp;·&nbsp; Order Support Portal
       </div>
@@ -519,6 +562,13 @@
           return;
         }
 
+        // IP blocked — show request access screen
+        if (res.status === 403 && data.error === 'ip_blocked') {
+          document.getElementById('blockedIpValue').textContent = data.ip || 'Unknown';
+          showScreen('screen-blocked');
+          return;
+        }
+
         if (res.status === 423) {
           showError(data.error, 'locked');
           const m = data.error.match(/(\d+) minute/);
@@ -624,6 +674,43 @@
 
     usernameInput.addEventListener('input', hideError);
     passwordInput.addEventListener('input', hideError);
-  </script>
+  
+    // ── IP Access Request ─────────────────────────────────────────────────
+    async function submitAccessRequest() {
+      const name   = document.getElementById('reqName').value.trim();
+      const reason = document.getElementById('reqReason').value.trim();
+      const msg    = document.getElementById('reqMsg');
+
+      if (!name) { msg.innerHTML = '<span style="color:var(--color-danger)">Please enter your name</span>'; return; }
+
+      const btn = document.querySelector('#screen-blocked .btn-login');
+      btn.disabled    = true;
+      btn.textContent = 'Submitting…';
+      msg.innerHTML   = '';
+
+      try {
+        const res  = await fetch('/api/ip-access-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requester: name, reason })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          document.getElementById('requestForm').style.display = 'none';
+          document.getElementById('requestSent').style.display = 'block';
+          return;
+        }
+        msg.innerHTML = `<span style="color:var(--color-danger)">${data.error}</span>`;
+        btn.disabled    = false;
+        btn.textContent = 'Request Access';
+      } catch (err) {
+        msg.innerHTML = '<span style="color:var(--color-danger)">Connection error. Please try again.</span>';
+        btn.disabled    = false;
+        btn.textContent = 'Request Access';
+      }
+    }
+
+</script>
 </body>
 </html>
