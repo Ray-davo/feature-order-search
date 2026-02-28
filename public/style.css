@@ -655,13 +655,14 @@ button.admin-btn {
 .addr-line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 4px;
   padding: 1px 0;
   border-radius: 3px;
+  width: 100%;
 }
 .addr-line:hover { background: rgba(0,0,0,0.03); }
-.addr-line > span, .addr-line > strong { flex: 1; min-width: 0; }
+.addr-line > span, .addr-line > strong { flex: none; }
 .addr-line .copy-field-btn { opacity: 0; }
 .addr-line:hover .copy-field-btn { opacity: 0.4; }
 .addr-line .copy-field-btn:hover { opacity: 1 !important; }
