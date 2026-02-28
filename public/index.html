@@ -731,7 +731,7 @@
               <h5>Billing</h5>
               <span style="display:flex;align-items:center;gap:8px;">
                 <span class="order-ref-label">Order #${order.id}</span>
-                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('billing',${orderId},'${store}')">&#9998; Edit</button>` : ''}
+                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick='openEditAddress("billing",${orderId},"${store}",0,${JSON.stringify(billing)})'>&#9998; Edit</button>` : ''}
               </span>
             </div>
             <p>
@@ -750,7 +750,7 @@
             <div class="preview-box-header">
               <h5>Shipping</h5>
               <span style="display:flex;align-items:center;gap:8px;">
-                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('shipping',${orderId},'${store}',${shippingAddresses[0]?.id||0})">&#9998; Edit</button>` : ''}
+                ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick='openEditAddress("shipping",${orderId},"${store}",${shippingAddresses[0]?.id||0},${JSON.stringify(shipping)})'>&#9998; Edit</button>` : ''}
                 <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
               </span>
             </div>
@@ -1844,7 +1844,7 @@ var _editAddrOrderId = 0;
 var _editAddrStore   = '';
 var _editAddrId      = 0;    // shipping address id (0 for billing)
 
-function openEditAddress(type, orderId, store, addressId) {
+function openEditAddress(type, orderId, store, addressId, addrData) {
   _editAddrType    = type;
   _editAddrOrderId = orderId;
   _editAddrStore   = store;
@@ -1856,22 +1856,23 @@ function openEditAddress(type, orderId, store, addressId) {
   // Show/hide email field — billing only
   document.getElementById('ea-email-field').style.display = type === 'billing' ? '' : 'none';
 
-  // Pre-fill from live DOM if available
-  var panel = document.getElementById('preview-' + orderId);
-  if (panel) {
-    var boxes = panel.querySelectorAll('.preview-address-box');
-    var box   = type === 'billing' ? boxes[0] : boxes[1];
-    if (box) {
-      var p = box.querySelector('p');
-      // Pre-fill phone/email from contact spans
-      var phoneEl = box.querySelector('.contact-phone .copyable');
-      var emailEl = box.querySelector('.contact-email .copyable');
-      if (phoneEl) document.getElementById('ea-phone').value  = phoneEl.textContent.replace('N/A','').trim();
-      if (emailEl) document.getElementById('ea-email').value  = emailEl.textContent.replace('N/A','').trim();
-    }
+  // Pre-fill all fields from the live address data passed in
+  var a = addrData || {};
+  document.getElementById('ea-first-name').value = a.first_name || '';
+  document.getElementById('ea-last-name').value  = a.last_name  || '';
+  document.getElementById('ea-company').value    = a.company    || '';
+  document.getElementById('ea-street-1').value   = a.street_1   || '';
+  document.getElementById('ea-street-2').value   = a.street_2   || '';
+  document.getElementById('ea-city').value       = a.city       || '';
+  document.getElementById('ea-state').value      = a.state      || '';
+  document.getElementById('ea-zip').value        = a.zip        || '';
+  document.getElementById('ea-country').value    = a.country    || '';
+  document.getElementById('ea-phone').value      = a.phone      || '';
+  if (type === 'billing') {
+    document.getElementById('ea-email').value    = a.email      || '';
   }
 
-  // Clear result
+  // Clear any previous result message
   var r = document.getElementById('edit-address-result');
   r.className = 'aresult'; r.textContent = '';
 
