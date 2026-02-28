@@ -651,11 +651,19 @@
     } catch (err) { console.error('Failed to load permissions:', err); }
   }
 
+  // Agent lists cached so filtering never collapses the dropdown
+  const _agentCache = {};
+
   function populateAgentFilter(selectId, rows, field = 'username') {
     const sel = document.getElementById(selectId);
     if (!sel) return;
     const current = sel.value;
-    const names = [...new Set(rows.map(r => r[field]).filter(Boolean))].sort();
+
+    // Merge new names into cached list — never shrink it
+    if (!_agentCache[selectId]) _agentCache[selectId] = new Set();
+    rows.forEach(r => { if (r[field]) _agentCache[selectId].add(r[field]); });
+
+    const names = [..._agentCache[selectId]].sort();
     sel.innerHTML = '<option value="">All Agents</option>' +
       names.map(n => `<option value="${n}" ${n===current?'selected':''}>${n}</option>`).join('');
   }
@@ -703,6 +711,7 @@
   }
 
   function clearAttemptFilters() {
+    delete _agentCache['attemptFilterUser'];
     ['attemptFilterUser','attemptFilterResult','attemptFilterFrom','attemptFilterTo']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     loadLoginAttempts();
@@ -749,7 +758,8 @@
 
       renderGroupedRows(data.groups, suspicious);
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7" class="no-data" style="color:var(--color-danger)">${err.message}</td></tr>`;
+      document.getElementById('searchSummary').innerHTML = '';
+      tbody.innerHTML = `<tr><td colspan="7" class="no-data" style="color:var(--color-danger)">⚠ ${err.message}</td></tr>`;
     }
   }
 
@@ -757,15 +767,19 @@
     const tbody = document.getElementById('searchesTableBody');
     let html = '';
     groups.forEach((g, idx) => {
-      const key = `${g.username}|${g.store}|${g.day}`;
+      // pg returns DATE as a JS Date object — extract YYYY-MM-DD string safely
+      const dayStr = g.day instanceof Date
+        ? g.day.toISOString().slice(0, 10)
+        : String(g.day).slice(0, 10);
+      const key = `${g.username}|${g.store}|${dayStr}`;
       const isExpanded  = expandedGroups.has(key);
       const isSuspicious = suspicious.includes(g.username);
-      const dateLabel   = new Date(g.day + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+      const dateLabel   = new Date(dayStr + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
       const firstTime   = new Date(g.first_search).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
       const lastTime    = new Date(g.last_search).toLocaleTimeString('en-US',  { hour:'numeric', minute:'2-digit' });
       const types       = (g.search_types || []).map(t => `<span class="search-type-badge">${t}</span>`).join(' ');
 
-      html += `<tr class="group-row ${isSuspicious ? 'row-suspicious' : ''}" onclick="toggleGroup('${key.replace(/'/g,"\'")}', '${g.username}', '${g.store}', '${g.day}')">
+      html += `<tr class="group-row ${isSuspicious ? 'row-suspicious' : ''}" onclick="toggleGroup('${key.replace(/'/g,"\'")}', '${g.username}', '${g.store}', '${dayStr}')">
         <td><strong>${dateLabel}</strong></td>
         <td>${isSuspicious ? '⚠ ' : ''}<strong>${g.username}</strong></td>
         <td>${g.store}</td>
@@ -787,9 +801,10 @@
 
     // Load detail for already-expanded groups
     groups.forEach((g, idx) => {
-      const key = `${g.username}|${g.store}|${g.day}`;
+      const ds = g.day instanceof Date ? g.day.toISOString().slice(0, 10) : String(g.day).slice(0, 10);
+      const key = `${g.username}|${g.store}|${ds}`;
       if (expandedGroups.has(key)) {
-        fetchGroupDetail(g.username, g.store, g.day, `detail-inner-${idx}`);
+        fetchGroupDetail(g.username, g.store, ds, `detail-inner-${idx}`);
       }
     });
   }
@@ -836,6 +851,7 @@
   }
 
   function clearSearchFilters() {
+    delete _agentCache['searchFilterUser'];
     ['searchFilterUser','searchFilterStore','searchFilterFrom','searchFilterTo']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     expandedGroups.clear();

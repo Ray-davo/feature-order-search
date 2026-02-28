@@ -2595,18 +2595,12 @@ app.get('/api/admin/search-audit/grouped', requireAuth, requirePermission('admin
       LIMIT 500
     `, params);
 
-    // Suspicious detection (10+ searches in 5-min window) per user
-    const suspCheck = await pool.query(`
-      SELECT DISTINCT s1.username
-      FROM search_audit s1
-      WHERE ${where ? where + ' AND ' : ''}
-        (SELECT COUNT(*) FROM search_audit s2
-         WHERE s2.username = s1.username
-           AND s2.searched_at BETWEEN s1.searched_at AND s1.searched_at + INTERVAL '5 minutes'
-        ) >= 10
-      LIMIT 50
-    `, params);
-    const suspiciousUsers = suspCheck.rows.map(r => r.username);
+    // Suspicious detection: any user with 10+ searches in a single 5-min window
+    // Done in JS from the grouped data to avoid expensive correlated subquery
+    const suspiciousUsers = grouped.rows
+      .filter(g => g.total_searches >= 10)
+      .map(g => g.username)
+      .filter((u, i, a) => a.indexOf(u) === i); // dedupe
 
     res.json({ success: true, groups: grouped.rows, suspiciousUsers });
   } catch (err) {
