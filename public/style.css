@@ -577,7 +577,7 @@ button.admin-btn {
 /* Order Row — Grid layout */
 .order-row {
   display: grid !important;
-  grid-template-columns: 26px 90px minmax(100px, 1fr) minmax(140px, 1.3fr) 65px minmax(130px, 160px) 70px;
+  grid-template-columns: 26px 90px minmax(100px, 1fr) minmax(140px, 1.3fr) 110px 65px minmax(130px, 160px) 80px;
   gap: 10px;
   align-items: center;
   padding: 11px 18px !important;
@@ -622,6 +622,14 @@ button.admin-btn {
   text-align: right;
 }
 
+.order-col.order-phone {
+  color: #555;
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .order-col.order-total {
   text-align: right;
   font-weight: 700;
@@ -630,12 +638,39 @@ button.admin-btn {
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
 }
+.order-refund-amt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-danger);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.copy-hint {
+  opacity: 0;
+  font-size: 11px;
+  transition: opacity 0.15s;
+  cursor: pointer;
+}
+.order-col.order-id:hover .copy-hint { opacity: 0.6; }
+.order-col.order-id.copied .copy-hint { opacity: 1; }
+.copy-tracking-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.4;
+  padding: 0 2px;
+  vertical-align: middle;
+  transition: opacity 0.15s;
+}
+.copy-tracking-btn:hover { opacity: 1; }
+.copy-tracking-btn.copied { opacity: 1; }
 
 /* Expand toggle button */
 .expand-btn {
-  width: 22px !important;
-  height: 22px !important;
-  font-size: 15px !important;
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 18px !important;
   border: 1.5px solid var(--color-border) !important;
   background: var(--color-surface) !important;
   border-radius: 4px !important;
@@ -728,6 +763,11 @@ button.admin-btn {
   background: var(--color-danger-bg);
   border-color: var(--color-danger-border);
   color: var(--color-danger);
+}
+.status-partial-refund {
+  background: var(--color-orange-bg);
+  border-color: var(--color-orange-border);
+  color: var(--color-orange);
 }
 
 /* ============================================================
@@ -2331,7 +2371,7 @@ button.admin-btn {
 
 .order-col-headers {
   display: grid;
-  grid-template-columns: 26px 90px minmax(100px,1fr) minmax(140px,1.3fr) 65px minmax(130px,160px) 70px;
+  grid-template-columns: 26px 90px minmax(100px,1fr) minmax(140px,1.3fr) 110px 65px minmax(130px,160px) 80px;
   gap: 10px;
   align-items: center;
   padding: 8px 18px;
@@ -2345,7 +2385,7 @@ button.admin-btn {
   user-select: none;
 }
 @media (max-width: 900px) {
-  .order-col-headers { grid-template-columns: 26px 80px minmax(90px,1fr) minmax(120px,1.3fr) 60px minmax(110px,140px) 65px; gap: 8px; }
+  .order-col-headers { grid-template-columns: 26px 80px minmax(90px,1fr) minmax(120px,1.3fr) 95px 60px minmax(110px,140px) 72px; gap: 8px; }
 }
 .col-right { text-align: right; }
 

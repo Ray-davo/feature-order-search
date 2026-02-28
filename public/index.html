@@ -141,6 +141,32 @@
   <script>
     let currentStore = '1ink';
     let currentUserPermissions = [];
+
+    // ── Copy to clipboard ─────────────────────────────
+    function copyToClipboard(text, el) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = el.title;
+        el.title = 'Copied!';
+        el.classList.add('copied');
+        setTimeout(() => { el.title = orig; el.classList.remove('copied'); }, 1500);
+      }).catch(() => {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      });
+    }
+
+    // ── Escape key closes any open modal ─────────────
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      document.querySelectorAll('.amodal-overlay.active, .modal-overlay.active').forEach(m => {
+        m.classList.remove('active');
+      });
+      closeEditAddress();
+    });
     let expandedOrders = {};
     let orderDetailsCache = {};
     let currentOrders = [];
@@ -252,6 +278,9 @@
         if (roleEl) roleEl.textContent = data.isAdmin ? 'Administrator' : 'Agent';
 
         currentUser = data.user;
+        // Auto-focus search box so agent can type immediately
+        const sq = document.getElementById('searchQuery');
+        if (sq) sq.focus();
         currentUserIsAdmin = data.isAdmin || false;
         if (data.isAdmin) { const bar = document.getElementById('dbStatsBar'); if (bar) bar.style.display = 'flex'; }
         currentUserPermissions = data.permissions || [];
@@ -387,6 +416,7 @@
           <div>Order ID</div>
           <div>Customer</div>
           <div>Email</div>
+          <div>Phone</div>
           <div class="col-right">Date</div>
           <div class="col-right">Status</div>
           <div class="col-right">Total</div>
@@ -403,12 +433,16 @@
         html += `
           <div class="order-row" id="order-row-${order.id}" onclick="togglePreview(null, ${order.id})">
             <button class="expand-btn" onclick="togglePreview(event, ${order.id})" title="Preview items">+</button>
-            <div class="order-col order-id">#${order.id}</div>
+            <div class="order-col order-id" onclick="event.stopPropagation(); copyToClipboard('${order.id}', this)" title="Click to copy order #">#${order.id} <span class="copy-hint">&#128203;</span></div>
             <div class="order-col order-customer" title="${customerName}">${customerName}</div>
             <div class="order-col order-email" title="${customerEmail}"><span id="note-badge-${order.id}"></span>${customerEmail}</div>
+            <div class="order-col order-phone">${order.billing_address?.phone || ''}</div>
             <div class="order-col order-date">${date}</div>
             <div class="order-col order-status ${statusClass}">${order.status}</div>
-            <div class="order-col order-total">$${parseFloat(order.total_inc_tax || 0).toFixed(2)}</div>
+            <div class="order-col order-total">
+              $${parseFloat(order.total_inc_tax || 0).toFixed(2)}
+              ${parseFloat(order.refunded_amount || 0) > 0 ? `<div class="order-refund-amt">-$${parseFloat(order.refunded_amount).toFixed(2)} refunded</div>` : ''}
+            </div>
           </div>
           <div class="preview-panel" id="preview-${order.id}">
             <div class="preview-content" id="preview-content-${order.id}">
@@ -418,6 +452,11 @@
       }
 
       resultsDiv.innerHTML = html;
+
+      // Auto-expand if only one result
+      if (orders.length === 1) {
+        togglePreview(null, orders[0].id);
+      }
 
       // Fetch note counts and show badges on any orders that have notes
       fetchNoteCounts(currentStore, orders.map(o => o.id));
@@ -638,6 +677,7 @@
         '<strong class="tracking-label">Tracking:</strong>' +
         badge +
         '<span class="tracking-numbers">' + links.join('<span class="tracking-sep">, </span>') + '</span>' +
+        (nums.length > 0 ? '<button class="copy-tracking-btn" onclick="event.stopPropagation(); copyToClipboard('' + nums.join(', ') + '', this)" title="Copy tracking number">&#128203;</button>' : '') +
       '</div>';
     }
 
@@ -995,6 +1035,7 @@
       status = (status || '').toLowerCase();
       if (status.includes('complete')) return 'status-completed';
       if (status.includes('ship')) return 'status-shipped';
+      if (status.includes('partial')) return 'status-partial-refund';
       if (status.includes('refund')) return 'status-refunded';
       return 'status-pending';
     }
