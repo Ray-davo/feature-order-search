@@ -115,7 +115,8 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Order #<span id="modalOrderId"></span></h2>
-        <button class="print-btn" onclick="printInvoice()">Print</button>
+        <button class="print-btn" onclick="printInvoice()">Print Invoice</button>
+        <button class="print-btn email-invoice-btn" onclick="emailInvoice()" title="Open email client with customer address pre-filled">&#9993; Email Invoice</button>
         <button class="close-btn" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body" id="modalBody">
@@ -793,11 +794,11 @@
               </span>
             </div>
             <div class="addr-lines">
-              <div class="addr-line"><strong>${(billing.first_name||'')+' '+(billing.last_name||'')}</strong><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard((billing.first_name||'')+' '+(billing.last_name||''), this)" title="Copy name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
-              ${billing.company ? '<div class="addr-line"><span>'+billing.company+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(billing.company, this)" title="Copy company"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
-              <div class="addr-line"><span>${billing.street_1||''}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(billing.street_1||'', this)" title="Copy street"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
-              ${billing.street_2 ? '<div class="addr-line"><span>'+billing.street_2+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(billing.street_2, this)" title="Copy street 2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
-              <div class="addr-line"><span>${formatCityLine(billing)}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(formatCityLine(billing), this)" title="Copy city/state/zip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              <div class="addr-line" data-copy="${(billing.first_name||'')+' '+(billing.last_name||'')}"><strong>${(billing.first_name||'')+' '+(billing.last_name||'')}</strong><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${billing.company ? '<div class="addr-line" data-copy="'+billing.company+'"><span>'+billing.company+'</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line" data-copy="${billing.street_1||''}"><span>${billing.street_1||''}</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${billing.street_2 ? '<div class="addr-line" data-copy="'+billing.street_2+'"><span>'+billing.street_2+'</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line" data-copy="${formatCityLine(billing)}"><span>${formatCityLine(billing)}</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
             </div>
             <div class="contact contact-inline">
               <span class="contact-phone"><span class="field-label">Phone:</span> <span class="copyable">${billing.phone || 'N/A'}</span>
@@ -819,11 +820,11 @@
               </span>
             </div>
             <div class="addr-lines">
-              <div class="addr-line"><strong>${(shipping.first_name||'')+' '+(shipping.last_name||'')}</strong><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard((shipping.first_name||'')+' '+(shipping.last_name||''), this)" title="Copy name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
-              ${shipping.company ? '<div class="addr-line"><span>'+shipping.company+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(shipping.company, this)" title="Copy company"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
-              <div class="addr-line"><span>${shipping.street_1||''}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(shipping.street_1||'', this)" title="Copy street"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
-              ${shipping.street_2 ? '<div class="addr-line"><span>'+shipping.street_2+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(shipping.street_2, this)" title="Copy street 2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
-              <div class="addr-line"><span>${formatCityLine(shipping)}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(formatCityLine(shipping), this)" title="Copy city/state/zip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              <div class="addr-line" data-copy="${(shipping.first_name||'')+' '+(shipping.last_name||'')}"><strong>${(shipping.first_name||'')+' '+(shipping.last_name||'')}</strong><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${shipping.company ? '<div class="addr-line" data-copy="'+shipping.company+'"><span>'+shipping.company+'</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line" data-copy="${shipping.street_1||''}"><span>${shipping.street_1||''}</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${shipping.street_2 ? '<div class="addr-line" data-copy="'+shipping.street_2+'"><span>'+shipping.street_2+'</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line" data-copy="${formatCityLine(shipping)}"><span>${formatCityLine(shipping)}</span><button class="copy-field-btn" onclick="event.stopPropagation();copyToClipboard(this.parentElement.dataset.copy,this)" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
             </div>
             ${trackingHtml}
             <div class="meta-line"><span class="field-label">Shipped:</span> <span class="copyable">${shippedDateOnly}</span></div>
@@ -1333,19 +1334,43 @@
 
       const css = CSS_INVOICE_CSS;
 
-      const docHtml = `<!DOCTYPE html>
+      // Grab order info for the invoice toolbar
+      const _invOrderId = document.getElementById('modalOrderId').textContent.trim();
+      const _invData = orderDetailsCache[_invOrderId];
+      const _invOrder = _invData && _invData.order ? _invData.order : {};
+      const _invBilling = _invOrder.billing_address || {};
+      const _invEmail = _invBilling.email || '';
+
+            const docHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice</title>
+  <title>Invoice #\${_invOrderId}</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .inv-toolbar {
+      display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+      padding: 10px 24px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;
+    }
+    .inv-toolbar-label { font-size: 13px; color: #555; margin-right: auto; }
+    .inv-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 5px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; text-decoration: none;
+    }
+    .inv-btn-print { background: #1E2A3A; color: #fff; }
+    .inv-btn-print:hover { background: #2d3f52; }
+    @media print { .inv-toolbar { display: none !important; } }
   </style>
   <style>${css}</style>
 </head>
 <body>
+  <div class="inv-toolbar">
+    <span class="inv-toolbar-label">Order #\${_invOrderId} &nbsp;&middot;&nbsp; \${_invEmail}</span>
+    <button class="inv-btn inv-btn-print" onclick="window.print()">&#128438; Print / Save PDF</button>
+  </div>
   ${invoiceEl.outerHTML}
 </body>
 </html>`;
@@ -1389,6 +1414,32 @@
     }
 
 
+
+    // ── Email Invoice via mailto ──────────────────────────
+    async function emailInvoice() {
+      const orderId = document.getElementById('modalOrderId').textContent.trim();
+      if (!orderId) return;
+
+      const data = orderDetailsCache[orderId];
+      const billing = (data && data.order && data.order.billing_address) ? data.order.billing_address : {};
+      const toEmail = billing.email || '(no email on order)';
+
+      if (!confirm(`Send invoice for Order #${orderId} to ${toEmail}?`)) return;
+
+      const btn = document.querySelector('.email-invoice-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+      try {
+        const resp = await fetch(`/api/order/${currentStore}/${orderId}/send-invoice`, { method: 'POST' });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Failed to send');
+        alert(`Invoice sent to ${result.sentTo}`);
+      } catch (err) {
+        alert(`Failed to send invoice: ${err.message}`);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#9993; Email Invoice'; }
+      }
+    }
 
     // ==================== EMAIL ACTIONS ====================
 
