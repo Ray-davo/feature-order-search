@@ -12,6 +12,7 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const BCRYPT_ROUNDS = 10;
 
+
 // ==================== POSTMARK EMAIL CLIENT ====================
 const postmarkClient = process.env.POSTMARK_SERVER_KEY
   ? new postmark.ServerClient(process.env.POSTMARK_SERVER_KEY)
