@@ -1773,6 +1773,176 @@ async function logEmail(store, orderId, emailType, sentTo, sentBy, postmarkMsgId
 }
 
 // Build order confirmation HTML email
+function buildInvoiceEmailHtml(order, products, shipping, shipments, branding) {
+  const billing  = order.billing_address || {};
+  const safe     = (v) => v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const money    = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
+  const font     = "Montserrat,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+
+  const orderDate = order.date_created
+    ? new Date(order.date_created).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    : '';
+
+  // ── Address block helper ──
+  const addrBlock = (a) => {
+    if (!a) return '';
+    const lines = [
+      `${safe(a.first_name||'')} ${safe(a.last_name||'')}`.trim(),
+      a.company ? safe(a.company) : null,
+      safe(a.street_1 || ''),
+      a.street_2 ? safe(a.street_2) : null,
+      `${safe(a.city||'')}, ${safe(a.state||'')} ${safe(a.zip||'')}`.trim().replace(/^,\s*/,''),
+      safe(a.country || '')
+    ].filter(Boolean);
+    return lines.join('<br>');
+  };
+
+  // ── Line items ──
+  const itemRows = (Array.isArray(products) ? products : []).map(p => {
+    const qty   = parseFloat(p.quantity || 0);
+    const unit  = parseFloat(p.price_ex_tax ?? p.base_price ?? 0);
+    const total = parseFloat(p.total_ex_tax ?? (unit * qty));
+    return `
+    <tr>
+      <td style="padding:10px 0; border-bottom:1px solid #eee; font-family:${font}; font-size:14px; color:#333; vertical-align:top;">
+        <strong style="display:block; margin-bottom:2px;">${safe(p.name)}</strong>
+        ${p.sku ? `<span style="font-size:12px; color:#888;">SKU: ${safe(p.sku)}</span>` : ''}
+      </td>
+      <td style="padding:10px 0 10px 12px; border-bottom:1px solid #eee; font-family:${font}; font-size:14px; color:#555; text-align:center; vertical-align:top; width:40px;">${qty}</td>
+      <td style="padding:10px 0 10px 12px; border-bottom:1px solid #eee; font-family:${font}; font-size:14px; color:#555; text-align:right; vertical-align:top; width:70px; white-space:nowrap;">${money(unit)}</td>
+      <td style="padding:10px 0 10px 12px; border-bottom:1px solid #eee; font-family:${font}; font-size:14px; color:#333; font-weight:600; text-align:right; vertical-align:top; width:70px; white-space:nowrap;">${money(total)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Totals ──
+  const subtotal        = parseFloat(order.subtotal_ex_tax || 0);
+  const shipping_cost   = parseFloat(order.shipping_cost_ex_tax || 0);
+  const handling        = parseFloat(order.handling_cost_ex_tax || 0);
+  const tax             = parseFloat(order.total_tax || 0);
+  const coupon          = parseFloat(order.coupon_discount || 0);
+  const discount        = parseFloat(order.discount_amount || 0);
+  const grandTotal      = parseFloat(order.total_inc_tax || 0);
+  const refunded        = parseFloat(order.refunded_amount || 0);
+
+  const totalRow = (label, value, opts = {}) => {
+    const color = opts.red ? '#DC2626' : opts.bold ? '#111' : '#555';
+    const weight = opts.bold ? '700' : '400';
+    const borderTop = opts.bold ? 'border-top:2px solid #ccc;' : '';
+    return `
+    <tr>
+      <td colspan="3" style="padding:5px 0; text-align:right; font-family:${font}; font-size:13px; color:${color}; font-weight:${weight}; ${borderTop}">${label}</td>
+      <td style="padding:5px 0 5px 12px; text-align:right; font-family:${font}; font-size:13px; color:${color}; font-weight:${weight}; white-space:nowrap; ${borderTop}">${value}</td>
+    </tr>`;
+  };
+
+  let totalsHtml = totalRow('Subtotal', money(subtotal));
+  if (shipping_cost > 0) totalsHtml += totalRow('Shipping', money(shipping_cost));
+  if (handling > 0)      totalsHtml += totalRow('Handling', money(handling));
+  if (coupon > 0)        totalsHtml += totalRow('Coupon Discount', '-' + money(coupon));
+  if (discount > 0)      totalsHtml += totalRow('Discount', '-' + money(discount));
+  if (tax > 0)           totalsHtml += totalRow('Tax', money(tax));
+  totalsHtml += totalRow('Grand Total', money(grandTotal), { bold: true });
+  if (refunded > 0)      totalsHtml += totalRow('Refunded', '-' + money(refunded), { red: true });
+
+  // ── Tracking ──
+  const trackingHtml = (Array.isArray(shipments) && shipments.length > 0)
+    ? shipments.filter(s => s.tracking_number).map(s =>
+        `<span style="font-family:${font}; font-size:13px; color:#555;">${safe(s.tracking_number)}</span>`
+      ).join(', ')
+    : '';
+
+  // ── Payment method ──
+  const paymentMethod = order.payment_method ? safe(order.payment_method) : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0; padding:0; background:#f4f4f4;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4; padding:24px 0;">
+  <tr><td align="center">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+      <!-- Header -->
+      <tr><td style="background:#1E2A3A; padding:24px 32px;">
+        <p style="margin:0; font-family:${font}; font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.3px;">${safe(branding.name)}</p>
+        <p style="margin:6px 0 0; font-family:${font}; font-size:13px; color:#94a3b8;">Invoice for Order #${safe(String(order.id))}</p>
+      </td></tr>
+
+      <!-- Order meta -->
+      <tr><td style="padding:24px 32px 0; border-bottom:1px solid #eee;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="vertical-align:top; width:50%; padding-bottom:20px;">
+              <p style="margin:0 0 4px; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888;">Bill To</p>
+              <p style="margin:0; font-family:${font}; font-size:14px; color:#333; line-height:1.6;">${addrBlock(billing)}</p>
+              ${billing.email ? `<p style="margin:6px 0 0; font-family:${font}; font-size:13px; color:#555;">${safe(billing.email)}</p>` : ''}
+              ${billing.phone ? `<p style="margin:2px 0 0; font-family:${font}; font-size:13px; color:#555;">${safe(billing.phone)}</p>` : ''}
+            </td>
+            <td style="vertical-align:top; width:50%; padding-bottom:20px; padding-left:24px;">
+              <p style="margin:0 0 4px; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888;">Ship To</p>
+              <p style="margin:0; font-family:${font}; font-size:14px; color:#333; line-height:1.6;">${addrBlock(shipping)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:20px;">
+              <p style="margin:0 0 4px; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888;">Order Date</p>
+              <p style="margin:0; font-family:${font}; font-size:14px; color:#333;">${orderDate}</p>
+            </td>
+            <td style="padding-bottom:20px; padding-left:24px;">
+              <p style="margin:0 0 4px; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888;">Status</p>
+              <p style="margin:0; font-family:${font}; font-size:14px; color:#333;">${safe(order.status || '')}</p>
+            </td>
+          </tr>
+          ${paymentMethod ? `
+          <tr>
+            <td colspan="2" style="padding-bottom:20px;">
+              <p style="margin:0 0 4px; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888;">Payment Method</p>
+              <p style="margin:0; font-family:${font}; font-size:14px; color:#333;">${paymentMethod}</p>
+            </td>
+          </tr>` : ''}
+          ${trackingHtml ? `
+          <tr>
+            <td colspan="2" style="padding-bottom:20px;">
+              <p style="margin:0 0 4px; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888;">Tracking</p>
+              <p style="margin:0;">${trackingHtml}</p>
+            </td>
+          </tr>` : ''}
+        </table>
+      </td></tr>
+
+      <!-- Items -->
+      <tr><td style="padding:24px 32px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <thead>
+            <tr>
+              <th style="padding-bottom:8px; text-align:left; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888; border-bottom:2px solid #ddd;">Product</th>
+              <th style="padding-bottom:8px; text-align:center; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888; border-bottom:2px solid #ddd; width:40px;">Qty</th>
+              <th style="padding-bottom:8px; text-align:right; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888; border-bottom:2px solid #ddd; width:70px;">Unit</th>
+              <th style="padding-bottom:8px; text-align:right; font-family:${font}; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888; border-bottom:2px solid #ddd; width:70px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+          <tfoot>${totalsHtml}</tfoot>
+        </table>
+      </td></tr>
+
+      <!-- Footer -->
+      <tr><td style="padding:24px 32px; border-top:1px solid #eee; margin-top:24px;">
+        <p style="margin:0; font-family:${font}; font-size:13px; color:#888; text-align:center;">
+          Questions? Contact us at <a href="mailto:${safe(branding.fromEmail)}" style="color:#2563EB;">${safe(branding.fromEmail)}</a>
+          ${branding.phone ? ` or call ${safe(branding.phone)}` : ''}.
+        </p>
+        <p style="margin:8px 0 0; font-family:${font}; font-size:12px; color:#aaa; text-align:center;">
+          ${safe(branding.name)} &middot; This invoice was sent at your request by our customer support team.
+        </p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
 function buildConfirmationEmailHtml(order, products, shipping, branding) {
   const billing = order.billing_address || {};
   const shippingAddr = shipping || billing;
@@ -2294,6 +2464,59 @@ app.post('/api/order/:store/:orderId/resend-tracking', requireAuth, async (req, 
   }
 });
 
+// Send invoice email via Postmark
+app.post('/api/order/:store/:orderId/send-invoice', requireAuth, async (req, res) => {
+  const { store, orderId } = req.params;
+  const sentBy = req.session.user;
+
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+  if (!postmarkClient) return res.status(500).json({ error: 'Email service not configured.' });
+
+  try {
+    const branding = storeBranding[store] || storeBranding['1ink'];
+
+    const order = await bcApiRequest(store, `orders/${orderId}`);
+    const products = await bcApiRequest(store, `orders/${orderId}/products`);
+    let shippingAddresses = [];
+    try { shippingAddresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`); } catch(e) {}
+    let shipments = [];
+    try {
+      const raw = await bcApiRequest(store, `orders/${orderId}/shipments`);
+      if (Array.isArray(raw)) shipments = raw;
+    } catch(e) {}
+
+    const billing = order.billing_address || {};
+    const recipientEmail = billing.email;
+    if (!recipientEmail) return res.status(400).json({ error: 'No email address on this order' });
+
+    const shippingAddr = shippingAddresses[0] || billing;
+    const recipientName = `${billing.first_name || ''} ${billing.last_name || ''}`.trim();
+
+    const html = buildInvoiceEmailHtml(order, products, shippingAddr, shipments, branding);
+
+    const result = await postmarkClient.sendEmail({
+      From: `${branding.fromName} <${branding.fromEmail}>`,
+      To: `${recipientName} <${recipientEmail}>`,
+      ReplyTo: branding.replyTo,
+      Subject: `Your Invoice – Order #${orderId} | ${branding.name}`,
+      HtmlBody: html,
+      TextBody: `Hi ${billing.first_name || 'there'}, please find your invoice for Order #${orderId} from ${branding.name} below. Order Total: $${parseFloat(order.total_inc_tax || 0).toFixed(2)}. Questions? Email us at ${branding.fromEmail} or call ${branding.phone}.`,
+      MessageStream: 'outbound',
+      Tag: 'invoice'
+    });
+
+    await logEmail(store, orderId, 'invoice', recipientEmail, sentBy, result.MessageID, 'sent', null);
+    console.log(`[EMAIL] Invoice sent for order ${orderId} (${store}) to ${recipientEmail} by ${sentBy}`);
+
+    res.json({ success: true, sentTo: recipientEmail, messageId: result.MessageID });
+
+  } catch (err) {
+    console.error(`Send invoice error:`, err.message);
+    await logEmail(store, orderId, 'invoice', 'unknown', sentBy, null, 'failed', err.message).catch(() => {});
+    res.status(500).json({ error: err.message || 'Failed to send invoice' });
+  }
+});
+
 // Get email log for an order (for showing history in the UI)
 app.get('/api/order/:store/:orderId/email-log', requireAuth, async (req, res) => {
   const { store, orderId } = req.params;
@@ -2598,9 +2821,8 @@ app.post('/api/bulk-tracking', requireAuth, requirePermission('orders.tracking.a
     const batch = rows.slice(i, i + BATCH);
     await Promise.all(batch.map(async ({ orderId, tracking, carrier }) => {
       try {
-        const existingRaw = await bcApiRequest(store, `orders/${orderId}/shipments`).catch(() => []);
-        const existing = Array.isArray(existingRaw) ? existingRaw : [];
-        if (existing.some(s => s.tracking_number === tracking)) {
+        const existing = await bcApiRequest(store, `orders/${orderId}/shipments`).catch(() => []);
+        if (existing && existing.some(s => s.tracking_number === tracking)) {
           results.skipped.push({ orderId, reason: 'Tracking already exists' }); return;
         }
         const products  = await bcApiRequest(store, `orders/${orderId}/products`);
