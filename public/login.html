@@ -497,24 +497,25 @@
         });
         const data = await res.json();
 
-        if (res.ok) {
-          submitBtn.textContent = '\u2713 Success!';
-          window.location.href = '/';
-          return;
-        }
-
-        if (res.status === 202 && data.totp_required) {
+        // Check 2FA intercepts BEFORE res.ok — 202 is also "ok" in fetch
+        if (data.totp_required) {
           currentTempToken = data.tempToken;
           showScreen('screen-totp');
           document.querySelector('#screen-totp .totp-digit').focus();
           return;
         }
 
-        if (res.status === 202 && data.totp_setup) {
+        if (data.totp_setup) {
           currentTempToken = data.tempToken;
           document.getElementById('setupQrImg').src = data.qrDataUrl;
           showScreen('screen-setup');
           document.querySelector('#screen-setup .totp-digit').focus();
+          return;
+        }
+
+        if (res.ok) {
+          submitBtn.textContent = '\u2713 Success!';
+          window.location.href = '/';
           return;
         }
 
