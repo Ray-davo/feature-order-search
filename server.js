@@ -12,7 +12,6 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const BCRYPT_ROUNDS = 10;
 
-
 // ==================== POSTMARK EMAIL CLIENT ====================
 const postmarkClient = process.env.POSTMARK_SERVER_KEY
   ? new postmark.ServerClient(process.env.POSTMARK_SERVER_KEY)
@@ -2468,46 +2467,42 @@ app.post('/api/order/:store/:orderId/resend-tracking', requireAuth, async (req, 
 // Send invoice email via Postmark
 app.post('/api/order/:store/:orderId/send-invoice', requireAuth, async (req, res) => {
   const { store, orderId } = req.params;
+  const { pdfBase64 } = req.body;
   const sentBy = req.session.user;
 
   if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
   if (!postmarkClient) return res.status(500).json({ error: 'Email service not configured.' });
+  if (!pdfBase64) return res.status(400).json({ error: 'No PDF data received.' });
 
   try {
     const branding = storeBranding[store] || storeBranding['1ink'];
 
     const order = await bcApiRequest(store, `orders/${orderId}`);
-    const products = await bcApiRequest(store, `orders/${orderId}/products`);
-    let shippingAddresses = [];
-    try { shippingAddresses = await bcApiRequest(store, `orders/${orderId}/shipping_addresses`); } catch(e) {}
-    let shipments = [];
-    try {
-      const raw = await bcApiRequest(store, `orders/${orderId}/shipments`);
-      if (Array.isArray(raw)) shipments = raw;
-    } catch(e) {}
-
     const billing = order.billing_address || {};
     const recipientEmail = billing.email;
     if (!recipientEmail) return res.status(400).json({ error: 'No email address on this order' });
 
-    const shippingAddr = shippingAddresses[0] || billing;
     const recipientName = `${billing.first_name || ''} ${billing.last_name || ''}`.trim();
-
-    const html = buildInvoiceEmailHtml(order, products, shippingAddr, shipments, branding);
+    const firstName = billing.first_name || 'there';
 
     const result = await postmarkClient.sendEmail({
       From: `${branding.fromName} <${branding.fromEmail}>`,
       To: `${recipientName} <${recipientEmail}>`,
       ReplyTo: branding.replyTo,
       Subject: `Your Invoice – Order #${orderId} | ${branding.name}`,
-      HtmlBody: html,
-      TextBody: `Hi ${billing.first_name || 'there'}, please find your invoice for Order #${orderId} from ${branding.name} below. Order Total: $${parseFloat(order.total_inc_tax || 0).toFixed(2)}. Questions? Email us at ${branding.fromEmail} or call ${branding.phone}.`,
+      HtmlBody: `<p style="font-family:sans-serif;font-size:15px;color:#333;">Hi ${firstName},</p><p style="font-family:sans-serif;font-size:15px;color:#333;">Please find your invoice for Order #${orderId} attached to this email.</p><p style="font-family:sans-serif;font-size:15px;color:#333;">If you have any questions, feel free to reply to this email or contact us at <a href="mailto:${branding.fromEmail}">${branding.fromEmail}</a>${branding.phone ? ' or call ' + branding.phone : ''}.</p><p style="font-family:sans-serif;font-size:15px;color:#333;">Thank you,<br>${branding.name} Customer Support</p>`,
+      TextBody: `Hi ${firstName}, please find your invoice for Order #${orderId} attached. Questions? Email ${branding.fromEmail}${branding.phone ? ' or call ' + branding.phone : ''}.`,
+      Attachments: [{
+        Name: `Invoice-Order-${orderId}.pdf`,
+        Content: pdfBase64,
+        ContentType: 'application/pdf'
+      }],
       MessageStream: 'outbound',
       Tag: 'invoice'
     });
 
     await logEmail(store, orderId, 'invoice', recipientEmail, sentBy, result.MessageID, 'sent', null);
-    console.log(`[EMAIL] Invoice sent for order ${orderId} (${store}) to ${recipientEmail} by ${sentBy}`);
+    console.log(`[EMAIL] Invoice PDF sent for order ${orderId} (${store}) to ${recipientEmail} by ${sentBy}`);
 
     res.json({ success: true, sentTo: recipientEmail, messageId: result.MessageID });
 

@@ -1424,21 +1424,91 @@
       const billing = (data && data.order && data.order.billing_address) ? data.order.billing_address : {};
       const toEmail = billing.email || '(no email on order)';
 
-      if (!confirm(`Send invoice for Order #${orderId} to ${toEmail}?`)) return;
+      if (!confirm(`Send invoice PDF for Order #${orderId} to ${toEmail}?`)) return;
 
       const btn = document.querySelector('.email-invoice-btn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Generating PDF…'; }
 
       try {
-        const resp = await fetch(`/api/order/${currentStore}/${orderId}/send-invoice`, { method: 'POST' });
+        // ── Step 1: Make sure the invoice is rendered in the modal ──
+        const invoiceEl = document.querySelector('#modalBody .invoice-wrap');
+        if (!invoiceEl) throw new Error('Invoice not loaded yet. Please wait for the order to fully load and try again.');
+
+        // ── Step 2: Load html2canvas + jsPDF from CDN if not already loaded ──
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'html2canvas');
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf');
+
+        if (btn) btn.textContent = 'Creating PDF…';
+
+        // ── Step 3: Render invoice element to canvas then to PDF ──
+        const canvas = await html2canvas(invoiceEl, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        const pageW  = pdf.internal.pageSize.getWidth();
+        const pageH  = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const imgW   = pageW - margin * 2;
+        const imgH   = (canvas.height * imgW) / canvas.width;
+
+        // Handle multi-page if invoice is taller than one page
+        let yPos = margin;
+        let remainingH = imgH;
+        let sourceY = 0;
+        const pageContentH = pageH - margin * 2;
+
+        while (remainingH > 0) {
+          const sliceH = Math.min(remainingH, pageContentH);
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width  = canvas.width;
+          sliceCanvas.height = (sliceH / imgH) * canvas.height;
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.drawImage(canvas, 0, sourceY * (canvas.height / imgH), canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
+          const imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+          pdf.addImage(imgData, 'JPEG', margin, yPos, imgW, sliceH);
+          remainingH -= sliceH;
+          sourceY    += sliceH;
+          if (remainingH > 0) { pdf.addPage(); yPos = margin; }
+        }
+
+        // ── Step 4: Get base64 and POST to server ──
+        const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+        if (btn) btn.textContent = 'Sending…';
+
+        const resp = await fetch(`/api/order/${currentStore}/${orderId}/send-invoice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdfBase64 })
+        });
         const result = await resp.json();
         if (!resp.ok) throw new Error(result.error || 'Failed to send');
-        alert(`Invoice sent to ${result.sentTo}`);
+
+        alert(`✓ Invoice PDF sent to ${result.sentTo}`);
+
       } catch (err) {
         alert(`Failed to send invoice: ${err.message}`);
       } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = '&#9993; Email Invoice'; }
       }
+    }
+
+    // Lazy-load a script from CDN only once
+    function loadScript(src, globalKey) {
+      return new Promise((resolve, reject) => {
+        if (window[globalKey] || document.querySelector(`script[src="${src}"]`)) return resolve();
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(s);
+      });
     }
 
     // ==================== EMAIL ACTIONS ====================
