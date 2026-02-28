@@ -144,18 +144,29 @@
 
     // ── Copy to clipboard ─────────────────────────────
     function copyToClipboard(text, el) {
-      navigator.clipboard.writeText(text).then(() => {
-        const orig = el.title;
-        el.title = 'Copied!';
+      const doFeedback = () => {
         el.classList.add('copied');
-        setTimeout(() => { el.title = orig; el.classList.remove('copied'); }, 1500);
-      }).catch(() => {
+        // Show a small "Copied!" pill anchored to the button
+        const toast = document.createElement('span');
+        toast.className = 'copy-toast';
+        toast.textContent = 'Copied!';
+        el.style.position = 'relative';
+        el.appendChild(toast);
+        // Trigger fade-in next frame
+        requestAnimationFrame(() => toast.classList.add('visible'));
+        setTimeout(() => {
+          toast.classList.remove('visible');
+          setTimeout(() => { toast.remove(); el.classList.remove('copied'); }, 200);
+        }, 1200);
+      };
+      navigator.clipboard.writeText(text).then(doFeedback).catch(() => {
         // Fallback for older browsers
         const ta = document.createElement('textarea');
         ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
         document.body.appendChild(ta); ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
+        doFeedback();
       });
     }
 
@@ -781,17 +792,13 @@
                 ${currentUserPermissions.includes('orders.address.edit') ? `<button class="view-full-btn" onclick="openEditAddress('billing',${orderId})">&#9998; Edit</button>` : ''}
               </span>
             </div>
-            <p>
-              <span style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
-                <span>
-                  <strong>${billing.first_name || ''} ${billing.last_name || ''}</strong><br>
-                  ${billing.street_1 || ''}<br>
-                  ${billing.street_2 ? billing.street_2 + '<br>' : ''}
-                  ${formatCityLine(billing)}
-                </span>
-                <button class="copy-field-btn" style="margin-top:2px;" onclick="event.stopPropagation(); copyToClipboard(\`\${billing.first_name||''} \${billing.last_name||''}\n\${billing.street_1||''}\${billing.street_2?'\n'+billing.street_2:''}\n\${formatCityLine(billing)}\`, this)" title="Copy address"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-              </span>
-            </p>
+            <div class="addr-lines">
+              <div class="addr-line"><strong>${(billing.first_name||'')+' '+(billing.last_name||'')}</strong><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard((billing.first_name||'')+' '+(billing.last_name||''), this)" title="Copy name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${billing.company ? '<div class="addr-line"><span>'+billing.company+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(billing.company, this)" title="Copy company"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line"><span>${billing.street_1||''}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(billing.street_1||'', this)" title="Copy street"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${billing.street_2 ? '<div class="addr-line"><span>'+billing.street_2+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(billing.street_2, this)" title="Copy street 2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line"><span>${formatCityLine(billing)}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(formatCityLine(billing), this)" title="Copy city/state/zip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+            </div>
             <div class="contact contact-inline">
               <span class="contact-phone"><span class="field-label">Phone:</span> <span class="copyable">${billing.phone || 'N/A'}</span>
                 ${billing.phone ? `<button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard('${billing.phone}', this)" title="Copy phone"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>` : ''}
@@ -811,17 +818,13 @@
                 <button class="view-full-btn" onclick="viewOrder(${orderId})">View Full Order</button>
               </span>
             </div>
-            <p>
-              <span style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
-                <span>
-                  <strong>${shipping.first_name || ''} ${shipping.last_name || ''}</strong><br>
-                  ${shipping.street_1 || ''}<br>
-                  ${shipping.street_2 ? shipping.street_2 + '<br>' : ''}
-                  ${formatCityLine(shipping)}
-                </span>
-                <button class="copy-field-btn" style="margin-top:2px;" onclick="event.stopPropagation(); copyToClipboard(\`\${shipping.first_name||''} \${shipping.last_name||''}\n\${shipping.street_1||''}\${shipping.street_2?'\n'+shipping.street_2:''}\n\${formatCityLine(shipping)}\`, this)" title="Copy address"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-              </span>
-            </p>
+            <div class="addr-lines">
+              <div class="addr-line"><strong>${(shipping.first_name||'')+' '+(shipping.last_name||'')}</strong><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard((shipping.first_name||'')+' '+(shipping.last_name||''), this)" title="Copy name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${shipping.company ? '<div class="addr-line"><span>'+shipping.company+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(shipping.company, this)" title="Copy company"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line"><span>${shipping.street_1||''}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(shipping.street_1||'', this)" title="Copy street"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              ${shipping.street_2 ? '<div class="addr-line"><span>'+shipping.street_2+'</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(shipping.street_2, this)" title="Copy street 2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>' : ''}
+              <div class="addr-line"><span>${formatCityLine(shipping)}</span><button class="copy-field-btn" onclick="event.stopPropagation(); copyToClipboard(formatCityLine(shipping), this)" title="Copy city/state/zip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+            </div>
             ${trackingHtml}
             <div class="meta-line"><span class="field-label">Shipped:</span> <span class="copyable">${shippedDateOnly}</span></div>
           </div>

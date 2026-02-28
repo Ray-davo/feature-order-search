@@ -648,6 +648,25 @@ button.admin-btn {
   white-space: nowrap;
   text-align: right;
 }
+/* Address lines with per-line copy buttons */
+.addr-lines {
+  margin-bottom: 8px;
+}
+.addr-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 1px 0;
+  border-radius: 3px;
+}
+.addr-line:hover { background: rgba(0,0,0,0.03); }
+.addr-line > span, .addr-line > strong { flex: 1; min-width: 0; }
+.addr-line .copy-field-btn { opacity: 0; }
+.addr-line:hover .copy-field-btn { opacity: 0.4; }
+.addr-line .copy-field-btn:hover { opacity: 1 !important; }
+.addr-line .copy-field-btn.copied { opacity: 1 !important; color: var(--color-success); }
+
 /* Copy button — used on address fields in preview */
 .copy-field-btn {
   background: none;
@@ -665,6 +684,35 @@ button.admin-btn {
 .preview-address-box:hover .copy-field-btn { opacity: 0.45; }
 .copy-field-btn:hover { opacity: 1 !important; }
 .copy-field-btn.copied { opacity: 1 !important; color: var(--color-success); }
+
+/* Copied! toast pill */
+.copy-toast {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1E2A3A;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 999;
+}
+.copy-toast::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1E2A3A;
+}
+.copy-toast.visible { opacity: 1; }
 
 /* Expand toggle button */
 .expand-btn {
