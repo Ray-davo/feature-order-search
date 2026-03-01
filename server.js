@@ -1359,6 +1359,125 @@ setInterval(async () => {
   } catch (e) { /* silent */ }
 }, 60 * 60 * 1000); // every hour
 
+// ── Store Stats endpoint (reports.view permission) ───────────────────────
+app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), async (req, res) => {
+  try {
+    const now       = new Date();
+    const tz        = 'America/Los_Angeles'; // PST/PDT — adjust if needed
+
+    // Helper: get start of a day in local time as UTC ISO string
+    function dayStart(daysAgo) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - daysAgo);
+      // Zero out to midnight local time (approximate with fixed offset, BC stores in UTC)
+      d.setUTCHours(8, 0, 0, 0); // 8am UTC = midnight PST (UTC-8) — handles most US time zones
+      return d.toISOString();
+    }
+    function dayEnd(daysAgo) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - daysAgo);
+      d.setUTCHours(31, 59, 59, 999); // 31h = next day 7:59 UTC = 23:59 PST
+      return d.toISOString();
+    }
+
+    // Date boundaries
+    const todayStart    = dayStart(0);
+    const yestStart     = dayStart(1);
+    const yestEnd       = dayEnd(1);
+    const weekStart     = dayStart(7);   // last 7 days
+    const lastWeekStart = dayStart(14);
+    const lastWeekEnd   = dayEnd(8);     // 14..8 days ago = previous 7-day window
+
+    // Pull orders for each window from all configured stores in parallel
+    const activeStores = Object.keys(stores).filter(s => stores[s].hash && stores[s].token);
+
+    async function fetchOrdersInRange(store, minDate, maxDate) {
+      let all = [];
+      let page = 1;
+      while (true) {
+        let url = `orders?limit=250&page=${page}&sort=date_created:desc&min_date_created=${encodeURIComponent(minDate)}`;
+        if (maxDate) url += `&max_date_created=${encodeURIComponent(maxDate)}`;
+        const batch = await bcApiRequest(store, url).catch(() => []);
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        all = all.concat(batch);
+        if (batch.length < 250) break;
+        page++;
+      }
+      return all;
+    }
+
+    // Fetch all windows for all stores in parallel
+    const fetches = activeStores.flatMap(store => [
+      fetchOrdersInRange(store, todayStart, null).then(o => ({ key: 'today',    orders: o })),
+      fetchOrdersInRange(store, yestStart,  yestEnd).then(o => ({ key: 'yest',  orders: o })),
+      fetchOrdersInRange(store, weekStart,  null).then(o => ({ key: 'week',     orders: o })),
+      fetchOrdersInRange(store, lastWeekStart, lastWeekEnd).then(o => ({ key: 'lastWeek', orders: o }))
+    ]);
+
+    const results = await Promise.all(fetches);
+
+    // Merge across stores
+    const buckets = { today: [], yest: [], week: [], lastWeek: [] };
+    for (const { key, orders } of results) {
+      buckets[key] = buckets[key].concat(orders);
+    }
+
+    // Compute metrics for a bucket
+    function metrics(orders) {
+      const nonCancelled = orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
+      const revenue      = nonCancelled.reduce((s, o) => s + parseFloat(o.total_inc_tax || 0), 0);
+      const refunds      = orders.filter(o => o.status === 'Refunded' || o.status === 'Cancelled');
+      const awaiting     = orders.filter(o => o.status === 'Awaiting Fulfillment' || o.status === 'Awaiting Shipment');
+      return {
+        orders:   nonCancelled.length,
+        revenue:  parseFloat(revenue.toFixed(2)),
+        refunds:  refunds.length,
+        awaiting: awaiting.length
+      };
+    }
+
+    const today    = metrics(buckets.today);
+    const yest     = metrics(buckets.yest);
+    const week     = metrics(buckets.week);
+    const lastWeek = metrics(buckets.lastWeek);
+
+    // Pct change helper
+    function pct(current, previous) {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return parseFloat(((current - previous) / previous * 100).toFixed(1));
+    }
+
+    res.json({
+      success: true,
+      asOf: now.toISOString(),
+      today: {
+        orders:   today.orders,
+        revenue:  today.revenue,
+        refunds:  today.refunds,
+        awaiting: today.awaiting,
+        vsYesterday: {
+          orders:  pct(today.orders,  yest.orders),
+          revenue: pct(today.revenue, yest.revenue)
+        },
+        yesterday: { orders: yest.orders, revenue: yest.revenue }
+      },
+      week: {
+        orders:  week.orders,
+        revenue: week.revenue,
+        vsLastWeek: {
+          orders:  pct(week.orders,  lastWeek.orders),
+          revenue: pct(week.revenue, lastWeek.revenue)
+        },
+        lastWeek: { orders: lastWeek.orders, revenue: lastWeek.revenue }
+      }
+    });
+
+  } catch (err) {
+    console.error('[StoreStats]', err.message);
+    res.status(500).json({ error: 'Failed to load stats' });
+  }
+});
+
 // ── Customer History endpoint ────────────────────────────────────────────
 app.get('/api/customer-history', requireAuth, requirePermission('orders.search'), async (req, res) => {
   const { store, email, customer_id } = req.query;

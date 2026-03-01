@@ -86,6 +86,24 @@
         <span id="dbStats">Loading database stats...</span>
       </div>
 
+      <!-- Store Stats Bar (reports.view only) -->
+      <div class="stats-bar" id="statsBar" style="display:none;">
+        <div class="stats-bar-header">
+          <span class="stats-bar-title">Store Performance</span>
+          <span class="stats-bar-asof" id="statsAsOf"></span>
+          <button class="stats-refresh-btn" onclick="loadStoreStats()" title="Refresh stats">↻</button>
+        </div>
+        <div class="stats-cards" id="statsCards">
+          <!-- filled by JS -->
+          <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
+        </div>
+      </div>
+
       <!-- Search Box -->
       <div class="search-box">
         <div class="search-store-row">
@@ -304,6 +322,11 @@
         }
         
         loadDbStats();
+        // Show stats bar only if user has reports.view permission
+        if (data.permissions && data.permissions.includes('reports.view')) {
+          const sb = document.getElementById('statsBar');
+          if (sb) { sb.style.display = 'block'; loadStoreStats(); }
+        }
         startSessionMonitor(); // Start monitoring session timeout
       } catch (err) {
         window.location.href = '/login';
@@ -1592,6 +1615,65 @@
     }
 
     checkAuth();
+
+    // ── Store Stats ────────────────────────────────────────────────────────
+    async function loadStoreStats() {
+      const cards = document.getElementById('statsCards');
+      if (!cards) return;
+      // Show skeleton while loading
+      cards.innerHTML = Array(6).fill('<div class="stat-card stat-skeleton"></div>').join('');
+
+      try {
+        const res  = await fetch('/api/store-stats');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        // Update "as of" timestamp
+        const asOf = document.getElementById('statsAsOf');
+        if (asOf) {
+          const t = new Date(data.asOf);
+          asOf.textContent = 'Updated ' + t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+
+        const fmt  = n => '$' + parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtN = n => parseInt(n || 0).toLocaleString();
+
+        function pctHtml(pct) {
+          if (pct === null || pct === undefined) return '';
+          const up    = pct >= 0;
+          const arrow = up ? '▲' : '▼';
+          const cls   = up ? 'stat-delta-up' : 'stat-delta-down';
+          return `<span class="${cls}">${arrow} ${Math.abs(pct)}%</span>`;
+        }
+
+        function card(label, value, sub, pct, subLabel) {
+          return `<div class="stat-card">
+            <div class="stat-label">${label}</div>
+            <div class="stat-value">${value}</div>
+            <div class="stat-sub">
+              ${pctHtml(pct)}
+              <span class="stat-sub-text">${sub} ${subLabel || ''}</span>
+            </div>
+          </div>`;
+        }
+
+        const t = data.today;
+        const w = data.week;
+
+        cards.innerHTML = [
+          card('Orders Today',       fmtN(t.orders),  fmtN(t.yesterday.orders),  t.vsYesterday.orders,  'yesterday'),
+          card('Revenue Today',      fmt(t.revenue),  fmt(t.yesterday.revenue),  t.vsYesterday.revenue, 'yesterday'),
+          card('Orders This Week',   fmtN(w.orders),  fmtN(w.lastWeek.orders),   w.vsLastWeek.orders,   'last week'),
+          card('Revenue This Week',  fmt(w.revenue),  fmt(w.lastWeek.revenue),   w.vsLastWeek.revenue,  'last week'),
+          card('Awaiting Fulfillment', fmtN(t.awaiting), 'orders pending', null, ''),
+          card('Refunds / Cancels Today', fmtN(t.refunds), 'orders today', null, '')
+        ].join('');
+
+      } catch (err) {
+        const cards = document.getElementById('statsCards');
+        if (cards) cards.innerHTML = `<div style="color:var(--color-danger);font-size:13px;padding:12px;">Failed to load stats: ${err.message}</div>`;
+      }
+    }
   </script>
 
 
