@@ -2722,14 +2722,21 @@ body:has(.app-shell) { overflow: hidden; }
 }
 
 /* ── Customer Value Button ───────────────────────────────────────────────── */
-.action-btn-customer-value {
-  /* Inherits view-full-btn yellow style */
-  font-size: 13px;
-  padding: 6px 14px;
+/* Customer Snapshot — amber/yellow, matches view-full-btn palette but as action-btn */
+.action-btn-snapshot {
+  background: #fff8d7;
+  border-color: #d4a800;
+  color: #374151;
 }
-.action-btn-customer-value.cv-active {
+.action-btn-snapshot:hover {
   background: #fef08a;
-  border-color: #ca8a04;
+  border-color: #b38600;
+  color: #111827;
+}
+.action-btn-snapshot.cv-active {
+  background: #fef08a;
+  border-color: #b38600;
+  color: #111827;
 }
 
 /* ── Customer Value Panel (slides below actions bar) ─────────────────────── */
@@ -2748,18 +2755,23 @@ body:has(.app-shell) { overflow: hidden; }
   padding: 16px 20px;
 }
 
-/* ── Customer Value stat cards ───────────────────────────────────────────── */
+/* ── Customer Snapshot stat cards ────────────────────────────────────────── */
 .cv-stats {
   display: flex;
   gap: 12px;
-  margin-bottom: 14px;
+  align-items: stretch;
+  flex-wrap: wrap;
 }
 .cv-stat {
   flex: 1;
+  min-width: 120px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .cv-stat-label {
   font-size: 11px;
@@ -2768,6 +2780,9 @@ body:has(.app-shell) { overflow: hidden; }
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
   margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 .cv-stat-value {
   font-size: 22px;
@@ -2779,44 +2794,37 @@ body:has(.app-shell) { overflow: hidden; }
 .cv-stat-sub {
   font-size: 11px;
   color: var(--color-text-muted);
+  min-height: 16px;
 }
-
-/* ── Per-store breakdown ─────────────────────────────────────────────────── */
-.cv-breakdown {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-  background: var(--color-body-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-}
-.cv-breakdown-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
+/* Store dot inside label */
 .cv-store-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-primary);
   flex-shrink: 0;
+  display: inline-block;
 }
-.cv-breakdown-row:last-child .cv-store-dot { background: var(--color-success); }
-.cv-store-name   { flex: 1; font-weight: 600; color: var(--color-text); }
-.cv-store-orders { color: var(--color-text-muted); font-size: 12px; }
-.cv-store-spent  { font-weight: 700; color: var(--color-text); min-width: 70px; text-align: right; }
-
-/* ── View All Orders button ──────────────────────────────────────────────── */
-.cv-actions { display: flex; }
+/* Store card — slightly tinted so it reads as a different type of card */
+.cv-stat-store {
+  background: var(--color-body-bg);
+}
+/* Action card — holds the Order History button, no border, just aligned */
+.cv-stat-action {
+  flex: 0 0 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Order History button */
 .cv-view-all-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
+  white-space: nowrap;
+  padding: 9px 20px;
   background: var(--color-primary);
   color: #fff;
   border: none;

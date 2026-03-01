@@ -2095,14 +2095,9 @@ function injectOrderActionsBar(orderId, order, data) {
     bar.appendChild(btn3);
   }
 
-  // Spacer pushes history button to the right
-  var spacer = document.createElement('span');
-  spacer.style.cssText = 'flex:1;';
-  bar.appendChild(spacer);
-
-  // History button — neutral slate, sits right side of bar
+  // Customer Snapshot button — sits with the other action buttons
   var histBtn = document.createElement('button');
-  histBtn.className = 'view-full-btn action-btn-customer-value';
+  histBtn.className = 'action-btn action-btn-snapshot';
   histBtn.id = 'history-btn-' + orderId;
   histBtn.innerHTML = '&#128100; Customer Snapshot';
   var email = data.order.billing_address && data.order.billing_address.email ? data.order.billing_address.email : '';
@@ -3010,51 +3005,53 @@ function _esc(s) {
 
       const avgOrder = data.totalOrders > 0 ? data.totalSpent / data.totalOrders : 0;
 
-      // ── Combined stat cards ──
-      let statsHtml = `
-        <div class="cv-stats">
-          <div class="cv-stat">
-            <div class="cv-stat-label">Total Orders</div>
-            <div class="cv-stat-value">${data.totalOrders}</div>
-            <div class="cv-stat-sub">Since ${fmtDate(data.firstOrder)}</div>
-          </div>
-          <div class="cv-stat">
-            <div class="cv-stat-label">Total Spent</div>
-            <div class="cv-stat-value">${fmt(data.totalSpent)}</div>
-            ${data.totalRefunded > 0 ? '<div class="cv-stat-sub" style="color:var(--color-danger);">-' + fmt(data.totalRefunded) + ' refunded</div>' : '<div class="cv-stat-sub">&nbsp;</div>'}
-          </div>
-          <div class="cv-stat">
-            <div class="cv-stat-label">Avg Order</div>
-            <div class="cv-stat-value">${fmt(avgOrder)}</div>
-            <div class="cv-stat-sub">&nbsp;</div>
-          </div>
+      // ── Stat cards — always shown ──
+      let cards = `
+        <div class="cv-stat">
+          <div class="cv-stat-label">Total Orders</div>
+          <div class="cv-stat-value">${data.totalOrders}</div>
+          <div class="cv-stat-sub">Since ${fmtDate(data.firstOrder)}</div>
+        </div>
+        <div class="cv-stat">
+          <div class="cv-stat-label">Total Spent</div>
+          <div class="cv-stat-value">${fmt(data.totalSpent)}</div>
+          <div class="cv-stat-sub">${data.totalRefunded > 0 ? '<span style="color:var(--color-danger);">-' + fmt(data.totalRefunded) + ' refunded</span>' : '&nbsp;'}</div>
+        </div>
+        <div class="cv-stat">
+          <div class="cv-stat-label">Avg Order</div>
+          <div class="cv-stat-value">${fmt(avgOrder)}</div>
+          <div class="cv-stat-sub">&nbsp;</div>
         </div>`;
 
-      // ── Per-store breakdown (only if they ordered from multiple stores) ──
-      let breakdownHtml = '';
+      // ── Per-store cards — only if ordered from multiple stores ──
+      // Shown as additional inline cards in the same row, not a separate box
       if (data.multiStore && data.storeBreakdown && data.storeBreakdown.length > 1) {
-        breakdownHtml = '<div class="cv-breakdown">' +
-          data.storeBreakdown.map(s => `
-            <div class="cv-breakdown-row">
-              <span class="cv-store-dot"></span>
-              <span class="cv-store-name">${s.storeName}</span>
-              <span class="cv-store-orders">${s.totalOrders} order${s.totalOrders !== 1 ? 's' : ''}</span>
-              <span class="cv-store-spent">${fmt(s.totalSpent)}</span>
-            </div>`).join('') +
-          '</div>';
+        const colors = ['var(--color-primary)', 'var(--color-success)'];
+        data.storeBreakdown.forEach((s, i) => {
+          cards += `
+            <div class="cv-stat cv-stat-store">
+              <div class="cv-stat-label">
+                <span class="cv-store-dot" style="background:${colors[i] || '#94A3B8'};"></span>
+                ${s.storeName}
+              </div>
+              <div class="cv-stat-value" style="font-size:17px;">${fmt(s.totalSpent)}</div>
+              <div class="cv-stat-sub">${s.totalOrders} order${s.totalOrders !== 1 ? 's' : ''}</div>
+            </div>`;
+        });
       }
 
-      // ── View All Orders button (only if we have an email to search by) ──
+      // ── Order History button — only if we have an email ──
       let viewAllHtml = '';
       if (data.email) {
-        viewAllHtml = `<div class="cv-actions">
-          <button class="cv-view-all-btn" onclick="viewAllCustomerOrders('${data.email.replace(/'/g, "\'")}')">
-            Order History &rarr;
-          </button>
-        </div>`;
+        viewAllHtml = `
+          <div class="cv-stat cv-stat-action">
+            <button class="cv-view-all-btn" onclick="viewAllCustomerOrders('${data.email.replace(/'/g, "\'")}')">
+              Order History &rarr;
+            </button>
+          </div>`;
       }
 
-      panel.innerHTML = statsHtml + breakdownHtml + viewAllHtml;
+      panel.innerHTML = '<div class="cv-stats">' + cards + viewAllHtml + '</div>';
     }
 
     // Trigger email search to show all customer orders in main results
