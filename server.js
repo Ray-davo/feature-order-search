@@ -1359,6 +1359,59 @@ setInterval(async () => {
   } catch (e) { /* silent */ }
 }, 60 * 60 * 1000); // every hour
 
+// ── Customer History endpoint ────────────────────────────────────────────
+app.get('/api/customer-history', requireAuth, requirePermission('orders.search'), async (req, res) => {
+  const { store, email, customer_id } = req.query;
+  if (!store || (!email && !customer_id)) {
+    return res.status(400).json({ error: 'store and email or customer_id are required' });
+  }
+  if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
+
+  try {
+    let orders = [];
+
+    // Search by email (catches guest checkouts too)
+    if (email) {
+      const byEmail = await bcApiRequest(store, `orders?email=${encodeURIComponent(email)}&limit=250&sort=date_created:desc`);
+      if (Array.isArray(byEmail)) orders = byEmail;
+    }
+
+    // If we have a real customer_id and email search got nothing, try by customer_id
+    if (customer_id && parseInt(customer_id) > 0 && orders.length === 0) {
+      const byCustomer = await bcApiRequest(store, `orders?customer_id=${customer_id}&limit=250&sort=date_created:desc`);
+      if (Array.isArray(byCustomer)) orders = byCustomer;
+    }
+
+    // Deduplicate and sort newest first
+    const seen = new Set();
+    orders = orders.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+    orders.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
+
+    // Summary stats
+    const totalSpent    = orders.reduce((sum, o) => sum + parseFloat(o.total_inc_tax || 0), 0);
+    const totalRefunded = orders.reduce((sum, o) => sum + parseFloat(o.refunded_amount || 0), 0);
+    const firstOrder    = orders.length > 0 ? orders[orders.length - 1].date_created : null;
+
+    // Slim payload — only what the UI needs
+    const slimOrders = orders.map(o => ({
+      id:            o.id,
+      status:        o.status,
+      status_id:     o.status_id,
+      date_created:  o.date_created,
+      total_inc_tax: o.total_inc_tax,
+      refunded_amount: o.refunded_amount,
+      items_total:   o.items_total,
+      payment_method: o.payment_method
+    }));
+
+    res.json({ success: true, totalOrders: orders.length, totalSpent, totalRefunded, firstOrder, orders: slimOrders });
+
+  } catch (err) {
+    console.error('[CustomerHistory]', err.message);
+    res.status(500).json({ error: 'Failed to load customer history' });
+  }
+});
+
 // ── IP Allowlist endpoints ───────────────────────────────────────────────
 
 // Get full allowlist + enabled status

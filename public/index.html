@@ -908,6 +908,17 @@
           </div>
         </div>
 
+        <div class="history-section">
+          <button class="history-toggle-btn" id="history-btn-${orderId}" onclick="toggleCustomerHistory(${orderId}, '${billing.email || ''}', ${order.customer_id || 0})">
+            <span class="history-arrow">▼</span>
+            Customer Order History
+            <span id="history-count-badge-${orderId}" style="font-size:11px;font-weight:400;color:var(--color-text-muted);"></span>
+          </button>
+          <div class="history-panel" id="history-panel-${orderId}">
+            <div class="history-loading" id="history-content-${orderId}">Loading...</div>
+          </div>
+        </div>
+
       `;
 
       previewContent.innerHTML = html;
@@ -2815,7 +2826,122 @@ function _esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-  </script>
+  
+    // ── Customer History ──────────────────────────────────────────────────────
+    const _historyCache  = {};   // keyed by orderId
+    const _historyOpen   = new Set();
+
+    async function toggleCustomerHistory(orderId, email, customerId) {
+      const btn   = document.getElementById('history-btn-' + orderId);
+      const panel = document.getElementById('history-panel-' + orderId);
+      if (!btn || !panel) return;
+
+      if (_historyOpen.has(orderId)) {
+        _historyOpen.delete(orderId);
+        btn.classList.remove('open');
+        panel.classList.remove('open');
+        return;
+      }
+
+      _historyOpen.add(orderId);
+      btn.classList.add('open');
+      panel.classList.add('open');
+
+      // Use cache if we already loaded
+      if (_historyCache[orderId]) {
+        renderHistoryPanel(orderId, _historyCache[orderId]);
+        return;
+      }
+
+      document.getElementById('history-content-' + orderId).innerHTML =
+        '<div class="history-loading">Loading customer history...</div>';
+
+      try {
+        const params = new URLSearchParams({ store: currentStore });
+        if (email)      params.set('email',       email);
+        if (customerId) params.set('customer_id', customerId);
+
+        const res  = await fetch('/api/customer-history?' + params);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        _historyCache[orderId] = { ...data, currentOrderId: orderId };
+        renderHistoryPanel(orderId, _historyCache[orderId]);
+
+        // Update the button badge
+        const badge = document.getElementById('history-count-badge-' + orderId);
+        if (badge && data.totalOrders > 1) {
+          badge.textContent = '— ' + data.totalOrders + ' orders';
+        }
+
+      } catch (err) {
+        document.getElementById('history-content-' + orderId).innerHTML =
+          '<div class="history-error">Failed to load: ' + err.message + '</div>';
+      }
+    }
+
+    function renderHistoryPanel(orderId, data) {
+      const container = document.getElementById('history-content-' + orderId);
+      if (!container) return;
+
+      const fmt = (n) => '$' + parseFloat(n || 0).toFixed(2);
+      const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+      const fmtDateShort = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : '—';
+
+      if (data.totalOrders === 0) {
+        container.innerHTML = '<div class="history-empty">No other orders found for this customer.</div>';
+        return;
+      }
+
+      // Summary stats
+      const firstDate = fmtDate(data.firstOrder);
+      const statsHtml = `
+        <div class="history-stats">
+          <div class="history-stat">
+            <div class="hs-label">Total Orders</div>
+            <div class="hs-value">${data.totalOrders}</div>
+            <div class="hs-sub">Since ${firstDate}</div>
+          </div>
+          <div class="history-stat">
+            <div class="hs-label">Total Spent</div>
+            <div class="hs-value">${fmt(data.totalSpent)}</div>
+            ${data.totalRefunded > 0 ? '<div class="hs-sub" style="color:var(--color-danger);">-' + fmt(data.totalRefunded) + ' refunded</div>' : ''}
+          </div>
+          <div class="history-stat">
+            <div class="hs-label">Avg Order</div>
+            <div class="hs-value">${fmt(data.totalSpent / data.totalOrders)}</div>
+          </div>
+        </div>`;
+
+      // Order list — clicking a non-current order opens it in the search results
+      const rowsHtml = data.orders.map(o => {
+        const isCurrent = o.id === data.currentOrderId;
+        const sc        = getStatusClass(o.status);
+        return `<div class="history-order-row ${isCurrent ? 'current-order' : ''}"
+                     onclick="${isCurrent ? '' : 'jumpToOrder(' + o.id + ')'}">
+          <span class="hor-id">#${o.id}</span>
+          <span class="hor-date">${fmtDateShort(o.date_created)}</span>
+          <span class="hor-status ${sc}">${o.status}</span>
+          <span class="hor-total">${fmt(o.total_inc_tax)}</span>
+          ${isCurrent ? '<span class="hor-current-badge">THIS</span>' : ''}
+        </div>`;
+      }).join('');
+
+      container.innerHTML = statsHtml + '<div class="history-orders">' + rowsHtml + '</div>';
+    }
+
+    // Jump to another order: put its ID in search and trigger search
+    function jumpToOrder(orderId) {
+      const input = document.getElementById('searchQuery');
+      if (input) {
+        input.value = String(orderId);
+        search();
+        // After results load, scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+</script>
 
 </body>
 </html>
