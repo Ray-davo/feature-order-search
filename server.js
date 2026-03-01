@@ -1413,12 +1413,24 @@ app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), asyn
     }
 
     function metrics(orders) {
-      const nonCancelled = orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
-      const revenue      = nonCancelled.reduce((s, o) => s + parseFloat(o.total_inc_tax || 0), 0);
-      const refunds      = orders.filter(o => o.status === 'Refunded'   || o.status === 'Cancelled');
-      const awaiting     = orders.filter(o => o.status === 'Awaiting Fulfillment' || o.status === 'Awaiting Shipment');
+      // Whitelist matches BC Analytics exactly — same statuses BC counts as real orders
+      // Excluded: Incomplete(0), Pending(1), Refunded(4), Cancelled(5), Declined(6),
+      //           Awaiting Payment(7), Disputed(13), Partially Refunded(14)
+      const COUNTED_STATUSES = new Set([
+        'Shipped',                    // 2
+        'Partially Shipped',          // 3
+        'Awaiting Pickup',            // 8
+        'Awaiting Shipment',          // 9
+        'Completed',                  // 10
+        'Awaiting Fulfillment',       // 11
+        'Manual Verification Required'// 12
+      ]);
+      const counted  = orders.filter(o => COUNTED_STATUSES.has(o.status));
+      const revenue  = counted.reduce((s, o) => s + parseFloat(o.total_inc_tax || 0), 0);
+      const refunds  = orders.filter(o => o.status === 'Refunded' || o.status === 'Cancelled' || o.status === 'Partially Refunded');
+      const awaiting = orders.filter(o => o.status === 'Awaiting Fulfillment' || o.status === 'Awaiting Shipment');
       return {
-        orders:   nonCancelled.length,
+        orders:   counted.length,
         revenue:  parseFloat(revenue.toFixed(2)),
         refunds:  refunds.length,
         awaiting: awaiting.length
