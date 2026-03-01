@@ -2721,183 +2721,117 @@ body:has(.app-shell) { overflow: hidden; }
   font-weight: 500;
 }
 
-/* ── Customer History — Actions Bar Button ───────────────────────────────── */
-.action-btn-history {
-  background: var(--color-surface);
-  border-color: #CBD5E1;
-  color: #374151;
-  gap: 7px;
-  position: relative;
+/* ── Customer Value Button ───────────────────────────────────────────────── */
+.action-btn-customer-value {
+  /* Inherits view-full-btn yellow style */
+  font-size: 13px;
+  padding: 6px 14px;
 }
-.action-btn-history:hover {
-  background: var(--color-surface-alt);
-  border-color: #94A3B8;
-  color: #111;
+.action-btn-customer-value.cv-active {
+  background: #fef08a;
+  border-color: #ca8a04;
 }
-.action-btn-history.active {
-  background: #F1F5F9;
-  border-color: #94A3B8;
-  color: #0F172A;
-}
-.history-btn-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  background: #334155;
-  color: #fff;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  margin-left: 2px;
-}
-.history-btn-count:empty { display: none; }
 
-/* ── Customer History Panel (slides below actions bar) ───────────────────── */
+/* ── Customer Value Panel (slides below actions bar) ─────────────────────── */
 .history-panel-wrap {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
-  border-bottom: 0px solid var(--color-border);
+  transition: max-height 0.35s ease;
 }
 .history-panel-wrap.open {
-  max-height: 360px;
+  max-height: 400px;
   border-bottom: 1px solid var(--color-border);
 }
-
 .history-panel-inner {
-  background: #F8FAFC;
+  background: #FAFBFC;
   border-top: 1px solid #E2E8F0;
-  padding: 14px 20px 14px;
+  padding: 16px 20px;
 }
 
-/* Summary stat cards */
-.history-stats {
+/* ── Customer Value stat cards ───────────────────────────────────────────── */
+.cv-stats {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 14px;
-  flex-wrap: wrap;
 }
-.history-stat {
+.cv-stat {
   flex: 1;
-  min-width: 100px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+}
+.cv-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 5px;
+}
+.cv-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1.1;
+  margin-bottom: 3px;
+}
+.cv-stat-sub {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ── Per-store breakdown ─────────────────────────────────────────────────── */
+.cv-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
   background: var(--color-body-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
 }
-.history-stat .hs-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  margin-bottom: 4px;
-}
-.history-stat .hs-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-.history-stat .hs-sub {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  margin-top: 2px;
-}
-
-/* Order list */
-.history-orders {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  /* ~3 rows visible: each row ≈ 36px + 3px gap = 39px × 3 = 117px */
-  max-height: 117px;
-  overflow-y: scroll;   /* always show scrollbar track so agents know there's more */
-  padding-right: 4px;
-  /* Custom scrollbar — visible but subtle */
-  scrollbar-width: thin;
-  scrollbar-color: #94A3B8 #E2E8F0;
-}
-.history-orders::-webkit-scrollbar {
-  width: 7px;
-}
-.history-orders::-webkit-scrollbar-track {
-  background: #E2E8F0;
-  border-radius: 10px;
-}
-.history-orders::-webkit-scrollbar-thumb {
-  background: #94A3B8;
-  border-radius: 10px;
-  border: 1px solid #E2E8F0;
-}
-.history-orders::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
-}
-
-.history-order-row {
+.cv-breakdown-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 10px;
-  height: 34px;          /* fixed height = exactly 3 fit in 117px container */
+  font-size: 13px;
+}
+.cv-store-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
   flex-shrink: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
-  font-size: 12px;
 }
-.history-order-row:hover {
-  background: var(--color-primary-light);
-  border-color: var(--color-primary-border);
-}
-.history-order-row.current-order {
-  background: var(--color-primary-light);
-  border-color: var(--color-primary-border);
-  cursor: default;
-}
-.history-order-row.current-order:hover { background: var(--color-primary-light); }
+.cv-breakdown-row:last-child .cv-store-dot { background: var(--color-success); }
+.cv-store-name   { flex: 1; font-weight: 600; color: var(--color-text); }
+.cv-store-orders { color: var(--color-text-muted); font-size: 12px; }
+.cv-store-spent  { font-weight: 700; color: var(--color-text); min-width: 70px; text-align: right; }
 
-.hor-id {
-  font-weight: 700;
-  color: var(--color-primary);
-  min-width: 68px;
-  font-size: 13px;
-}
-.history-order-row.current-order .hor-id { color: var(--color-text-secondary); }
-.hor-date {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  min-width: 80px;
-}
-.hor-status {
-  flex: 1;
-  font-size: 12px;
-}
-.hor-total {
-  font-weight: 600;
-  color: var(--color-text);
-  font-size: 13px;
-  text-align: right;
-  min-width: 65px;
-}
-.hor-current-badge {
-  font-size: 10px;
-  font-weight: 700;
+/* ── View All Orders button ──────────────────────────────────────────────── */
+.cv-actions { display: flex; }
+.cv-view-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 10px;
-  padding: 2px 7px;
-  letter-spacing: 0.03em;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-base);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s;
 }
+.cv-view-all-btn:hover { background: var(--color-primary-hover); }
 
-.history-loading {
-  text-align: center;
+.cv-loading {
   padding: 20px;
+  text-align: center;
   color: var(--color-text-muted);
   font-size: 13px;
 }

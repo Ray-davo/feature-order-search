@@ -1487,43 +1487,61 @@ app.get('/api/customer-history', requireAuth, requirePermission('orders.search')
   if (!stores[store]) return res.status(400).json({ error: 'Invalid store' });
 
   try {
-    let orders = [];
-
-    // Search by email (catches guest checkouts too)
-    if (email) {
-      const byEmail = await bcApiRequest(store, `orders?email=${encodeURIComponent(email)}&limit=250&sort=date_created:desc`);
-      if (Array.isArray(byEmail)) orders = byEmail;
+    // Search the primary store first
+    async function fetchForStore(storeKey) {
+      let orders = [];
+      if (email) {
+        const byEmail = await bcApiRequest(storeKey, `orders?email=${encodeURIComponent(email)}&limit=250&sort=date_created:desc`).catch(() => []);
+        if (Array.isArray(byEmail)) orders = byEmail;
+      }
+      if (customer_id && parseInt(customer_id) > 0 && orders.length === 0) {
+        const byCustomer = await bcApiRequest(storeKey, `orders?customer_id=${customer_id}&limit=250&sort=date_created:desc`).catch(() => []);
+        if (Array.isArray(byCustomer)) orders = byCustomer;
+      }
+      orders.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
+      const totalSpent    = orders.reduce((sum, o) => sum + parseFloat(o.total_inc_tax || 0), 0);
+      const totalRefunded = orders.reduce((sum, o) => sum + parseFloat(o.refunded_amount || 0), 0);
+      const firstOrder    = orders.length > 0 ? orders[orders.length - 1].date_created : null;
+      return { orders, totalOrders: orders.length, totalSpent: parseFloat(totalSpent.toFixed(2)), totalRefunded: parseFloat(totalRefunded.toFixed(2)), firstOrder };
     }
 
-    // If we have a real customer_id and email search got nothing, try by customer_id
-    if (customer_id && parseInt(customer_id) > 0 && orders.length === 0) {
-      const byCustomer = await bcApiRequest(store, `orders?customer_id=${customer_id}&limit=250&sort=date_created:desc`);
-      if (Array.isArray(byCustomer)) orders = byCustomer;
+    // Only search by email cross-store (customer_id is store-specific)
+    const activeStores = Object.keys(stores).filter(s => stores[s].hash && stores[s].token);
+    const otherStores  = email ? activeStores.filter(s => s !== store) : [];
+
+    // Fetch primary store + all other stores in parallel
+    const [primaryResult, ...otherResults] = await Promise.all([
+      fetchForStore(store),
+      ...otherStores.map(s => fetchForStore(s).then(r => ({ storeKey: s, storeName: stores[s].name, ...r })))
+    ]);
+
+    // Build per-store breakdown — only include stores that have orders
+    const storeBreakdown = [];
+    if (primaryResult.totalOrders > 0) {
+      storeBreakdown.push({ storeKey: store, storeName: stores[store].name, totalOrders: primaryResult.totalOrders, totalSpent: primaryResult.totalSpent, totalRefunded: primaryResult.totalRefunded, firstOrder: primaryResult.firstOrder });
+    }
+    for (const r of otherResults) {
+      if (r.totalOrders > 0) {
+        storeBreakdown.push({ storeKey: r.storeKey, storeName: r.storeName, totalOrders: r.totalOrders, totalSpent: r.totalSpent, totalRefunded: r.totalRefunded, firstOrder: r.firstOrder });
+      }
     }
 
-    // Deduplicate and sort newest first
-    const seen = new Set();
-    orders = orders.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
-    orders.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
+    // Combined totals across all stores
+    const allOrders     = primaryResult.orders.concat(otherResults.flatMap(r => r.orders));
+    const totalOrders   = allOrders.length;
+    const totalSpent    = parseFloat(allOrders.reduce((s, o) => s + parseFloat(o.total_inc_tax || 0), 0).toFixed(2));
+    const totalRefunded = parseFloat(allOrders.reduce((s, o) => s + parseFloat(o.refunded_amount || 0), 0).toFixed(2));
+    const firstOrder    = allOrders.length > 0
+      ? allOrders.reduce((min, o) => new Date(o.date_created) < new Date(min) ? o.date_created : min, allOrders[0].date_created)
+      : null;
 
-    // Summary stats
-    const totalSpent    = orders.reduce((sum, o) => sum + parseFloat(o.total_inc_tax || 0), 0);
-    const totalRefunded = orders.reduce((sum, o) => sum + parseFloat(o.refunded_amount || 0), 0);
-    const firstOrder    = orders.length > 0 ? orders[orders.length - 1].date_created : null;
-
-    // Slim payload — only what the UI needs
-    const slimOrders = orders.map(o => ({
-      id:            o.id,
-      status:        o.status,
-      status_id:     o.status_id,
-      date_created:  o.date_created,
-      total_inc_tax: o.total_inc_tax,
-      refunded_amount: o.refunded_amount,
-      items_total:   o.items_total,
-      payment_method: o.payment_method
-    }));
-
-    res.json({ success: true, totalOrders: orders.length, totalSpent, totalRefunded, firstOrder, orders: slimOrders });
+    res.json({
+      success: true,
+      totalOrders, totalSpent, totalRefunded, firstOrder,
+      multiStore: storeBreakdown.length > 1,
+      storeBreakdown,
+      email: email || null
+    });
 
   } catch (err) {
     console.error('[CustomerHistory]', err.message);
