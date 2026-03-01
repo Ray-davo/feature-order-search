@@ -1660,9 +1660,28 @@
         const t = data.today;
         const w = data.week;
 
+        // Two-line sub for today cards: "▲X% vs same time" + "Y yesterday's total"
+        function todaySubHtml(pct, sameTimeVal, totalVal, isMoney) {
+          const fmt2 = isMoney ? fmt : fmtN;
+          const up    = pct >= 0;
+          const arrow = up ? '▲' : '▼';
+          const cls   = up ? 'stat-delta-up' : 'stat-delta-down';
+          return `<span class="${cls}">${arrow} ${Math.abs(pct)}%</span>` +
+                 `<span class="stat-sub-text">${fmt2(sameTimeVal)} at this time yest.</span>` +
+                 `<br><span class="stat-sub-text" style="padding-left:2px;">${fmt2(totalVal)} yesterday's total</span>`;
+        }
+
+        function cardToday(label, value, pct, sameTimeVal, totalVal, isMoney) {
+          return `<div class="stat-card">
+            <div class="stat-label">${label}</div>
+            <div class="stat-value">${value}</div>
+            <div class="stat-sub">${todaySubHtml(pct, sameTimeVal, totalVal, isMoney)}</div>
+          </div>`;
+        }
+
         cards.innerHTML = [
-          card('Orders Today',       fmtN(t.orders),  fmtN(t.yesterday.orders),  t.vsYesterday.orders,  'yesterday'),
-          card('Revenue Today',      fmt(t.revenue),  fmt(t.yesterday.revenue),  t.vsYesterday.revenue, 'yesterday'),
+          cardToday('Orders Today',   fmtN(t.orders),  t.vsYesterdaySameTime.orders,  t.yesterdaySameTime.orders,  t.yesterdayTotal.orders,  false),
+          cardToday('Revenue Today',  fmt(t.revenue),  t.vsYesterdaySameTime.revenue, t.yesterdaySameTime.revenue, t.yesterdayTotal.revenue, true),
           card('Orders This Week',   fmtN(w.orders),  fmtN(w.lastWeek.orders),   w.vsLastWeek.orders,   'last week'),
           card('Revenue This Week',  fmt(w.revenue),  fmt(w.lastWeek.revenue),   w.vsLastWeek.revenue,  'last week'),
           card('Awaiting Fulfillment', fmtN(t.awaiting), 'orders pending', null, ''),

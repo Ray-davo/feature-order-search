@@ -1362,41 +1362,47 @@ setInterval(async () => {
 // ── Store Stats endpoint (reports.view permission) ───────────────────────
 app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), async (req, res) => {
   try {
-    const now       = new Date();
-    const tz        = 'America/Los_Angeles'; // PST/PDT — adjust if needed
+    const now = new Date();
 
-    // Helper: get start of a day in local time as UTC ISO string
-    function dayStart(daysAgo) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - daysAgo);
-      // Zero out to midnight local time (approximate with fixed offset, BC stores in UTC)
-      d.setUTCHours(8, 0, 0, 0); // 8am UTC = midnight PST (UTC-8) — handles most US time zones
-      return d.toISOString();
+    // ── Timezone-correct midnight calculation ───────────────────────────────
+    // Uses Intl to detect the real LA offset including DST — no hardcoded hours.
+    // toLocaleString trick: parse the same moment in LA vs UTC, diff = offset.
+    function getLAOffsetMs() {
+      const laStr  = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+      const utcStr = now.toLocaleString('en-US', { timeZone: 'UTC' });
+      return new Date(utcStr) - new Date(laStr); // ms LA is behind UTC (PST=28800000, PDT=25200000)
     }
-    function dayEnd(daysAgo) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - daysAgo);
-      d.setUTCHours(31, 59, 59, 999); // 31h = next day 7:59 UTC = 23:59 PST
-      return d.toISOString();
+    const offsetMs = getLAOffsetMs();
+
+    // Shift now into "LA virtual UTC" so standard UTC date ops give LA dates
+    const nowInLA = new Date(now.getTime() - offsetMs);
+
+    // Return a real UTC Date representing midnight of (today - daysAgo) in LA time
+    function midnightLA(daysAgo) {
+      const midnight = Date.UTC(
+        nowInLA.getUTCFullYear(),
+        nowInLA.getUTCMonth(),
+        nowInLA.getUTCDate() - daysAgo,
+        0, 0, 0, 0
+      );
+      return new Date(midnight + offsetMs); // shift back to real UTC
     }
 
-    // Date boundaries
-    const todayStart    = dayStart(0);
-    const yestStart     = dayStart(1);
-    const yestEnd       = dayEnd(1);
-    const weekStart     = dayStart(7);   // last 7 days
-    const lastWeekStart = dayStart(14);
-    const lastWeekEnd   = dayEnd(8);     // 14..8 days ago = previous 7-day window
+    // Key timestamps
+    const todayStart         = midnightLA(0);           // midnight today LA
+    const yesterdayStart     = midnightLA(1);           // midnight yesterday LA
+    const yesterdayAtSameTime = new Date(now.getTime() - 24 * 60 * 60 * 1000); // now - 24h
+    const weekStart          = midnightLA(7);           // 7 days ago midnight LA
+    const lastWeekStart      = midnightLA(14);          // 14 days ago midnight LA
+    // lastWeekEnd = weekStart (exactly 7-day window)
 
-    // Pull orders for each window from all configured stores in parallel
     const activeStores = Object.keys(stores).filter(s => stores[s].hash && stores[s].token);
 
     async function fetchOrdersInRange(store, minDate, maxDate) {
-      let all = [];
-      let page = 1;
+      let all = [], page = 1;
       while (true) {
-        let url = `orders?limit=250&page=${page}&sort=date_created:desc&min_date_created=${encodeURIComponent(minDate)}`;
-        if (maxDate) url += `&max_date_created=${encodeURIComponent(maxDate)}`;
+        let url = `orders?limit=250&page=${page}&sort=date_created:desc&min_date_created=${encodeURIComponent(minDate.toISOString())}`;
+        if (maxDate) url += `&max_date_created=${encodeURIComponent(maxDate.toISOString())}`;
         const batch = await bcApiRequest(store, url).catch(() => []);
         if (!Array.isArray(batch) || batch.length === 0) break;
         all = all.concat(batch);
@@ -1406,23 +1412,25 @@ app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), asyn
       return all;
     }
 
-    // Fetch all windows for all stores in parallel
+    // 5 windows fetched in parallel across all stores:
+    //   today        = todayStart → now          (orders so far today)
+    //   yesterdayST  = yesterdayStart → (now-24h) (yesterday at the same elapsed time)
+    //   yesterdayAll = yesterdayStart → todayStart (yesterday full day total)
+    //   week         = weekStart → now
+    //   lastWeek     = lastWeekStart → weekStart
     const fetches = activeStores.flatMap(store => [
-      fetchOrdersInRange(store, todayStart, null).then(o => ({ key: 'today',    orders: o })),
-      fetchOrdersInRange(store, yestStart,  yestEnd).then(o => ({ key: 'yest',  orders: o })),
-      fetchOrdersInRange(store, weekStart,  null).then(o => ({ key: 'week',     orders: o })),
-      fetchOrdersInRange(store, lastWeekStart, lastWeekEnd).then(o => ({ key: 'lastWeek', orders: o }))
+      fetchOrdersInRange(store, todayStart,      null).then(o => ({ key: 'today',       orders: o })),
+      fetchOrdersInRange(store, yesterdayStart,  yesterdayAtSameTime).then(o => ({ key: 'yesterdayST',  orders: o })),
+      fetchOrdersInRange(store, yesterdayStart,  todayStart).then(o => ({ key: 'yesterdayAll', orders: o })),
+      fetchOrdersInRange(store, weekStart,       null).then(o => ({ key: 'week',        orders: o })),
+      fetchOrdersInRange(store, lastWeekStart,   weekStart).then(o => ({ key: 'lastWeek',    orders: o }))
     ]);
 
     const results = await Promise.all(fetches);
 
-    // Merge across stores
-    const buckets = { today: [], yest: [], week: [], lastWeek: [] };
-    for (const { key, orders } of results) {
-      buckets[key] = buckets[key].concat(orders);
-    }
+    const buckets = { today: [], yesterdayST: [], yesterdayAll: [], week: [], lastWeek: [] };
+    for (const { key, orders } of results) buckets[key] = buckets[key].concat(orders);
 
-    // Compute metrics for a bucket
     function metrics(orders) {
       const nonCancelled = orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
       const revenue      = nonCancelled.reduce((s, o) => s + parseFloat(o.total_inc_tax || 0), 0);
@@ -1436,12 +1444,12 @@ app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), asyn
       };
     }
 
-    const today    = metrics(buckets.today);
-    const yest     = metrics(buckets.yest);
-    const week     = metrics(buckets.week);
-    const lastWeek = metrics(buckets.lastWeek);
+    const today        = metrics(buckets.today);
+    const yesterdayST  = metrics(buckets.yesterdayST);   // same elapsed time yesterday
+    const yesterdayAll = metrics(buckets.yesterdayAll);   // yesterday full day
+    const week         = metrics(buckets.week);
+    const lastWeek     = metrics(buckets.lastWeek);
 
-    // Pct change helper
     function pct(current, previous) {
       if (previous === 0) return current > 0 ? 100 : 0;
       return parseFloat(((current - previous) / previous * 100).toFixed(1));
@@ -1455,11 +1463,14 @@ app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), asyn
         revenue:  today.revenue,
         refunds:  today.refunds,
         awaiting: today.awaiting,
-        vsYesterday: {
-          orders:  pct(today.orders,  yest.orders),
-          revenue: pct(today.revenue, yest.revenue)
+        // vs same elapsed time yesterday (like BC's "yesterday at this time")
+        vsYesterdaySameTime: {
+          orders:  pct(today.orders,  yesterdayST.orders),
+          revenue: pct(today.revenue, yesterdayST.revenue)
         },
-        yesterday: { orders: yest.orders, revenue: yest.revenue }
+        yesterdaySameTime: { orders: yesterdayST.orders,  revenue: yesterdayST.revenue },
+        // yesterday's full day total
+        yesterdayTotal: { orders: yesterdayAll.orders, revenue: yesterdayAll.revenue }
       },
       week: {
         orders:  week.orders,
