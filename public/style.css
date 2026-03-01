@@ -2904,13 +2904,36 @@ body:has(.app-shell) { overflow: hidden; }
 }
 
 .stats-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Each store gets its own labeled section */
+.stats-store-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stats-store-divider {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+.stats-store-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+}
+.stats-store-cards {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 10px;
 }
 
-@media (max-width: 1100px) { .stats-cards { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 700px)  { .stats-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1100px) { .stats-store-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .stats-store-cards { grid-template-columns: repeat(2, 1fr); } }
 
 .stat-card {
   background: var(--color-body-bg);

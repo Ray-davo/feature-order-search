@@ -101,6 +101,8 @@
           <div class="stat-card stat-skeleton"></div>
           <div class="stat-card stat-skeleton"></div>
           <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
+          <div class="stat-card stat-skeleton"></div>
         </div>
       </div>
 
@@ -1620,15 +1622,13 @@
     async function loadStoreStats() {
       const cards = document.getElementById('statsCards');
       if (!cards) return;
-      // Show skeleton while loading
-      cards.innerHTML = Array(6).fill('<div class="stat-card stat-skeleton"></div>').join('');
+      cards.innerHTML = Array(8).fill('<div class="stat-card stat-skeleton"></div>').join('');
 
       try {
         const res  = await fetch('/api/store-stats');
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        // Update "as of" timestamp
         const asOf = document.getElementById('statsAsOf');
         if (asOf) {
           const t = new Date(data.asOf);
@@ -1638,55 +1638,66 @@
         const fmt  = n => '$' + parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtN = n => parseInt(n || 0).toLocaleString();
 
-        function pctHtml(pct) {
-          if (pct === null || pct === undefined) return '';
-          const up    = pct >= 0;
-          const arrow = up ? '▲' : '▼';
-          const cls   = up ? 'stat-delta-up' : 'stat-delta-down';
-          return `<span class="${cls}">${arrow} ${Math.abs(pct)}%</span>`;
+        function pctHtml(p) {
+          if (p === null || p === undefined) return '';
+          const up = p >= 0;
+          return `<span class="${up ? 'stat-delta-up' : 'stat-delta-down'}">${up ? '▲' : '▼'} ${Math.abs(p)}%</span>`;
         }
 
-        function card(label, value, sub, pct, subLabel) {
+        function cardToday(label, value, p, sameTime, total, isMoney) {
+          const f = isMoney ? fmt : fmtN;
           return `<div class="stat-card">
             <div class="stat-label">${label}</div>
             <div class="stat-value">${value}</div>
             <div class="stat-sub">
-              ${pctHtml(pct)}
-              <span class="stat-sub-text">${sub} ${subLabel || ''}</span>
+              ${pctHtml(p)}
+              <span class="stat-sub-text">${f(sameTime)} at this time yest.</span>
+            </div>
+            <div class="stat-sub" style="margin-top:2px;">
+              <span class="stat-sub-text">${f(total)} yesterday total</span>
             </div>
           </div>`;
         }
 
-        const t = data.today;
-        const w = data.week;
-
-        // Two-line sub for today cards: "▲X% vs same time" + "Y yesterday's total"
-        function todaySubHtml(pct, sameTimeVal, totalVal, isMoney) {
-          const fmt2 = isMoney ? fmt : fmtN;
-          const up    = pct >= 0;
-          const arrow = up ? '▲' : '▼';
-          const cls   = up ? 'stat-delta-up' : 'stat-delta-down';
-          return `<span class="${cls}">${arrow} ${Math.abs(pct)}%</span>` +
-                 `<span class="stat-sub-text">${fmt2(sameTimeVal)} at this time yest.</span>` +
-                 `<br><span class="stat-sub-text" style="padding-left:2px;">${fmt2(totalVal)} yesterday's total</span>`;
-        }
-
-        function cardToday(label, value, pct, sameTimeVal, totalVal, isMoney) {
+        function cardWeek(label, value, p, lastVal) {
           return `<div class="stat-card">
             <div class="stat-label">${label}</div>
             <div class="stat-value">${value}</div>
-            <div class="stat-sub">${todaySubHtml(pct, sameTimeVal, totalVal, isMoney)}</div>
+            <div class="stat-sub">
+              ${pctHtml(p)}
+              <span class="stat-sub-text">${lastVal} last week</span>
+            </div>
           </div>`;
         }
 
-        cards.innerHTML = [
-          cardToday('Orders Today',   fmtN(t.orders),  t.vsYesterdaySameTime.orders,  t.yesterdaySameTime.orders,  t.yesterdayTotal.orders,  false),
-          cardToday('Revenue Today',  fmt(t.revenue),  t.vsYesterdaySameTime.revenue, t.yesterdaySameTime.revenue, t.yesterdayTotal.revenue, true),
-          card('Orders This Week',   fmtN(w.orders),  fmtN(w.lastWeek.orders),   w.vsLastWeek.orders,   'last week'),
-          card('Revenue This Week',  fmt(w.revenue),  fmt(w.lastWeek.revenue),   w.vsLastWeek.revenue,  'last week'),
-          card('Awaiting Fulfillment', fmtN(t.awaiting), 'orders pending', null, ''),
-          card('Refunds / Cancels Today', fmtN(t.refunds), 'orders today', null, '')
-        ].join('');
+        function cardPlain(label, value, sub) {
+          return `<div class="stat-card">
+            <div class="stat-label">${label}</div>
+            <div class="stat-value">${value}</div>
+            <div class="stat-sub"><span class="stat-sub-text">${sub}</span></div>
+          </div>`;
+        }
+
+        // Build one section per store
+        let html = '';
+        data.stores.forEach((s, i) => {
+          const t = s.today;
+          const w = s.week;
+          const isLast = i === data.stores.length - 1;
+          html += `<div class="stats-store-section${isLast ? '' : ' stats-store-divider'}">
+            <div class="stats-store-label">${s.storeName}</div>
+            <div class="stats-store-cards">
+              ${cardToday('Orders Today',  fmtN(t.orders),  t.vsYesterdaySameTime.orders,  t.yesterdaySameTime.orders,  t.yesterdayTotal.orders,  false)}
+              ${cardToday('Revenue Today', fmt(t.revenue),  t.vsYesterdaySameTime.revenue, t.yesterdaySameTime.revenue, t.yesterdayTotal.revenue, true)}
+              ${cardWeek('Orders / Week',  fmtN(w.orders),  w.vsLastWeek.orders,  fmtN(w.lastWeek.orders))}
+              ${cardWeek('Revenue / Week', fmt(w.revenue),  w.vsLastWeek.revenue, fmt(w.lastWeek.revenue))}
+              ${cardPlain('Awaiting',            fmtN(t.awaiting), 'orders pending')}
+              ${cardPlain('Refunds / Cancels',   fmtN(t.refunds),  'today')}
+            </div>
+          </div>`;
+        });
+
+        cards.innerHTML = html;
 
       } catch (err) {
         const cards = document.getElementById('statsCards');

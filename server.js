@@ -1412,29 +1412,10 @@ app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), asyn
       return all;
     }
 
-    // 5 windows fetched in parallel across all stores:
-    //   today        = todayStart → now          (orders so far today)
-    //   yesterdayST  = yesterdayStart → (now-24h) (yesterday at the same elapsed time)
-    //   yesterdayAll = yesterdayStart → todayStart (yesterday full day total)
-    //   week         = weekStart → now
-    //   lastWeek     = lastWeekStart → weekStart
-    const fetches = activeStores.flatMap(store => [
-      fetchOrdersInRange(store, todayStart,      null).then(o => ({ key: 'today',       orders: o })),
-      fetchOrdersInRange(store, yesterdayStart,  yesterdayAtSameTime).then(o => ({ key: 'yesterdayST',  orders: o })),
-      fetchOrdersInRange(store, yesterdayStart,  todayStart).then(o => ({ key: 'yesterdayAll', orders: o })),
-      fetchOrdersInRange(store, weekStart,       null).then(o => ({ key: 'week',        orders: o })),
-      fetchOrdersInRange(store, lastWeekStart,   weekStart).then(o => ({ key: 'lastWeek',    orders: o }))
-    ]);
-
-    const results = await Promise.all(fetches);
-
-    const buckets = { today: [], yesterdayST: [], yesterdayAll: [], week: [], lastWeek: [] };
-    for (const { key, orders } of results) buckets[key] = buckets[key].concat(orders);
-
     function metrics(orders) {
       const nonCancelled = orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
       const revenue      = nonCancelled.reduce((s, o) => s + parseFloat(o.total_inc_tax || 0), 0);
-      const refunds      = orders.filter(o => o.status === 'Refunded' || o.status === 'Cancelled');
+      const refunds      = orders.filter(o => o.status === 'Refunded'   || o.status === 'Cancelled');
       const awaiting     = orders.filter(o => o.status === 'Awaiting Fulfillment' || o.status === 'Awaiting Shipment');
       return {
         orders:   nonCancelled.length,
@@ -1444,43 +1425,59 @@ app.get('/api/store-stats', requireAuth, requirePermission('reports.view'), asyn
       };
     }
 
-    const today        = metrics(buckets.today);
-    const yesterdayST  = metrics(buckets.yesterdayST);   // same elapsed time yesterday
-    const yesterdayAll = metrics(buckets.yesterdayAll);   // yesterday full day
-    const week         = metrics(buckets.week);
-    const lastWeek     = metrics(buckets.lastWeek);
-
     function pct(current, previous) {
       if (previous === 0) return current > 0 ? 100 : 0;
       return parseFloat(((current - previous) / previous * 100).toFixed(1));
     }
 
+    // Fetch all 5 windows per store in parallel, keyed by store
+    const storeResults = await Promise.all(activeStores.map(async storeKey => {
+      const [todayOrders, yesterdaySTOrders, yesterdayAllOrders, weekOrders, lastWeekOrders] =
+        await Promise.all([
+          fetchOrdersInRange(storeKey, todayStart,       null),
+          fetchOrdersInRange(storeKey, yesterdayStart,   yesterdayAtSameTime),
+          fetchOrdersInRange(storeKey, yesterdayStart,   todayStart),
+          fetchOrdersInRange(storeKey, weekStart,        null),
+          fetchOrdersInRange(storeKey, lastWeekStart,    weekStart)
+        ]);
+
+      const today        = metrics(todayOrders);
+      const yesterdayST  = metrics(yesterdaySTOrders);
+      const yesterdayAll = metrics(yesterdayAllOrders);
+      const week         = metrics(weekOrders);
+      const lastWeek     = metrics(lastWeekOrders);
+
+      return {
+        storeKey,
+        storeName: stores[storeKey].name,
+        today: {
+          orders:   today.orders,
+          revenue:  today.revenue,
+          refunds:  today.refunds,
+          awaiting: today.awaiting,
+          vsYesterdaySameTime: {
+            orders:  pct(today.orders,  yesterdayST.orders),
+            revenue: pct(today.revenue, yesterdayST.revenue)
+          },
+          yesterdaySameTime: { orders: yesterdayST.orders,  revenue: yesterdayST.revenue },
+          yesterdayTotal:    { orders: yesterdayAll.orders, revenue: yesterdayAll.revenue }
+        },
+        week: {
+          orders:  week.orders,
+          revenue: week.revenue,
+          vsLastWeek: {
+            orders:  pct(week.orders,  lastWeek.orders),
+            revenue: pct(week.revenue, lastWeek.revenue)
+          },
+          lastWeek: { orders: lastWeek.orders, revenue: lastWeek.revenue }
+        }
+      };
+    }));
+
     res.json({
       success: true,
       asOf: now.toISOString(),
-      today: {
-        orders:   today.orders,
-        revenue:  today.revenue,
-        refunds:  today.refunds,
-        awaiting: today.awaiting,
-        // vs same elapsed time yesterday (like BC's "yesterday at this time")
-        vsYesterdaySameTime: {
-          orders:  pct(today.orders,  yesterdayST.orders),
-          revenue: pct(today.revenue, yesterdayST.revenue)
-        },
-        yesterdaySameTime: { orders: yesterdayST.orders,  revenue: yesterdayST.revenue },
-        // yesterday's full day total
-        yesterdayTotal: { orders: yesterdayAll.orders, revenue: yesterdayAll.revenue }
-      },
-      week: {
-        orders:  week.orders,
-        revenue: week.revenue,
-        vsLastWeek: {
-          orders:  pct(week.orders,  lastWeek.orders),
-          revenue: pct(week.revenue, lastWeek.revenue)
-        },
-        lastWeek: { orders: lastWeek.orders, revenue: lastWeek.revenue }
-      }
+      stores: storeResults
     });
 
   } catch (err) {
