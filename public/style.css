@@ -2721,40 +2721,58 @@ body:has(.app-shell) { overflow: hidden; }
   font-weight: 500;
 }
 
-/* ── Customer History Panel ──────────────────────────────────────────────── */
-.history-section {
-  margin-top: 16px;
-  border-top: 1px solid var(--color-border);
+/* ── Customer History — Actions Bar Button ───────────────────────────────── */
+.action-btn-history {
+  background: var(--color-surface);
+  border-color: #CBD5E1;
+  color: #374151;
+  gap: 7px;
+  position: relative;
 }
-
-.history-toggle-btn {
-  display: flex;
+.action-btn-history:hover {
+  background: var(--color-surface-alt);
+  border-color: #94A3B8;
+  color: #111;
+}
+.action-btn-history.active {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+.history-btn-count {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 12px 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary);
-  cursor: pointer;
-  text-align: left;
-  font-family: var(--font-base);
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #334155;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 2px;
 }
-.history-toggle-btn:hover { color: var(--color-primary-hover); }
-.history-toggle-btn .history-arrow {
-  font-size: 10px;
-  transition: transform 0.2s;
-  display: inline-block;
-}
-.history-toggle-btn.open .history-arrow { transform: rotate(180deg); }
+.history-btn-count:empty { display: none; }
 
-.history-panel {
-  display: none;
-  padding-bottom: 8px;
+/* ── Customer History Panel (slides below actions bar) ───────────────────── */
+.history-panel-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  border-bottom: 0px solid var(--color-border);
 }
-.history-panel.open { display: block; }
+.history-panel-wrap.open {
+  max-height: 360px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.history-panel-inner {
+  background: #F8FAFC;
+  border-top: 1px solid #E2E8F0;
+  padding: 14px 20px 14px;
+}
 
 /* Summary stat cards */
 .history-stats {
@@ -2794,22 +2812,44 @@ body:has(.app-shell) { overflow: hidden; }
 .history-orders {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 320px;
-  overflow-y: auto;
+  gap: 3px;
+  /* ~3 rows visible: each row ≈ 36px + 3px gap = 39px × 3 = 117px */
+  max-height: 117px;
+  overflow-y: scroll;   /* always show scrollbar track so agents know there's more */
+  padding-right: 4px;
+  /* Custom scrollbar — visible but subtle */
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 #E2E8F0;
+}
+.history-orders::-webkit-scrollbar {
+  width: 7px;
+}
+.history-orders::-webkit-scrollbar-track {
+  background: #E2E8F0;
+  border-radius: 10px;
+}
+.history-orders::-webkit-scrollbar-thumb {
+  background: #94A3B8;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+}
+.history-orders::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
 }
 
 .history-order-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 0 10px;
+  height: 34px;          /* fixed height = exactly 3 fit in 117px container */
+  flex-shrink: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
-  font-size: 13px;
+  font-size: 12px;
 }
 .history-order-row:hover {
   background: var(--color-primary-light);

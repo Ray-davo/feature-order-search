@@ -908,17 +908,6 @@
           </div>
         </div>
 
-        <div class="history-section">
-          <button class="history-toggle-btn" id="history-btn-${orderId}" onclick="toggleCustomerHistory(${orderId}, '${billing.email || ''}', ${order.customer_id || 0})">
-            <span class="history-arrow">▼</span>
-            Customer Order History
-            <span id="history-count-badge-${orderId}" style="font-size:11px;font-weight:400;color:var(--color-text-muted);"></span>
-          </button>
-          <div class="history-panel" id="history-panel-${orderId}">
-            <div class="history-loading" id="history-content-${orderId}">Loading...</div>
-          </div>
-        </div>
-
       `;
 
       previewContent.innerHTML = html;
@@ -2005,12 +1994,42 @@ function injectOrderActionsBar(orderId, order, data) {
     bar.appendChild(btn3);
   }
 
+  // Spacer pushes history button to the right
+  var spacer = document.createElement('span');
+  spacer.style.cssText = 'flex:1;';
+  bar.appendChild(spacer);
+
+  // History button — neutral slate, sits right side of bar
+  var histBtn = document.createElement('button');
+  histBtn.className = 'action-btn action-btn-history';
+  histBtn.id = 'history-btn-' + orderId;
+  histBtn.innerHTML = '&#128198; Customer History <span class="history-btn-count" id="history-count-badge-' + orderId + '"></span>';
+  histBtn.onclick = function() { toggleCustomerHistory(orderId, data.order.billing_address && data.order.billing_address.email ? data.order.billing_address.email : '', data.order.customer_id || 0); };
+  bar.appendChild(histBtn);
+
   var result = document.createElement('span');
   result.id = 'action-result-' + orderId;
   result.className = 'action-inline-result';
   bar.appendChild(result);
 
   previewContent.insertBefore(bar, previewContent.firstChild);
+
+  // Inject the collapsible history panel right after the actions bar, before the preview-grid
+  var existingHPanel = document.getElementById('history-panel-wrap-' + orderId);
+  if (existingHPanel) existingHPanel.remove();
+  var hWrap = document.createElement('div');
+  hWrap.id = 'history-panel-wrap-' + orderId;
+  hWrap.className = 'history-panel-wrap';
+  hWrap.innerHTML = '<div class="history-panel-inner" id="history-panel-' + orderId + '">' +
+    '<div class="history-loading" id="history-content-' + orderId + '">Loading customer history…</div>' +
+    '</div>';
+  // Insert after the bar (bar is now firstChild)
+  var previewGrid = previewContent.querySelector('.preview-grid');
+  if (previewGrid) {
+    previewContent.insertBefore(hWrap, previewGrid);
+  } else {
+    previewContent.insertBefore(hWrap, bar.nextSibling);
+  }
 }
 
 // ── Status update ────────────────────────────────────────────────
@@ -2832,29 +2851,26 @@ function _esc(s) {
     const _historyOpen   = new Set();
 
     async function toggleCustomerHistory(orderId, email, customerId) {
-      const btn   = document.getElementById('history-btn-' + orderId);
-      const panel = document.getElementById('history-panel-' + orderId);
-      if (!btn || !panel) return;
+      const btn  = document.getElementById('history-btn-' + orderId);
+      const wrap = document.getElementById('history-panel-wrap-' + orderId);
+      if (!btn || !wrap) return;
 
       if (_historyOpen.has(orderId)) {
         _historyOpen.delete(orderId);
-        btn.classList.remove('open');
-        panel.classList.remove('open');
+        btn.classList.remove('active');
+        wrap.classList.remove('open');
         return;
       }
 
       _historyOpen.add(orderId);
-      btn.classList.add('open');
-      panel.classList.add('open');
+      btn.classList.add('active');
+      wrap.classList.add('open');
 
-      // Use cache if we already loaded
+      // Use cache if already loaded
       if (_historyCache[orderId]) {
         renderHistoryPanel(orderId, _historyCache[orderId]);
         return;
       }
-
-      document.getElementById('history-content-' + orderId).innerHTML =
-        '<div class="history-loading">Loading customer history...</div>';
 
       try {
         const params = new URLSearchParams({ store: currentStore });
@@ -2868,15 +2884,15 @@ function _esc(s) {
         _historyCache[orderId] = { ...data, currentOrderId: orderId };
         renderHistoryPanel(orderId, _historyCache[orderId]);
 
-        // Update the button badge
+        // Update button badge with order count
         const badge = document.getElementById('history-count-badge-' + orderId);
-        if (badge && data.totalOrders > 1) {
-          badge.textContent = '— ' + data.totalOrders + ' orders';
+        if (badge && data.totalOrders > 0) {
+          badge.textContent = data.totalOrders;
         }
 
       } catch (err) {
-        document.getElementById('history-content-' + orderId).innerHTML =
-          '<div class="history-error">Failed to load: ' + err.message + '</div>';
+        const content = document.getElementById('history-content-' + orderId);
+        if (content) content.innerHTML = '<div class="history-error">Failed to load: ' + err.message + '</div>';
       }
     }
 
@@ -2927,7 +2943,13 @@ function _esc(s) {
         </div>`;
       }).join('');
 
-      container.innerHTML = statsHtml + '<div class="history-orders">' + rowsHtml + '</div>';
+      // Stats go in the inner panel, orders in a fixed-height scrollable list (3 rows visible)
+      const panel = document.getElementById('history-panel-' + orderId);
+      if (panel) {
+        panel.innerHTML = statsHtml + '<div class="history-orders">' + rowsHtml + '</div>';
+      } else {
+        container.innerHTML = statsHtml + '<div class="history-orders">' + rowsHtml + '</div>';
+      }
     }
 
     // Jump to another order: put its ID in search and trigger search
